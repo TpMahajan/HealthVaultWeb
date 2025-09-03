@@ -8,7 +8,9 @@ import Patients from './components/Patients';
 import PatientDetails from './components/PatientDetails';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
+import Vault from './components/Vault'; // <-- Move import here
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -28,6 +30,7 @@ const AppContent = () => {
         <Route path="/patient/:id" element={<ProtectedRoute><PatientDetails /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/vault" element={<ProtectedRoute><Vault /></ProtectedRoute>} /> {/* ✅ Vault Route */}
       </Routes>
     </Router>
   );
@@ -36,9 +39,11 @@ const AppContent = () => {
 // App Component with Auth Provider
 const App = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

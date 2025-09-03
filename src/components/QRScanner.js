@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { useNavigate } from 'react-router-dom';
 import { QrCode, Camera, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 
@@ -90,13 +91,46 @@ const QRScanner = () => {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Scanning...</h3>
               <p className="text-gray-600 mb-6">Point your camera at the patient's QR code</p>
-              
-              {/* Scanning Animation */}
-              <div className="relative mx-auto w-64 h-64 border-2 border-dashed border-blue-300 rounded-lg">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-48 h-48 border-2 border-blue-500 rounded-lg animate-pulse"></div>
-                </div>
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 animate-ping"></div>
+
+              <div className="mx-auto max-w-md">
+                <Scanner
+                  constraints={{ facingMode: 'environment' }}
+                  allowMultiple={false}
+                  components={{
+                    audio: true,
+                    torch: true,
+                    finder: true,
+                  }}
+                  onError={(err) => {
+                    console.error(err);
+                    setError('Camera access failed or not available. Please check permissions.');
+                    setIsScanning(false);
+                  }}
+                  onScan={(result) => {
+                    try {
+                      const value = Array.isArray(result)
+                        ? (result[0]?.rawValue ?? result[0])
+                        : (result?.rawValue ?? result);
+                      if (value) {
+                        setIsScanning(false);
+                        navigate(`/patient/${encodeURIComponent(String(value))}`);
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      setError('Failed to read QR code. Please try again.');
+                      setIsScanning(false);
+                    }
+                  }}
+                  styles={{
+                    container: {
+                      width: '100%',
+                      borderRadius: '0.75rem',
+                      overflow: 'hidden',
+                      border: '2px dashed rgb(147 197 253)',
+                    },
+                    video: { width: '100%' },
+                  }}
+                />
               </div>
             </div>
           )}
