@@ -2,81 +2,75 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
 
+  // Load user from localStorage on app start
   useEffect(() => {
-    // Check if user is already logged in (localStorage or session)
-    const token = localStorage.getItem('doctorToken');
-    if (token) {
-      // In a real app, validate token with backend
+    const storedUser = localStorage.getItem('user');
+    const storedToken = localStorage.getItem('token');
+    if (storedUser && storedToken) {
+      setUser(JSON.parse(storedUser));
       setIsAuthenticated(true);
-      setUser({
-        id: '1',
-        name: 'Dr. Sarah Johnson',
-        email: 'sarah.johnson@medivault.com',
-        specialty: 'Cardiology',
-        avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face'
-      });
     }
-    setLoading(false);
   }, []);
 
+  // 🔑 Login function (connects to backend API)
   const login = async (email, password) => {
     try {
-      // Simulate API call - replace with actual backend integration
-      if (email === 'doctor@medivault.com' && password === 'password') {
-        const userData = {
-          id: '1',
-          name: 'Dr. Sarah Johnson',
-          email: 'sarah.johnson@medivault.com',
-          specialty: 'Cardiology',
-          avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face'
-        };
-        
-        localStorage.setItem('doctorToken', 'dummy-token-123');
-        setUser(userData);
-        setIsAuthenticated(true);
-        return { success: true };
-      } else {
-        return { success: false, error: 'Invalid credentials' };
-      }
-    } catch (error) {
-      return { success: false, error: 'Login failed' };
+      const res = await fetch('http://localhost:5000/api/auth/login', { // ⬅️ change URL if needed
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Login failed');
+
+      // Save to state + localStorage
+      setUser(data.user);
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   };
 
+  // 🔑 Signup function
+  const signup = async (name, email, password) => {
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Signup failed');
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  };
+
+  // 🔑 Logout function
   const logout = () => {
-    localStorage.removeItem('doctorToken');
-    setIsAuthenticated(false);
     setUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
-
-  const value = {
-    isAuthenticated,
-    user,
-    loading,
-    login,
-    logout
-  };
-
-  if (loading) {
-    return <div className="loading-screen">Loading...</div>;
-  }
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ isAuthenticated, user, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

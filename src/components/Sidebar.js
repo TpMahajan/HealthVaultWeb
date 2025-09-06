@@ -30,10 +30,10 @@ const Sidebar = ({ open, setOpen }) => {
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile + Desktop backdrop */}
       {open && (
         <div 
-          className="fixed inset-0 z-40 lg:hidden bg-gray-600 dark:bg-black bg-opacity-50 dark:bg-opacity-60 transition-opacity"
+          className="fixed inset-0 z-40 bg-gray-600/50 dark:bg-black/60 transition-opacity"
           onClick={() => setOpen(false)}
         />
       )}
@@ -44,7 +44,6 @@ const Sidebar = ({ open, setOpen }) => {
           fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-950 shadow-xl flex flex-col
           transform transition-transform duration-300 ease-in-out
           ${open ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0 lg:static lg:inset-0
         `}
       >
         {/* Logo */}
@@ -57,7 +56,7 @@ const Sidebar = ({ open, setOpen }) => {
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-900"
+            className="p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-900"
           >
             <X className="h-5 w-5" />
           </button>

@@ -14,6 +14,16 @@ import {
   FileText as FileTextIcon
 } from 'lucide-react';
 
+/* ----------------------
+ * Footer Component
+ * --------------------*/
+const Footer = () => (
+  <footer className="w-full py-6 border-t border-gray-200 flex items-center justify-center mt-12">
+    <img src="/AiAllyLogo.png" alt="Ai Ally Logo" className="h-6 mr-2" />
+    <span className="text-sm text-gray-500">Powered by Ai Ally</span>
+  </footer>
+);
+
 const PatientDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -24,7 +34,7 @@ const PatientDetails = () => {
   // Mock patient data - replace with API call in production
   const mockPatient = {
     id: 'PAT001',
-    name: 'John Doe',
+    name: 'Raju Sharma',
     age: 45,
     gender: 'Male',
     dateOfBirth: '1979-03-15',
@@ -34,9 +44,9 @@ const PatientDetails = () => {
     lastVisit: '2024-01-15',
     nextAppointment: '2024-02-15',
     emergencyContact: {
-      name: 'Jane Doe',
+      name: 'Raju Sharma',
       relationship: 'Spouse',
-      phone: '+1 (555) 123-4567'
+      phone: '+91 (555) 123-4567'
     },
     medicalHistory: [
       { condition: 'Hypertension', diagnosed: '2020-01-15', status: 'Active' },
@@ -385,6 +395,9 @@ const PatientDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };

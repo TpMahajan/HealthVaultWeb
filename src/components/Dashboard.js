@@ -14,7 +14,7 @@ const Dashboard = () => {
   // If we're on the main dashboard route, show dashboard content
   if (location.pathname === '/') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex flex-col">
         {/* Sidebar */}
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
@@ -131,6 +131,9 @@ const Dashboard = () => {
               </div>
             </div>
           </main>
+
+          {/* Footer */}
+          <Footer />
         </div>
       </div>
     );
@@ -138,13 +141,15 @@ const Dashboard = () => {
 
   // For other routes, render outlet with sidebar + top navbar
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 flex flex-col">
       <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col lg:pl-64">
         <TopNavbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
           <Outlet />
         </main>
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
@@ -173,4 +178,14 @@ const OverviewStat = ({ label, value, change }) => (
     </div>
     <span className="text-sm text-green-600 font-medium">{change}</span>
   </div>
+);
+
+/* ----------------------
+ * Footer Component
+ * --------------------*/
+const Footer = () => (
+  <footer className="w-full py-6 border-t border-gray-200 flex items-center justify-center">
+    <img src="/AiAllyLogo.png" alt="Ai Ally Logo" className="h-6 mr-2" />
+    <span className="text-sm text-gray-500">Powered by Ai Ally</span>
+  </footer>
 );
