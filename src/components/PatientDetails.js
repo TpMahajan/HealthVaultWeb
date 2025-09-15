@@ -13,16 +13,7 @@ import {
   FileImage,
   FileText as FileTextIcon
 } from 'lucide-react';
-
-/* ----------------------
- * Footer Component
- * --------------------*/
-const Footer = () => (
-  <footer className="w-full py-6 border-t border-gray-200 flex items-center justify-center mt-12">
-    <img src="/AiAllyLogo.png" alt="Ai Ally Logo" className="h-6 mr-2" />
-    <span className="text-sm text-gray-500">Powered by Ai Ally</span>
-  </footer>
-);
+import Footer from './Footer';
 
 const PatientDetails = () => {
   const { id } = useParams();
@@ -152,7 +143,7 @@ const PatientDetails = () => {
       case 'image':
         return <FileImage className="h-5 w-5 text-blue-500" />;
       default:
-        return <FileTextIcon className="h-5 w-5 text-gray-500" />;
+        return <FileTextIcon className="h-5 w-5 text-gray-500 dark:text-gray-400 dark:text-gray-500" />;
     }
   };
 
@@ -167,19 +158,19 @@ const PatientDetails = () => {
   if (!patient) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Patient not found</h3>
-        <p className="text-gray-600">The patient you're looking for doesn't exist.</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100 mb-2">Patient not found</h3>
+        <p className="text-gray-600 dark:text-gray-300">The patient you're looking for doesn't exist.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 p-4">
         <button
           onClick={() => navigate('/patients')}
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4 transition-colors duration-200"
+          className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100 mb-4 transition-colors duration-200"
         >
           <ArrowLeft className="h-5 w-5 mr-2" />
           Back to Patients
@@ -187,11 +178,11 @@ const PatientDetails = () => {
         
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{patient.name}</h1>
-            <p className="mt-2 text-gray-600">Patient ID: {patient.id}</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">{patient.name}</h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">Patient ID: {patient.id}</p>
           </div>
           <div className="flex space-x-3">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors duration-200">
+            <button className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
               <Download className="h-4 w-4 mr-2" />
               Export Records
             </button>
@@ -206,45 +197,45 @@ const PatientDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Patient Info Sidebar */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Patient Information</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sticky top-24">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100 mb-4">Patient Information</h2>
             
             <div className="space-y-4">
-              <div className="flex items-center text-sm text-gray-600">
-                <User className="h-4 w-4 mr-3 text-gray-400" />
-                <span className="font-medium text-gray-900">{patient.age} years old</span>
+              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                <User className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500" />
+                <span className="font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100">{patient.age} years old</span>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Calendar className="h-4 w-4 mr-3 text-gray-400" />
-                <span className="font-medium text-gray-900">DOB: {patient.dateOfBirth}</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-600">Blood Type:</span>
-                <span className="ml-2 font-medium text-gray-900">{patient.bloodType}</span>
+              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                <Calendar className="h-4 w-4 mr-3 text-gray-400 dark:text-gray-500 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500" />
+                <span className="font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100">DOB: {patient.dateOfBirth}</span>
               </div>
               <div className="text-sm">
-                <span className="text-gray-600">Height:</span>
-                <span className="ml-2 font-medium text-gray-900">{patient.height}</span>
+                <span className="text-gray-600 dark:text-gray-300">Blood Type:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100">{patient.bloodType}</span>
               </div>
               <div className="text-sm">
-                <span className="text-gray-600">Weight:</span>
-                <span className="ml-2 font-medium text-gray-900">{patient.weight}</span>
+                <span className="text-gray-600 dark:text-gray-300">Height:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{patient.height}</span>
+              </div>
+              <div className="text-sm">
+                <span className="text-gray-600 dark:text-gray-300">Weight:</span>
+                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{patient.weight}</span>
               </div>
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Emergency Contact</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Emergency Contact</h3>
               <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900">{patient.emergencyContact.name}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{patient.emergencyContact.name}</p>
                 <p>{patient.emergencyContact.relationship}</p>
                 <p>{patient.emergencyContact.phone}</p>
               </div>
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Next Appointment</h3>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Next Appointment</h3>
               <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900">{patient.nextAppointment}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{patient.nextAppointment}</p>
                 <p>2:00 PM - Cardiology</p>
               </div>
             </div>
@@ -254,8 +245,8 @@ const PatientDetails = () => {
         {/* Main Content */}
         <div className="lg:col-span-2">
           {/* Tabs */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
-            <div className="border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+            <div className="border-b border-gray-200 dark:border-gray-700">
               <nav className="flex space-x-8 px-6">
                 {[
                   { id: 'overview', name: 'Overview', count: null },
@@ -269,12 +260,12 @@ const PatientDetails = () => {
                     className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
                     {tab.name}
                     {tab.count && (
-                      <span className="ml-2 bg-gray-100 text-gray-900 py-0.5 px-2.5 rounded-full text-xs font-medium">
+                      <span className="ml-2 bg-gray-100 text-gray-900 dark:text-gray-100 py-0.5 px-2.5 rounded-full text-xs font-medium">
                         {tab.count}
                       </span>
                     )}
@@ -301,17 +292,17 @@ const PatientDetails = () => {
                   </div>
                   
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
                     <div className="flex flex-wrap gap-3">
                       <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
                         <FileText className="h-4 w-4 mr-2" />
                         Add New Record
                       </button>
-                      <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors duration-200">
+                      <button className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                         <Calendar className="h-4 w-4 mr-2" />
                         Schedule Appointment
                       </button>
-                      <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors duration-200">
+                      <button className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
                         <Download className="h-4 w-4 mr-2" />
                         Download Summary
                       </button>
@@ -331,7 +322,7 @@ const PatientDetails = () => {
                       <div className="flex items-center space-x-4">
                         {getFileIcon(record.fileType)}
                         <div>
-                          <h4 className="font-medium text-gray-900">{record.title}</h4>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">{record.title}</h4>
                           <p className="text-sm text-gray-600">{record.type} • {record.date} • {record.size}</p>
                         </div>
                       </div>
@@ -339,10 +330,10 @@ const PatientDetails = () => {
                         <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(record.status)}`}>
                           {record.status}
                         </span>
-                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                        <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors duration-200">
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                        <button className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors duration-200">
                           <Download className="h-4 w-4" />
                         </button>
                       </div>
@@ -360,9 +351,9 @@ const PatientDetails = () => {
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                     >
                       <div>
-                        <h4 className="font-medium text-gray-900">{med.name}</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{med.name}</h4>
                         <p className="text-sm text-gray-600">{med.dosage} • {med.frequency}</p>
-                        <p className="text-xs text-gray-500">Prescribed: {med.prescribed}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">Prescribed: {med.prescribed}</p>
                       </div>
                       <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor('active')}`}>
                         Active
@@ -381,7 +372,7 @@ const PatientDetails = () => {
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                     >
                       <div>
-                        <h4 className="font-medium text-gray-900">{condition.condition}</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{condition.condition}</h4>
                         <p className="text-sm text-gray-600">Diagnosed: {condition.diagnosed}</p>
                       </div>
                       <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(condition.status.toLowerCase())}`}>

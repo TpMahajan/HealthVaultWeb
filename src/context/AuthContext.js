@@ -16,10 +16,10 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // 🔑 Login function (connects to backend API)
+  // 🔑 Login function (doctor only)
   const login = async (email, password) => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', { // ⬅️ change URL if needed
+      const res = await fetch(`http://localhost:5000/api/doctors/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -29,9 +29,9 @@ export const AuthProvider = ({ children }) => {
       if (!res.ok) throw new Error(data.message || 'Login failed');
 
       // Save to state + localStorage
-      setUser(data.user);
+      setUser(data.doctor);
       setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify(data.doctor));
       localStorage.setItem('token', data.token);
 
       return { success: true };
@@ -40,13 +40,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔑 Signup function
-  const signup = async (name, email, password) => {
+  // 🔑 Signup function (doctor only)
+  const signup = async (name, email, mobile, password) => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/signup', {
+      const res = await fetch(`http://localhost:5000/api/doctors/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, mobile, password }),
       });
 
       const data = await res.json();

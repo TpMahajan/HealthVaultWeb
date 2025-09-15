@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-
-// Footer Component
-const Footer = () => (
-  <footer className="w-full py-6 border-t border-gray-200 dark:border-gray-800 flex items-center justify-center mt-12">
-    <img src="/AiAllyLogo.png" alt="Ai Ally Logo" className="h-6 mr-2" />
-    <span className="text-sm text-gray-500 dark:text-gray-400">Powered by Ai Ally</span>
-  </footer>
-);
+import Footer from "./Footer";
 
 const Vault = () => {
   const [docs, setDocs] = useState([]);
@@ -49,7 +42,7 @@ const Vault = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between">
+    <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
       <div className="p-6 flex-grow max-w-5xl mx-auto w-full">
         <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           My Vault

@@ -52,7 +52,7 @@ const Sidebar = ({ open, setOpen }) => {
             <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <Shield className="h-5 w-5 text-white" />
             </div>
-            <span className="ml-3 text-xl font-bold text-gray-900 dark:text-gray-100">MediVault</span>
+            <span className="ml-3 text-xl font-bold text-gray-900 dark:text-gray-100">HealthVault</span>
           </div>
           <button
             onClick={() => setOpen(false)}
