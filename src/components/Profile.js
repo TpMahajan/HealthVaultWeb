@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { DOCTOR_API_BASE } from '../constants/api';
 import { User, Mail, Phone, MapPin, Shield, Edit, Save, X, Stethoscope, Loader } from 'lucide-react';
 import Footer from './Footer';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [doctorData, setDoctorData] = useState(null);
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
+    avatar: '',
     specialty: '',
     license: '',
     experience: '',
@@ -28,8 +31,9 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      console.log('Token for update:', token ? 'Present' : 'Missing');
-      console.log('Profile data being sent:', profileData);
+      console.log('🔧 Profile Update - Token:', token ? 'Present' : 'Missing');
+      console.log('📝 Profile data being sent:', profileData);
+      console.log('🌐 API Base URL:', DOCTOR_API_BASE);
       
       const updatePayload = {
         name: profileData.name,
@@ -47,9 +51,10 @@ const Profile = () => {
         yearsOfExperience: profileData.yearsOfExperience,
       };
       
-      console.log('Update payload:', updatePayload);
+      console.log('📦 Update payload:', updatePayload);
+      console.log('🚀 Making request to:', `${DOCTOR_API_BASE}/profile`);
       
-      const response = await fetch('http://localhost:5000/api/doctors/profile', {
+      const response = await fetch(`${DOCTOR_API_BASE}/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -58,20 +63,34 @@ const Profile = () => {
         body: JSON.stringify(updatePayload),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      
       const data = await response.json();
-      console.log('Profile update response:', data);
+      console.log('📋 Profile update response:', data);
       
       if (data.success) {
-        console.log('Profile updated successfully:', data.doctor);
+        console.log('✅ Profile updated successfully:', data.doctor);
         setDoctorData(data.doctor);
+        
+        // Update the user data in AuthContext to reflect the changes
+        const updatedUser = { ...user, ...data.doctor };
+        updateUser(updatedUser);
+        
         setIsEditing(false);
         alert('Profile updated successfully!');
       } else {
-        console.error('Failed to update profile:', data.message);
+        console.error('❌ Failed to update profile:', data.message);
         alert(`Failed to update profile: ${data.message}`);
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('💥 Error updating profile:', error);
+      console.error('💥 Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
       if (error.message.includes('Failed to fetch')) {
         alert('Cannot connect to server. Please make sure the backend is running.');
       } else {
@@ -87,6 +106,7 @@ const Profile = () => {
         name: doctorData.name || '',
         email: doctorData.email || '',
         phone: doctorData.mobile || '',
+        avatar: doctorData.avatar || '',
         specialty: doctorData.specialty || '',
         license: doctorData.license || '',
         experience: doctorData.experience || '',
@@ -98,13 +118,78 @@ const Profile = () => {
         totalPatients: doctorData.totalPatients || 0,
         yearsOfExperience: doctorData.yearsOfExperience || 0,
       }));
+      setHasPhoto(!!doctorData.avatar);
     }
     setIsEditing(false);
   };
 
   const handleUpdatePhoto = () => {
-    // TODO: Implement photo upload functionality
-    console.log('Update photo clicked - functionality to be implemented');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = handlePhotoUpload;
+    input.click();
+  };
+
+  const handlePhotoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB.');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      console.log('📸 Starting photo upload for file:', file.name);
+
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      console.log('🚀 Uploading to:', `${DOCTOR_API_BASE}/profile/avatar`);
+
+      const response = await fetch(`${DOCTOR_API_BASE}/profile/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      console.log('📡 Upload response status:', response.status);
+      const data = await response.json();
+      console.log('📋 Upload response:', data);
+
+      if (data.success) {
+        console.log('✅ Photo uploaded successfully:', data.avatarUrl);
+        setDoctorData(data.doctor);
+        setHasPhoto(true);
+        
+        // Update the user data in AuthContext to reflect the new avatar
+        const updatedUser = { ...user, avatar: data.avatarUrl };
+        console.log('🔄 Profile - Updating user with avatar:', updatedUser);
+        updateUser(updatedUser);
+        
+        alert('Profile photo updated successfully!');
+      } else {
+        console.error('❌ Failed to upload photo:', data.message);
+        alert(`Failed to upload photo: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('💥 Photo upload error:', error);
+      alert(`Error uploading photo: ${error.message}`);
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -121,18 +206,22 @@ const Profile = () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('token');
-        console.log('Token:', token ? 'Present' : 'Missing');
+        console.log('🔍 Profile Fetch - Token:', token ? 'Present' : 'Missing');
+        console.log('🌐 API Base URL:', DOCTOR_API_BASE);
+        console.log('🚀 Making request to:', `${DOCTOR_API_BASE}/profile`);
         
-        const response = await fetch('http://localhost:5000/api/doctors/profile', {
+        const response = await fetch(`${DOCTOR_API_BASE}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
 
-        console.log('Response status:', response.status);
+        console.log('📡 Response status:', response.status);
+        console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+        
         const data = await response.json();
-        console.log('API Response:', data);
+        console.log('📋 API Response:', data);
         
         if (data.success) {
           console.log('Doctor data received:', data.doctor);
@@ -142,6 +231,7 @@ const Profile = () => {
             name: data.doctor.name || '',
             email: data.doctor.email || '',
             phone: data.doctor.mobile || '',
+            avatar: data.doctor.avatar || '',
             specialty: data.doctor.specialty || '',
             license: data.doctor.license || '',
             experience: data.doctor.experience || '',
@@ -153,6 +243,9 @@ const Profile = () => {
             totalPatients: data.doctor.totalPatients || 0,
             yearsOfExperience: data.doctor.yearsOfExperience || 0,
           }));
+          
+          // Set hasPhoto based on avatar
+          setHasPhoto(!!data.doctor.avatar);
         } else {
           console.error('Failed to fetch profile:', data.message);
           // Fallback to user data from context
@@ -213,25 +306,40 @@ const Profile = () => {
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
               <div className="text-center mb-6">
-                  {hasPhoto ? (
-                <img
-                  src={user?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face'}
-                  alt={profileData.name}
+                {hasPhoto && profileData.avatar ? (
+                  <div className="relative">
+                    <img
+                      src={profileData.avatar}
+                      alt={profileData.name}
                       className="mx-auto h-24 w-24 rounded-full object-cover mb-4 shadow-lg"
-                />
-                  ) : (
+                    />
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 mx-auto h-24 w-24 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                        <Loader className="h-6 w-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative">
                     <div className="mx-auto h-24 w-24 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mb-4 shadow-lg">
                       <Stethoscope className="h-12 w-12 text-white" />
                     </div>
-                  )}
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 mx-auto h-24 w-24 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                        <Loader className="h-6 w-6 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{profileData.name}</h2>
                 <p className="text-gray-600 dark:text-gray-300">{profileData.specialty}</p>
-                  <button 
-                    onClick={handleUpdatePhoto}
-                    className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors duration-200"
-                  >
-                    {hasPhoto ? 'Change Photo' : 'Add Photo'}
-                  </button>
+                <button 
+                  onClick={handleUpdatePhoto}
+                  disabled={uploadingPhoto}
+                  className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingPhoto ? 'Uploading...' : (hasPhoto ? 'Change Photo' : 'Add Photo')}
+                </button>
               </div>
 
               <div className="space-y-4">

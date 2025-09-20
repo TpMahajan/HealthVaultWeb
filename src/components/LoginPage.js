@@ -21,14 +21,19 @@ const LoginPage = () => {
     setError('');
 
     try {
+      console.log("🚀 LoginPage: Starting login process");
       const result = await login(email, password);
+      console.log("📋 LoginPage: Login result:", result);
 
       if (result.success) {
+        console.log("✅ LoginPage: Login successful, navigating to dashboard");
         navigate('/dashboard'); // ✅ redirect to Dashboard
       } else {
+        console.log("❌ LoginPage: Login failed:", result.error);
         setError(result.error || 'Invalid email or password');
       }
     } catch (err) {
+      console.error("💥 LoginPage: Login error:", err);
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -155,13 +160,13 @@ const LoginPage = () => {
             </form>
 
             {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            {/* <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
               <p className="text-xs text-blue-800 dark:text-blue-200 font-medium mb-2">
                 Demo Doctor Credentials:
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-300">Email: doctor@healthvault.com</p>
               <p className="text-xs text-blue-700 dark:text-blue-300">Password: password123</p>
-            </div>
+            </div> */}
 
             {/* Signup Link */}
             <div className="mt-6 text-center">

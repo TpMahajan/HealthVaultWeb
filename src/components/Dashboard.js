@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import TopNavbar from './TopNavbar';
 import AppointmentForm from './AppointmentForm';
 import Footer from './Footer';
-import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus } from 'lucide-react';
+import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw } from 'lucide-react';
 
 const Dashboard = () => {
   const [showAppointmentForm, setShowAppointmentForm] = useState(false);
@@ -16,82 +16,104 @@ const Dashboard = () => {
     recentActivity: []
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fetch dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
+  // Load dashboard data from cached patients
+  const loadDashboardData = (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
-        const token = localStorage.getItem('token');
-        
-        // Fetch patients data
-        const patientsResponse = await fetch('http://localhost:5000/api/patients', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (patientsResponse.ok) {
-          const patientsData = await patientsResponse.json();
-          const patients = patientsData.patients || [];
-          
-          // Calculate statistics
-          const criticalPatients = patients.filter(patient => 
-            patient.medicalHistory && patient.medicalHistory.some(condition => 
-              condition.status === 'active' || condition.status === 'chronic'
-            )
-          ).length;
+      }
+      
+      console.log('🔍 Dashboard - Loading cached patient data');
+      
+      // Get cached patients from localStorage
+      const cached = localStorage.getItem('patients');
+      let cachedPatients = [];
+      
+      if (cached) {
+        const allPatients = JSON.parse(cached);
+        // Filter out expired patients
+        cachedPatients = allPatients.filter(patient => patient.expiresAt > Date.now());
+        console.log(`✅ Dashboard - Found ${cachedPatients.length} valid cached patients`);
+      } else {
+        console.log('📭 Dashboard - No cached patients found');
+      }
 
-          setDashboardData({
-            totalPatients: patients.length,
-            recentScans: Math.floor(Math.random() * 10) + 5, // Simulated recent scans
-            todayAppointments: Math.floor(Math.random() * 8) + 2, // Simulated today's appointments
-            criticalPatients: criticalPatients,
-            recentActivity: [
-              {
-                id: 1,
-                type: 'scan',
-                message: 'Patient QR code scanned',
-                patient: 'John Doe',
-                time: '2 minutes ago'
-              },
-              {
-                id: 2,
-                type: 'record',
-                message: 'Medical record updated',
-                patient: 'Sarah Johnson',
-                time: '15 minutes ago'
-              },
-              {
-                id: 3,
-                type: 'alert',
-                message: 'Critical condition detected',
-                patient: 'Mike Wilson',
-                time: '1 hour ago'
-              },
-              {
-                id: 4,
-                type: 'scan',
-                message: 'New patient registered',
-                patient: 'Emily Davis',
-                time: '2 hours ago'
-              }
-            ]
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
+      // Calculate statistics based on cached patients
+      const recentScans = cachedPatients.length; // Each cached patient represents a recent scan
+      const todayAppointments = Math.floor(Math.random() * 8) + 2; // Simulated today's appointments
+      const criticalPatients = Math.floor(cachedPatients.length * 0.2); // Estimate 20% as critical
+
+      setDashboardData({
+        totalPatients: cachedPatients.length,
+        recentScans: recentScans,
+        todayAppointments: todayAppointments,
+        criticalPatients: criticalPatients,
+        recentActivity: [
+          {
+            id: 1,
+            type: 'scan',
+            message: 'Patient QR code scanned',
+            patient: cachedPatients[0]?.name || 'John Doe',
+            time: '2 minutes ago'
+          },
+          {
+            id: 2,
+            type: 'record',
+            message: 'Medical record updated',
+            patient: cachedPatients[1]?.name || 'Sarah Johnson',
+            time: '15 minutes ago'
+          },
+          {
+            id: 3,
+            type: 'alert',
+            message: 'Critical condition detected',
+            patient: cachedPatients[2]?.name || 'Mike Wilson',
+            time: '1 hour ago'
+          },
+          {
+            id: 4,
+            type: 'scan',
+            message: 'New patient registered',
+            patient: cachedPatients[3]?.name || 'Emily Davis',
+            time: '2 hours ago'
+          }
+        ]
+      });
+    } catch (error) {
+      console.error('❌ Dashboard - Error loading cached patient data:', error);
+      // Fallback to default values
+      setDashboardData({
+        totalPatients: 0,
+        recentScans: 0,
+        todayAppointments: 0,
+        criticalPatients: 0,
+        recentActivity: []
+      });
+    } finally {
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
         setLoading(false);
       }
-    };
+    }
+  };
 
-    fetchDashboardData();
+  // Load dashboard data on component mount
+  useEffect(() => {
+    loadDashboardData();
   }, []);
+
+  // Refresh dashboard data
+  const handleRefresh = () => {
+    loadDashboardData(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -103,8 +125,20 @@ const Dashboard = () => {
             <div className="space-y-8">
               {/* Welcome Section */}
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-md border border-white/30 dark:border-gray-700/30">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome back, {user?.name}!</h1>
-                <p className="text-gray-600 dark:text-gray-300">Here's what's happening with your practice today.</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome back, {user?.name}!</h1>
+                    <p className="text-gray-600 dark:text-gray-300">Here's what's happening with your practice today.</p>
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
               </div>
 
               {/* Loading State */}
@@ -126,8 +160,9 @@ const Dashboard = () => {
                           <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Patients</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Cached Patients</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dashboardData.totalPatients}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">7-day cache</p>
                         </div>
                       </div>
                     </div>
@@ -138,8 +173,9 @@ const Dashboard = () => {
                           <QrCode className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Recent Scans</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">QR Scans</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dashboardData.recentScans}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Total scanned</p>
                         </div>
                       </div>
                     </div>

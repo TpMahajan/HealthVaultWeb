@@ -7,13 +7,19 @@ import {
   Save, 
   Moon,
   Sun,
-  Monitor
+  Monitor,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import { useTheme } from "../context/ThemeContext";
 import Footer from './Footer';
 
 function Settings() {
   const { theme, setTheme } = useTheme();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [passwordInfo, setPasswordInfo] = useState(null);
   const [settings, setSettings] = useState({
     notifications: {
       newPatients: true,
@@ -56,6 +62,100 @@ function Settings() {
     }));
   }, [theme]);
 
+  // Load security settings from backend
+  const loadSecuritySettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Try hosted backend first, then fallback to localhost
+      const baseUrls = [
+        'https://healthvault-backend-c6xl.onrender.com',
+        'http://localhost:5000'
+      ];
+      
+      let response;
+      
+      for (const baseUrl of baseUrls) {
+        try {
+          response = await fetch(`${baseUrl}/api/doctors/security-settings`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          // If we get a response, break the loop
+          if (response) break;
+        } catch (err) {
+          console.log(`Failed to connect to ${baseUrl}:`, err.message);
+          continue;
+        }
+      }
+
+      if (!response) {
+        console.error('Unable to connect to any backend server');
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setSettings(prev => ({
+          ...prev,
+          security: data.securitySettings
+        }));
+        setPasswordInfo(data.passwordInfo);
+      } else {
+        console.error('Failed to load security settings:', data.message);
+      }
+    } catch (err) {
+      console.error('Failed to load security settings:', err);
+    }
+  };
+
+  // Test backend connection
+  const testBackendConnection = async () => {
+    const baseUrls = [
+      'https://healthvault-backend-c6xl.onrender.com',
+      'http://localhost:5000'
+    ];
+    
+    for (const baseUrl of baseUrls) {
+      try {
+        const response = await fetch(`${baseUrl}/api/doctors/profile`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          console.log(`✅ Backend connected: ${baseUrl}`);
+          return baseUrl;
+        }
+      } catch (err) {
+        console.log(`❌ Backend failed: ${baseUrl} - ${err.message}`);
+      }
+    }
+    
+    console.log('❌ No backend servers are accessible');
+    return null;
+  };
+
+  // Load settings on component mount
+  useEffect(() => {
+    const initializeSettings = async () => {
+      const workingBackend = await testBackendConnection();
+      if (workingBackend) {
+        await loadSecuritySettings();
+      } else {
+        setError('Unable to connect to backend server. Please ensure the server is running.');
+      }
+    };
+    
+    initializeSettings();
+  }, []);
+
   const handleSettingChange = (category, setting, value) => {
     setSettings(prev => ({
       ...prev,
@@ -73,9 +173,72 @@ function Settings() {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Settings saved:', settings);
-    alert("✅ Settings saved successfully!");
+  const handleSave = async () => {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Please login first to save settings');
+        return;
+      }
+
+      // Try hosted backend first, then fallback to localhost
+      const baseUrls = [
+        'https://healthvault-backend-c6xl.onrender.com',
+        'http://localhost:5000'
+      ];
+      
+      let response;
+      let lastError;
+      
+      for (const baseUrl of baseUrls) {
+        try {
+          response = await fetch(`${baseUrl}/api/doctors/security-settings`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings.security)
+          });
+          
+          // If we get a response (even if error), break the loop
+          break;
+        } catch (err) {
+          lastError = err;
+          console.log(`Failed to connect to ${baseUrl}:`, err.message);
+          continue;
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('Unable to connect to backend server');
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.message || `Server error: ${response.status} ${response.statusText}`);
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setSuccess('Security settings saved successfully!');
+        setPasswordInfo(data.passwordInfo);
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(data.message || 'Failed to save security settings');
+      }
+    } catch (err) {
+      console.error('Save settings error:', err);
+      setError(`Network error: ${err.message}. Please check your connection and try again.`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleThemeSelect = (nextTheme) => {
@@ -252,6 +415,58 @@ function Settings() {
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Security Settings</h3>
                 
+                {/* Password Status */}
+                {passwordInfo && (
+                  <div className={`p-4 rounded-xl border ${
+                    passwordInfo.isExpired 
+                      ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' 
+                      : passwordInfo.daysUntilExpiry <= 7 
+                        ? 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800'
+                        : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800'
+                  }`}>
+                    <div className="flex items-center mb-2">
+                      {passwordInfo.isExpired ? (
+                        <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                      )}
+                      <h4 className={`text-md font-medium ${
+                        passwordInfo.isExpired 
+                          ? 'text-red-900 dark:text-red-100' 
+                          : passwordInfo.daysUntilExpiry <= 7 
+                            ? 'text-yellow-900 dark:text-yellow-100'
+                            : 'text-green-900 dark:text-green-100'
+                      }`}>
+                        Password Status
+                      </h4>
+                    </div>
+                    <div className={`text-sm ${
+                      passwordInfo.isExpired 
+                        ? 'text-red-800 dark:text-red-200' 
+                        : passwordInfo.daysUntilExpiry <= 7 
+                          ? 'text-yellow-800 dark:text-yellow-200'
+                          : 'text-green-800 dark:text-green-200'
+                    }`}>
+                      {passwordInfo.isExpired ? (
+                        <div>
+                          <strong>⚠️ Password Expired!</strong> Please change your password immediately.
+                        </div>
+                      ) : passwordInfo.daysUntilExpiry <= 7 ? (
+                        <div>
+                          <strong>⚠️ Password expires in {passwordInfo.daysUntilExpiry} days.</strong> Consider changing it soon.
+                        </div>
+                      ) : (
+                        <div>
+                          <strong>✅ Password expires in {passwordInfo.daysUntilExpiry} days.</strong>
+                        </div>
+                      )}
+                      <div className="mt-1">
+                        Last changed: {new Date(passwordInfo.lastChanged).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Security Controls */}
                 <div className="space-y-4">
                   <h4 className="text-md font-medium text-gray-900 dark:text-gray-100">Security Preferences</h4>
@@ -406,6 +621,7 @@ function Settings() {
                       <option value="Europe/London">Greenwich Mean Time (GMT)</option>
                       <option value="Europe/Paris">Central European Time (CET)</option>
                       <option value="Asia/Tokyo">Japan Standard Time (JST)</option>
+                      <option value="Asia/India">Indian Standard Time (IST)</option>
                     </select>
                   </div>
                 </div>
@@ -466,13 +682,38 @@ function Settings() {
 
           {/* Save Button */}
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-b-2xl">
-            <div className="flex justify-end">
+            {/* Error/Success Messages */}
+            {(error || success) && (
+              <div className="mb-4">
+                {error && (
+                  <div className="flex items-center p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                    <span className="text-red-800 dark:text-red-200 text-sm">{error}</span>
+                  </div>
+                )}
+                {success && (
+                  <div className="flex items-center p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                    <span className="text-green-800 dark:text-green-200 text-sm">{success}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="flex justify-between">
+              <button
+                onClick={testBackendConnection}
+                className="inline-flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
+              >
+                Test Connection
+              </button>
               <button
                 onClick={handleSave}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={loading}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="h-4 w-4 mr-2" />
-                Save Changes
+                {loading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

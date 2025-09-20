@@ -97,7 +97,7 @@ const TopNavbar = () => {
               const greetingName = hasDoctorTitle ? `Dr. ${cleanedName}` : rawName;
               return (
                 <p className="truncate text-sm sm:text-base font-medium text-gray-700 dark:text-gray-200">
-                  Hello, {greetingName}!
+                  Hello, Dr. {greetingName}!
                 </p>
               );
             })()}
@@ -142,9 +142,21 @@ const TopNavbar = () => {
                 aria-label="Profile menu"
                 className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors duration-200"
               >
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                  <Stethoscope className="h-4 w-4 text-white" />
-                </div>
+                {(() => {
+                  console.log('🔍 TopNavbar - User data:', user);
+                  console.log('🔍 TopNavbar - User avatar:', user?.avatar);
+                  return user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                      <Stethoscope className="h-4 w-4 text-white" />
+                    </div>
+                  );
+                })()}
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{user?.specialty || 'Doctor'}</p>

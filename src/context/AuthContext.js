@@ -1,73 +1,129 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { DOCTOR_API_BASE } from "../constants/api";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on app start
+  // Restore auth state on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    const restoreAuthState = () => {
+      try {
+        const storedUser = localStorage.getItem("user");
+        const storedToken = localStorage.getItem("token");
+        
+        console.log("🔍 AuthContext - Restoring auth state...");
+        console.log("🔍 AuthContext - Stored user:", storedUser ? "Present" : "Not found");
+        console.log("🔍 AuthContext - Stored token:", storedToken ? "Present" : "Not found");
+        
+        if (storedUser && storedToken) {
+          const userData = JSON.parse(storedUser);
+          
+          // Validate token by checking if it's expired
+          try {
+            const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
+            const isExpired = tokenPayload.exp * 1000 < Date.now();
+            
+            if (isExpired) {
+              console.log("⏰ AuthContext - Token expired, clearing auth data");
+              localStorage.removeItem("user");
+              localStorage.removeItem("token");
+            } else {
+              setUser(userData);
+              console.log("✅ AuthContext - User restored from localStorage:", userData);
+            }
+          } catch (tokenError) {
+            console.error("❌ AuthContext - Invalid token format, clearing auth data:", tokenError);
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+          }
+        } else {
+          console.log("📭 AuthContext - No stored auth data found");
+        }
+      } catch (error) {
+        console.error("❌ AuthContext - Error restoring auth state:", error);
+        // Clear corrupted data
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      } finally {
+        setIsLoading(false);
+        console.log("🏁 AuthContext - Auth state restoration complete");
+      }
+    };
+
+    restoreAuthState();
   }, []);
 
-  // 🔑 Login function (doctor only)
+  // Doctor login
   const login = async (email, password) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/doctors/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      console.log("🔐 Attempting login for:", email);
+      const res = await fetch(`${DOCTOR_API_BASE}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
+      console.log("📡 Login response:", data);
+      
+      if (!res.ok) throw new Error(data?.message || "Login failed");
 
-      // Save to state + localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.doctor));
       setUser(data.doctor);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(data.doctor));
-      localStorage.setItem('token', data.token);
+      
+      console.log("✅ Login successful, user set:", data.doctor);
 
-      return { success: true };
+      return { success: true, user: data.doctor };
     } catch (err) {
-      return { success: false, error: err.message };
+      console.error("❌ Login failed:", err.message);
+      return { success: false, error: err.message || "Login failed" };
     }
   };
 
-  // 🔑 Signup function (doctor only)
+  // Doctor signup
   const signup = async (name, email, mobile, password) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/doctors/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${DOCTOR_API_BASE}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, mobile, password }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Signup failed');
+      if (!res.ok) throw new Error(data?.message || "Signup failed");
 
-      return { success: true };
+      // Optional: auto-login after signup
+      if (data.token && data.doctor) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.doctor));
+        setUser(data.doctor);
+      }
+
+      return { success: true, data };
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Signup failed" };
     }
   };
 
-  // 🔑 Logout function
   const logout = () => {
     setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  };
+
+  const updateUser = (updatedUserData) => {
+    console.log('🔄 AuthContext - Updating user data:', updatedUserData);
+    setUser(updatedUserData);
+    localStorage.setItem("user", JSON.stringify(updatedUserData));
+    console.log('✅ AuthContext - User data updated successfully');
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

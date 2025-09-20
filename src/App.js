@@ -20,8 +20,32 @@ import { ThemeProvider } from './context/ThemeContext';
 
 // ✅ Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  const { user, isLoading } = useAuth();
+  console.log("🔒 ProtectedRoute: Checking authentication, user:", user, "isLoading:", isLoading);
+  
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    console.log("⏳ ProtectedRoute: Loading authentication state...");
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mb-6">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Loading...</h3>
+          <p className="text-gray-600 dark:text-gray-300">Checking authentication status</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (user) {
+    console.log("✅ ProtectedRoute: User authenticated, allowing access");
+    return children;
+  } else {
+    console.log("❌ ProtectedRoute: No user, redirecting to login");
+    return <Navigate to="/login" replace />;
+  }
 };
 
 // ✅ Main AppContent
@@ -38,7 +62,7 @@ const AppContent = () => {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/scan" element={<ProtectedRoute><QRScanner /></ProtectedRoute>} />
         <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-        <Route path="/patient/:id" element={<ProtectedRoute><PatientDetails /></ProtectedRoute>} />
+        <Route path="/patient-details/:id" element={<ProtectedRoute><PatientDetails /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/vault" element={<ProtectedRoute><Vault /></ProtectedRoute>} />

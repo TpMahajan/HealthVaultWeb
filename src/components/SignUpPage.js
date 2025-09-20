@@ -47,12 +47,14 @@ const SignUpPage = () => {
 
     try {
       const result = await signup(formData.name, formData.email, formData.mobile, formData.password);
-      
-      if (result.success) {
-        navigate('/login');
-      } else {
-        setError(result.error || 'Registration failed');
-      }
+if (result.success) {
+  // if you want “create -> go to login”, clear token/user then navigate:
+  localStorage.removeItem('user');
+  localStorage.removeItem('token');
+  navigate('/login');
+} else {
+  setError(result.error || 'Registration failed');
+}
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {
