@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../constants/api';
 import TopNavbar from './TopNavbar';
 import AppointmentForm from './AppointmentForm';
 import Footer from './Footer';
@@ -21,8 +22,8 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Load dashboard data from cached patients
-  const loadDashboardData = (isRefresh = false) => {
+  // Load dashboard data from doctor's active sessions
+  const loadDashboardData = async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -30,72 +31,112 @@ const Dashboard = () => {
         setLoading(true);
       }
       
-      console.log('🔍 Dashboard - Loading cached patient data');
+      console.log('👨‍⚕️ Dashboard - Loading doctor\'s session data');
       
-      // Get cached patients from localStorage
-      const cached = localStorage.getItem('patients');
-      let cachedPatients = [];
-      
-      if (cached) {
-        const allPatients = JSON.parse(cached);
-        // Filter out expired patients
-        cachedPatients = allPatients.filter(patient => patient.expiresAt > Date.now());
-        console.log(`✅ Dashboard - Found ${cachedPatients.length} valid cached patients`);
-      } else {
-        console.log('📭 Dashboard - No cached patients found');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('❌ No authentication token found');
+        throw new Error('Please log in as a doctor');
       }
 
-      // Calculate statistics based on cached patients
-      const recentScans = cachedPatients.length; // Each cached patient represents a recent scan
-      const todayAppointments = Math.floor(Math.random() * 8) + 2; // Simulated today's appointments
-      const criticalPatients = Math.floor(cachedPatients.length * 0.2); // Estimate 20% as critical
+      // Fetch doctor's active sessions
+      const response = await fetch(`${API_BASE}/sessions/mine`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      setDashboardData({
-        totalPatients: cachedPatients.length,
-        recentScans: recentScans,
-        todayAppointments: todayAppointments,
-        criticalPatients: criticalPatients,
-        recentActivity: [
-          {
-            id: 1,
-            type: 'scan',
-            message: 'Patient QR code scanned',
-            patient: cachedPatients[0]?.name || 'John Doe',
-            time: '2 minutes ago'
-          },
-          {
-            id: 2,
-            type: 'record',
-            message: 'Medical record updated',
-            patient: cachedPatients[1]?.name || 'Sarah Johnson',
-            time: '15 minutes ago'
-          },
-          {
-            id: 3,
-            type: 'alert',
-            message: 'Critical condition detected',
-            patient: cachedPatients[2]?.name || 'Mike Wilson',
-            time: '1 hour ago'
-          },
-          {
-            id: 4,
-            type: 'scan',
-            message: 'New patient registered',
-            patient: cachedPatients[3]?.name || 'Emily Davis',
-            time: '2 hours ago'
-          }
-        ]
-      });
+      if (!response.ok) {
+        throw new Error(`Failed to load sessions: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📋 Dashboard - Session data:', data);
+
+      if (data.success) {
+        const activeSessions = data.patients || [];
+        console.log(`✅ Dashboard - Found ${activeSessions.length} active patient sessions`);
+
+        // Calculate statistics based on active sessions
+        const totalPatients = activeSessions.length;
+        const expiringSoon = activeSessions.filter(p => p.isExpiringSoon).length;
+        const recentScans = activeSessions.length; // Each session represents a successful scan/approval
+        
+        // Generate recent activity from sessions
+        const recentActivity = activeSessions.slice(0, 4).map((patient, index) => ({
+          id: index + 1,
+          type: index % 3 === 0 ? 'scan' : index % 3 === 1 ? 'record' : 'session',
+          message: index % 3 === 0 ? 'Patient session approved' : 
+                   index % 3 === 1 ? 'Medical records accessed' : 
+                   'Session established',
+          patient: patient.name,
+          time: index === 0 ? '2 minutes ago' : 
+                index === 1 ? '15 minutes ago' : 
+                index === 2 ? '1 hour ago' : '2 hours ago'
+        }));
+
+        setDashboardData({
+          totalPatients: totalPatients,
+          recentScans: recentScans,
+          todayAppointments: Math.floor(Math.random() * 8) + 0, // Simulated - could be replaced with real data
+          criticalPatients: expiringSoon,
+          recentActivity: recentActivity
+        });
+
+        console.log('✅ Dashboard data updated:', {
+          totalPatients,
+          recentScans,
+          expiringSoon
+        });
+
+      } else {
+        throw new Error(data.message || 'Failed to load session data');
+      }
+
     } catch (error) {
-      console.error('❌ Dashboard - Error loading cached patient data:', error);
-      // Fallback to default values
-      setDashboardData({
-        totalPatients: 0,
-        recentScans: 0,
-        todayAppointments: 0,
-        criticalPatients: 0,
-        recentActivity: []
-      });
+      console.error('❌ Dashboard - Error loading session data:', error);
+      
+      // Fallback to cached data if available
+      try {
+        const cached = localStorage.getItem('patients');
+        if (cached) {
+          const cachedPatients = JSON.parse(cached).filter(p => p.expiresAt > Date.now());
+          console.log('📦 Dashboard - Using cached data as fallback:', cachedPatients.length);
+          
+          setDashboardData({
+            totalPatients: cachedPatients.length,
+            recentScans: cachedPatients.length,
+            todayAppointments: Math.floor(Math.random() * 8) + 2,
+            criticalPatients: Math.floor(cachedPatients.length * 0.2),
+            recentActivity: cachedPatients.slice(0, 4).map((patient, index) => ({
+              id: index + 1,
+              type: 'scan',
+              message: 'Cached patient data',
+              patient: patient.name,
+              time: 'Recently cached'
+            }))
+          });
+        } else {
+          // No data available
+          setDashboardData({
+            totalPatients: 0,
+            recentScans: 0,
+            todayAppointments: 0,
+            criticalPatients: 0,
+            recentActivity: []
+          });
+        }
+      } catch (cacheError) {
+        console.error('❌ Cache fallback failed:', cacheError);
+        setDashboardData({
+          totalPatients: 0,
+          recentScans: 0,
+          todayAppointments: 0,
+          criticalPatients: 0,
+          recentActivity: []
+        });
+      }
     } finally {
       if (isRefresh) {
         setRefreshing(false);
@@ -160,9 +201,9 @@ const Dashboard = () => {
                           <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Cached Patients</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Active Patients</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dashboardData.totalPatients}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">7-day cache</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">With active sessions</p>
                         </div>
                       </div>
                     </div>
@@ -173,9 +214,9 @@ const Dashboard = () => {
                           <QrCode className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">QR Scans</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Approved Scans</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dashboardData.recentScans}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Total scanned</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Patient approvals</p>
                         </div>
                       </div>
                     </div>
@@ -198,8 +239,9 @@ const Dashboard = () => {
                           <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
                         </div>
                         <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Critical Patients</p>
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Expiring Sessions</p>
                           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dashboardData.criticalPatients}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Sessions ending soon</p>
                         </div>
                       </div>
                     </div>
@@ -235,7 +277,7 @@ const Dashboard = () => {
                               <Users className="w-5 h-5 text-green-600 dark:text-green-400" />
                             </div>
                             <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                              View All Patients
+                              View My Patients
                             </span>
                           </div>
                           <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-green-600 dark:group-hover:text-green-400 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0" />

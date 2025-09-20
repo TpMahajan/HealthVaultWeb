@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, User, Calendar, FileText, Download, Eye, Loader, AlertCircle, Clock, Mail, Phone, ArrowRight } from 'lucide-react';
+import { API_BASE } from '../constants/api';
 import Footer from './Footer';
 
 const Patients = () => {
@@ -10,66 +11,107 @@ const Patients = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Load cached patients from localStorage
+  // Load doctor's own patients from active sessions
   useEffect(() => {
-    const loadCachedPatients = () => {
+    const loadDoctorPatients = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Patients - Loading cached patients from localStorage');
+        setError(null);
         
-        const cached = localStorage.getItem('patients');
-        if (!cached) {
-          console.log('📭 No cached patients found');
-          setPatients([]);
-          setError(null);
+        console.log('👨‍⚕️ Patients - Loading doctor\'s own patients from sessions');
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('❌ No authentication token found');
+          setError('Please log in as a doctor to view patients');
           setLoading(false);
           return;
         }
-        
-        const allPatients = JSON.parse(cached);
-        console.log('📋 All cached patients:', allPatients);
-        
-        // Filter out expired patients
-        const validPatients = allPatients.filter(patient => {
-          const isValid = patient.expiresAt > Date.now();
-          if (!isValid) {
-            console.log(`⏰ Patient ${patient.name} expired at ${new Date(patient.expiresAt).toLocaleString()}`);
+
+        const response = await fetch(`${API_BASE}/sessions/mine`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-          return isValid;
         });
-        
-        console.log(`✅ Found ${validPatients.length} valid patients (${allPatients.length - validPatients.length} expired)`);
-        
-        // Update localStorage with only valid patients
-        if (validPatients.length !== allPatients.length) {
-          localStorage.setItem('patients', JSON.stringify(validPatients));
-          console.log(`🧹 Cleaned up ${allPatients.length - validPatients.length} expired patients`);
+
+        console.log('📡 Doctor sessions response:', {
+          status: response.status,
+          ok: response.ok
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            setError('Access denied. Please log in as a doctor.');
+          } else if (response.status === 401) {
+            setError('Authentication failed. Please log in again.');
+          } else {
+            setError(`Failed to load patients: ${response.status}`);
+          }
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('📋 Doctor sessions data:', data);
+
+        if (data.success) {
+          const doctorPatients = data.patients || [];
+          console.log(`✅ Loaded ${doctorPatients.length} patients for doctor`);
+          
+          setPatients(doctorPatients);
+          setError(null);
+          
+          // Also update localStorage cache for backup (with session expiry)
+          if (doctorPatients.length > 0) {
+            localStorage.setItem('patients', JSON.stringify(doctorPatients));
+            console.log('💾 Updated localStorage cache with doctor\'s patients');
+          }
+        } else {
+          setError(data.message || 'Failed to load patients');
+          setPatients([]);
         }
         
-        setPatients(validPatients);
-        setError(null);
       } catch (error) {
-        console.error('❌ Error loading cached patients:', error);
-        setError('Failed to load cached patients');
-        setPatients([]);
+        console.error('❌ Error loading doctor patients:', error);
+        setError('Failed to load patients. Please try again.');
+        
+        // Fallback to cached data if available
+        try {
+          const cached = localStorage.getItem('patients');
+          if (cached) {
+            const cachedPatients = JSON.parse(cached);
+            // Filter out expired sessions
+            const validCached = cachedPatients.filter(p => p.expiresAt > Date.now());
+            setPatients(validCached);
+            console.log('📦 Using cached patients as fallback:', validCached.length);
+          }
+        } catch (cacheError) {
+          console.error('❌ Cache fallback failed:', cacheError);
+          setPatients([]);
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    loadCachedPatients();
+    loadDoctorPatients();
   }, []);
 
-  // Helper function to format expiry date
-  const formatExpiryDate = (expiresAt) => {
+  // Helper function to format session expiry
+  const formatSessionExpiry = (expiresAt) => {
     const date = new Date(expiresAt);
     const now = new Date();
     const diffMs = expiresAt - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const diffMinutes = Math.ceil(diffMs / (1000 * 60));
     
-    if (diffDays <= 0) return 'Expired';
-    if (diffDays === 1) return 'Expires tomorrow';
-    if (diffDays <= 7) return `Expires in ${diffDays} days`;
+    if (diffMinutes <= 0) return 'Session Expired';
+    if (diffMinutes <= 5) return `${diffMinutes}min left`;
+    if (diffMinutes <= 60) return `${diffMinutes}min left`;
+    
+    const diffHours = Math.ceil(diffMinutes / 60);
+    if (diffHours <= 24) return `${diffHours}h left`;
+    
     return `Expires ${date.toLocaleDateString()}`;
   };
 
@@ -100,8 +142,8 @@ const Patients = () => {
             <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mb-6">
               <Loader className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Loading Patients</h3>
-            <p className="text-gray-600 dark:text-gray-300">Please wait while we load cached patient data...</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Loading Your Patients</h3>
+            <p className="text-gray-600 dark:text-gray-300">Please wait while we load your active patient sessions...</p>
           </div>
         </div>
         <Footer />
@@ -138,9 +180,9 @@ const Patients = () => {
       <div className="flex-grow p-4 sm:p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Patients</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Patients</h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
-            View cached patients from QR code scans (7-day expiry)
+            View patients with active sessions (20-minute session expiry)
           </p>
         </div>
 
@@ -206,11 +248,11 @@ const Patients = () => {
               <User className="h-8 w-8 text-gray-400 dark:text-gray-500" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              {patients.length === 0 ? 'No Cached Patients' : 'No Matching Patients'}
+              {patients.length === 0 ? 'No Active Patient Sessions' : 'No Matching Patients'}
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-4">
               {patients.length === 0 
-                ? 'Scan patient QR codes to cache their data for 7 days'
+                ? 'Scan patient QR codes and get their approval to access their data'
                 : 'Try adjusting your search terms'
               }
             </p>
@@ -256,11 +298,13 @@ const Patients = () => {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Cache Status</span>
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      patient.expiresAt > Date.now() + (24 * 60 * 60 * 1000) // More than 1 day left
+                      patient.isExpiringSoon
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        : patient.expiresAt > Date.now() + (10 * 60 * 1000) // More than 10 minutes left
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                     }`}>
-                      {formatExpiryDate(patient.expiresAt)}
+                      {formatSessionExpiry(patient.expiresAt)}
                     </span>
                   </div>
                   <button

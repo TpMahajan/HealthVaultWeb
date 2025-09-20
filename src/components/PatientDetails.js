@@ -38,6 +38,8 @@ const PatientDetails = () => {
   const [documents, setDocuments] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [isCachedData, setIsCachedData] = useState(false);
+  const [medicalRecords, setMedicalRecords] = useState([]);
+  const [recordsLoading, setRecordsLoading] = useState(false);
 
   // Fetch patient data from API
   useEffect(() => {
@@ -50,6 +52,89 @@ const PatientDetails = () => {
         const patientToken = searchParams.get('token');
         console.log('🔍 PatientDetails - Fetching patient data for ID:', id);
         console.log('🔍 PatientDetails - Using token:', patientToken ? 'Present' : 'Not found');
+        
+        // Check if we're using session-based access (doctor accessing patient data)
+        const doctorToken = localStorage.getItem('token');
+        const isSessionBasedAccess = !patientToken && doctorToken;
+        
+        if (isSessionBasedAccess) {
+          console.log('🔐 PatientDetails - Using session-based access with doctor token');
+          console.log('🔍 PatientDetails - Patient ID from URL:', id);
+          console.log('🔍 PatientDetails - Doctor token present:', !!doctorToken);
+          
+          // Use doctor's token to access patient data through session
+          const apiUrl = `${API_BASE}/users/${id}`;
+          console.log('📡 PatientDetails - Calling API:', apiUrl);
+          
+          const response = await fetch(apiUrl, {
+            headers: {
+              'Authorization': `Bearer ${doctorToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          console.log('📡 PatientDetails - Session-based response:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            url: response.url
+          });
+          
+          const data = await response.json();
+          console.log('📋 PatientDetails - Session-based patient data:', data);
+
+          if (response.status === 403 && data.code === 'NO_ACTIVE_SESSION') {
+            setError('No active session with this patient. Please scan QR code and get patient approval first.');
+            setLoading(false);
+            return;
+          }
+
+          if (!response.ok) {
+            setError(data.message || `Failed to fetch patient data: ${response.status}`);
+            setLoading(false);
+            return;
+          }
+
+          if (data.success && data.data) {
+            // Handle different response structures
+            const user = data.sessionAccess ? data.data : data.data.user;
+            
+            const patientData = {
+              id: user._id || user.id,
+              name: user.name || 'Unknown',
+              age: user.age || null,
+              gender: user.gender || null,
+              dateOfBirth: user.dateOfBirth || null,
+              bloodType: user.bloodType || null,
+              height: user.height || null,
+              weight: user.weight || null,
+              email: user.email || null,
+              mobile: user.mobile || null,
+              lastVisit: user.lastVisit || null,
+              nextAppointment: user.nextAppointment || null,
+              emergencyContact: user.emergencyContact || {
+                name: null,
+                relationship: null,
+                phone: null
+              },
+              medicalHistory: user.medicalHistory || [],
+              medications: user.medications || [],
+              medicalRecords: user.medicalRecords || [],
+              profilePicture: user.profilePicture || null
+            };
+            
+            console.log('✅ PatientDetails - Session-based patient data loaded:', patientData);
+            console.log('🔐 Session access:', data.sessionAccess);
+            setPatient(patientData);
+            setIsCachedData(false);
+            setLoading(false);
+            return;
+          } else {
+            setError(data.message || "Failed to fetch patient data");
+            setLoading(false);
+            return;
+          }
+        }
         
         if (!patientToken) {
           // Try to get patient data from cached patients
@@ -94,7 +179,7 @@ const PatientDetails = () => {
           }
         }
 
-        // Fetch patient data using the /auth/me endpoint
+        // Fetch patient data using the /auth/me endpoint (original flow)
         const response = await fetch(`${API_BASE}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${patientToken}`,
@@ -170,6 +255,60 @@ const PatientDetails = () => {
     fetchPatientData();
   }, [id, searchParams]);
 
+  // Fetch medical records from the new endpoint
+  const fetchMedicalRecords = async (patientId) => {
+    if (isCachedData) {
+      // For cached data, we don't have access to the backend
+      setMedicalRecords([]);
+      return;
+    }
+
+    try {
+      setRecordsLoading(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token available for fetching medical records');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/users/${patientId}/records`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Flatten all records from different categories into a single array
+          const allRecords = [
+            ...data.records.reports,
+            ...data.records.prescriptions,
+            ...data.records.bills,
+            ...data.records.insurance
+          ];
+          setMedicalRecords(allRecords);
+          console.log('✅ Medical records loaded:', allRecords.length, 'records');
+        }
+      } else {
+        console.error('Failed to fetch medical records:', response.status);
+      }
+    } catch (err) {
+      console.error('Error fetching medical records:', err);
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
+
+  // Fetch medical records when patient data is loaded
+  useEffect(() => {
+    if (patient && patient.id) {
+      fetchMedicalRecords(patient.id);
+    }
+  }, [patient, isCachedData]);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'reviewed':
@@ -219,6 +358,171 @@ const PatientDetails = () => {
     setShowRecordsModal(false);
   };
 
+  // Handle preview for medical records
+  const handlePreview = async (doc) => {
+    try {
+      if (doc.mimeType && doc.mimeType.includes('pdf')) {
+        // For PDFs, use the proxy endpoint with authentication
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('No authentication token available');
+          alert('Please log in to preview files');
+          return;
+        }
+
+        // Create a temporary URL with authentication for PDF preview
+        const response = await fetch(`${API_BASE}/files/${doc._id}/proxy`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          // Clean up the blob URL after a delay
+          setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        } else {
+          let errorMessage = 'Preview failed';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorData.msg || `HTTP ${response.status}: ${response.statusText}`;
+          } catch (parseError) {
+            errorMessage = `HTTP ${response.status}: ${response.statusText || 'Unknown error'}`;
+          }
+          console.error('PDF preview failed:', errorMessage);
+          alert(`Preview failed: ${errorMessage}`);
+        }
+      } else if (doc.mimeType && (doc.mimeType.includes('image') || doc.mimeType.includes('jpg') || doc.mimeType.includes('png') || doc.mimeType.includes('jpeg'))) {
+        // For images, use the direct cloudinary URL (these are usually public)
+        const imageUrl = doc.url || doc.cloudinaryUrl;
+        if (imageUrl) {
+          window.open(imageUrl, '_blank');
+        } else {
+          console.error('No image URL available for preview');
+          alert('No image URL available for preview');
+        }
+      } else {
+        // Fallback for other file types - use direct URL if available
+        const fallbackUrl = doc.url || doc.cloudinaryUrl;
+        if (fallbackUrl) {
+          window.open(fallbackUrl, '_blank');
+        } else {
+          console.error('No URL available for preview');
+          alert('No URL available for preview');
+        }
+      }
+    } catch (error) {
+      console.error('Preview failed:', error);
+      alert('Preview failed. Please try again.');
+    }
+  };
+
+  // Handle download for medical records
+  const handleDownload = async (doc) => {
+    try {
+      console.log('🔽 Starting download for document:', doc);
+      
+      // Validate document object
+      if (!doc || !doc._id) {
+        console.error('Invalid document object:', doc);
+        alert('Invalid document. Please refresh the page and try again.');
+        return;
+      }
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token available');
+        alert('Please log in to download files');
+        return;
+      }
+
+      // Since the backend redirects, let's create a form-based download approach
+      // that can handle authentication headers properly
+      const downloadUrl = `${API_BASE}/files/${doc._id}/download`;
+      console.log('🔽 Download URL:', downloadUrl);
+
+      // Create a temporary iframe to handle the download
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+
+      // Navigate to the download URL with authentication
+      iframe.src = downloadUrl + '?token=' + encodeURIComponent(token);
+      
+      // Clean up the iframe after a delay
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 5000);
+
+      console.log('🔽 Download initiated via iframe');
+
+    } catch (error) {
+      console.error('Download failed with error:', error);
+      const errorMessage = error.message || error.toString() || 'Unknown error occurred';
+      alert(`Download failed: ${errorMessage}`);
+    }
+  };
+
+  // Handle download all medical records
+  const handleDownloadAll = async (docs) => {
+    setDownloadLoading('bulk');
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token available');
+        alert('Please log in to download files');
+        setDownloadLoading(null);
+        return;
+      }
+
+      console.log(`🔽 Starting bulk download for ${docs.length} files`);
+
+      // Create downloads with delays to avoid overwhelming the browser
+      for (let i = 0; i < docs.length; i++) {
+        const doc = docs[i];
+        
+        setTimeout(() => {
+          if (doc && doc._id) {
+            const downloadUrl = `${API_BASE}/files/${doc._id}/download?token=${encodeURIComponent(token)}`;
+            
+            // Create a temporary iframe for each download
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            iframe.src = downloadUrl;
+            
+            // Clean up iframe after download
+            setTimeout(() => {
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+            }, 10000); // 10 seconds should be enough for most downloads
+            
+            console.log(`🔽 Download ${i + 1}/${docs.length}: ${doc.title}`);
+          }
+        }, i * 1000); // 1 second delay between each download
+      }
+      
+      // Clear loading state after all downloads are initiated
+      setTimeout(() => {
+        setDownloadLoading(null);
+        console.log(`🔽 All ${docs.length} downloads initiated`);
+      }, docs.length * 1000 + 2000);
+      
+    } catch (error) {
+      console.error('Bulk download failed:', error);
+      alert('Bulk download failed. Please try again.');
+      setDownloadLoading(null);
+    }
+  };
+
+  // Legacy function for backward compatibility (keeping for any other usage)
   const handleDownloadRecord = async (record) => {
     setDownloadLoading(record.id);
     
@@ -245,28 +549,8 @@ const PatientDetails = () => {
   };
 
   const handleBulkDownload = async () => {
-    setDownloadLoading('bulk');
-    
-    try {
-      // Simulate bulk download process
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Create a zip-like download simulation
-      const blob = new Blob(['Mock zip file content'], { type: 'application/zip' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${patient.name}_Medical_Records.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-    } catch (error) {
-      console.error('Bulk download failed:', error);
-    } finally {
-      setDownloadLoading(null);
-    }
+    // Use the new handleDownloadAll function with the medical records
+    await handleDownloadAll(medicalRecords);
   };
 
   // New handler functions for document upload and appointment scheduling
@@ -280,6 +564,10 @@ const PatientDetails = () => {
 
   const handleDocumentUploadSuccess = (newDocument) => {
     setDocuments(prev => [newDocument, ...prev]);
+    // Refresh medical records after successful upload
+    if (patient && patient.id) {
+      fetchMedicalRecords(patient.id);
+    }
     console.log('Document uploaded successfully:', newDocument);
   };
 
@@ -494,7 +782,7 @@ const PatientDetails = () => {
               <nav className="flex space-x-8 px-6">
                 {[
                   { id: 'overview', name: 'Overview', count: null },
-                  { id: 'records', name: 'Medical Records', count: patient.medicalRecords.length },
+                  { id: 'records', name: 'Medical Records', count: medicalRecords.length },
                   { id: 'medications', name: 'Medications', count: patient.medications.length },
                   { id: 'history', name: 'Medical History', count: patient.medicalHistory.length }
                 ].map((tab) => (
@@ -577,7 +865,7 @@ const PatientDetails = () => {
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Medical Records</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {patient.medicalRecords.length} records available
+                        {recordsLoading ? 'Loading...' : `${medicalRecords.length} records available`}
                       </p>
                     </div>
                     <div className="flex space-x-3">
@@ -604,54 +892,61 @@ const PatientDetails = () => {
                   </div>
 
                   {/* Records List */}
-                  <div className="space-y-3">
-                    {patient.medicalRecords.map((record) => (
-                      <div
-                        key={record.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
-                      >
-                        <div className="flex items-center space-x-4">
-                          {getFileIcon(record.fileType)}
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-gray-100">{record.title}</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
-                              {record.type} • {new Date(record.date).toLocaleDateString()} • {record.size}
-                            </p>
+                  {recordsLoading ? (
+                    <div className="text-center py-12">
+                      <Loader className="h-16 w-16 text-blue-600 dark:text-blue-400 mx-auto mb-4 animate-spin" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        Loading medical records...
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        Please wait while we fetch the patient's medical records.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {medicalRecords.map((record) => (
+                        <div
+                          key={record._id}
+                          className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
+                        >
+                          <div className="flex items-center space-x-4">
+                            {getFileIcon(record.mimeType?.includes('pdf') ? 'pdf' : 'image')}
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-gray-100">{record.title}</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
+                                {record.category} • {new Date(record.uploadedAt || record.createdAt).toLocaleDateString()} • {Math.round(record.size / 1024)}KB
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(record.status || 'pending')}`}>
+                              <span className="flex items-center space-x-1">
+                                {getStatusIcon(record.status || 'pending')}
+                                <span>{record.status || 'pending'}</span>
+                              </span>
+                            </span>
+                            <button 
+                              onClick={() => handlePreview(record)}
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
+                              title="Preview"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDownload(record)}
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(record.status)}`}>
-                            <span className="flex items-center space-x-1">
-                              {getStatusIcon(record.status)}
-                              <span>{record.status}</span>
-                            </span>
-                          </span>
-                          <button 
-                            onClick={() => handleViewAllRecords()}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
-                            title="Preview"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDownloadRecord(record)}
-                            disabled={downloadLoading === record.id}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors duration-200"
-                            title="Download"
-                          >
-                            {downloadLoading === record.id ? (
-                              <Loader className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Empty State */}
-                  {patient.medicalRecords.length === 0 && (
+                  {!recordsLoading && medicalRecords.length === 0 && (
                     <div className="text-center py-12">
                       <FileText className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -723,7 +1018,7 @@ const PatientDetails = () => {
           isOpen={showRecordsModal}
           onClose={handleCloseRecordsModal}
           patient={patient}
-          records={patient.medicalRecords || []}
+          records={medicalRecords || []}
         />
       )}
 
@@ -751,3 +1046,4 @@ const PatientDetails = () => {
 };
 
 export default PatientDetails;
+

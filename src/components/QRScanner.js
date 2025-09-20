@@ -15,6 +15,9 @@ const QRScanner = () => {
   const [manualQRCode, setManualQRCode] = useState('');
   const [stream, setStream] = useState(null);
   const [showPatientProfile, setShowPatientProfile] = useState(false);
+  const [sessionRequest, setSessionRequest] = useState(null);
+  const [sessionStatus, setSessionStatus] = useState(null);
+  const [pollingInterval, setPollingInterval] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -66,6 +69,210 @@ const QRScanner = () => {
       return [];
     }
   };
+
+  // Session management functions
+  const requestPatientAccess = async (patientId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
+
+      console.log('🔄 Requesting patient access:', {
+        patientId: patientId,
+        apiUrl: `${API_BASE}/sessions/request`,
+        hasToken: !!token
+      });
+
+      const response = await fetch(`${API_BASE}/sessions/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          patientId: patientId,
+          requestMessage: 'Doctor requesting access to view your medical records'
+        })
+      });
+
+      console.log('📡 Session request response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      const data = await response.json();
+      console.log('📋 Session request data:', data);
+      
+      if (!response.ok) {
+        console.error('❌ Session request failed:', data);
+        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      if (data.success) {
+        console.log('✅ Session request successful:', data.session);
+        setSessionRequest(data.session);
+        startPollingSession(data.session._id);
+        return data.session;
+      } else {
+        throw new Error(data.message || 'Failed to request access');
+      }
+    } catch (error) {
+      console.error('💥 Session request error:', error);
+      throw error;
+    }
+  };
+
+  const startPollingSession = (sessionId, patientId) => {
+    console.log('🔄 Starting session polling:', { sessionId, patientId });
+    
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+
+    let pollCount = 0;
+    const maxPolls = 30; // 30 polls * 2 seconds = 60 seconds timeout
+
+    const interval = setInterval(async () => {
+      pollCount++;
+      console.log(`🔄 Polling session status (attempt ${pollCount}/${maxPolls}):`, sessionId);
+      
+      try {
+        const sessionData = await pollSessionStatus(sessionId);
+        
+        if (sessionData) {
+          console.log('📋 Session status update:', {
+            sessionId: sessionId,
+            status: sessionData.status,
+            expiresAt: sessionData.expiresAt,
+            patientId: patientId
+          });
+
+          if (sessionData.status === 'accepted') {
+            console.log('✅ Session accepted! Redirecting to patient details...');
+            clearInterval(interval);
+            setPollingInterval(null);
+            
+            // Add debugging for navigation
+            const navigationPath = `/patient-details/${patientId}`;
+            console.log('🔄 Navigating to:', navigationPath);
+            console.log('🔍 Patient ID for navigation:', patientId);
+            console.log('🔍 Current location:', window.location.href);
+            
+            // Navigate to patient details
+            navigate(navigationPath);
+            
+            // Additional debug after navigation attempt
+            setTimeout(() => {
+              console.log('🔍 Navigation completed, new location:', window.location.href);
+            }, 100);
+            
+            return;
+            
+          } else if (sessionData.status === 'declined') {
+            console.log('❌ Session declined by patient');
+            clearInterval(interval);
+            setPollingInterval(null);
+            setSessionStatus('declined');
+            setError('Access request declined by patient.');
+            return;
+            
+          } else if (sessionData.status === 'expired') {
+            console.log('⏰ Session expired');
+            clearInterval(interval);
+            setPollingInterval(null);
+            setSessionStatus('expired');
+            setError('Session request expired. Please try again.');
+            return;
+          }
+          
+          // Still pending, continue polling
+          setSessionStatus('pending');
+        }
+        
+        // Check timeout
+        if (pollCount >= maxPolls) {
+          console.log('⏰ Polling timeout reached');
+          clearInterval(interval);
+          setPollingInterval(null);
+          setSessionStatus('timeout');
+          setError('Patient did not respond to the request. Please try again.');
+        }
+        
+      } catch (error) {
+        console.error('❌ Polling error:', error);
+        pollCount++; // Count errors toward timeout
+        
+        if (pollCount >= maxPolls) {
+          clearInterval(interval);
+          setPollingInterval(null);
+          setError('Failed to check session status. Please try again.');
+        }
+      }
+    }, 2000); // Poll every 2 seconds
+
+    setPollingInterval(interval);
+  };
+
+  const pollSessionStatus = async (sessionId) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      console.log('🔍 Polling session status for ID:', sessionId);
+      
+      const response = await fetch(`${API_BASE}/sessions/${sessionId}/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Session status response:', {
+        status: response.status,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        console.error('❌ Failed to fetch session status:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('📋 Session status data:', data);
+      
+      if (data.success && data.session) {
+        const session = data.session;
+        
+        console.log('🔍 Session details:', {
+          sessionId: session._id,
+          status: session.status,
+          expiresAt: session.expiresAt,
+          timeRemaining: session.timeRemaining,
+          isExpired: session.isExpired,
+          patientName: session.patient?.name
+        });
+
+        return session;
+      } else {
+        console.error('❌ Invalid session status response:', data);
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Session polling error:', error);
+      return null;
+    }
+  };
+
+  // Cleanup polling on component unmount
+  React.useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [pollingInterval]);
 
   const startScan = async () => {
     try {
@@ -147,6 +354,8 @@ const QRScanner = () => {
     setScanResult(qrCode);
     setLoading(true);
     setError(null);
+    setSessionRequest(null);
+    setSessionStatus(null);
 
     try {
       // Extract token from QR code
@@ -172,74 +381,166 @@ const QRScanner = () => {
         return;
       }
 
-      console.log('🔍 QR Scanner - Fetching patient data with token:', patientToken);
-      console.log('🔍 QR Scanner - Token length:', patientToken.length);
+      console.log('🔍 QR Scanner - Extracting patient ID from token:', patientToken);
 
-      // Fetch patient data using the /auth/me endpoint with the patient's token
-      const response = await fetch(`${API_BASE}/auth/me`, {
+      // First, get patient ID from the token by calling /auth/me with patient's token
+      const patientResponse = await fetch(`${API_BASE}/auth/me`, {
         headers: {
           'Authorization': `Bearer ${patientToken}`,
           'Content-Type': 'application/json'
         }
       });
 
-      console.log('📡 QR Scanner - Response status:', response.status);
+      console.log('📡 QR Scanner - Patient lookup response status:', patientResponse.status);
       
-      const data = await response.json();
-      console.log('📋 QR Scanner - Patient data response:', data);
+      const patientData = await patientResponse.json();
 
-      if (response.status === 401) {
-        if (data.message === "User not found") {
+      if (patientResponse.status === 401) {
+        if (patientData.message === "User not found") {
           setError("Invalid patient token - user not found in database");
-        } else if (data.message === "Invalid token.") {
+        } else if (patientData.message === "Invalid token.") {
           setError("Invalid patient token format");
-        } else if (data.message === "Token expired.") {
+        } else if (patientData.message === "Token expired.") {
           setError("Patient token has expired");
         } else {
-          setError(`Authentication failed: ${data.message}`);
+          setError(`Authentication failed: ${patientData.message}`);
         }
         return;
       }
 
-      if (response.status === 403) {
+      if (patientResponse.status === 403) {
         setError("Patient account is deactivated");
         return;
       }
 
-      if (data.success && data.data && data.data.user) {
-        const user = data.data.user;
-        
-        // Cache the patient data
-        savePatientToCache({
-          id: user._id || user.id,
-          name: user.name,
-          email: user.email,
-          mobile: user.mobile
-        });
-
-        console.log('✅ QR Scanner - Patient found, redirecting to PatientDetails');
-        
-        // Redirect to PatientDetails page with patient token
-        navigate(`/patient-details/${user._id || user.id}?token=${encodeURIComponent(patientToken)}`);
-      } else {
-        setError(data.message || "Failed to fetch patient data");
+      if (!patientData.success || !patientData.data || !patientData.data.user) {
+        setError(patientData.message || "Failed to identify patient");
+        return;
       }
+
+      const user = patientData.data.user;
+      const patientId = user._id || user.id;
+
+      console.log('✅ QR Scanner - Patient identified:', {
+        name: user.name,
+        email: user.email,
+        patientId: patientId,
+        fullUser: user
+      });
+      
+      // Validate patient ID
+      if (!patientId) {
+        setError('Invalid patient data: no patient ID found');
+        setLoading(false);
+        return;
+      }
+
+      // Check if patient ID is a valid MongoDB ObjectId format
+      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!objectIdRegex.test(patientId)) {
+        console.error('❌ Invalid patient ID format:', patientId);
+        setError(`Invalid patient ID format: ${patientId}`);
+        setLoading(false);
+        return;
+      }
+      
+      // Cache the patient data for future reference
+      const patientInfo = {
+        id: patientId,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile
+      };
+      
+      savePatientToCache(patientInfo);
+      
+      // Also store as last scanned patient for continue button
+      localStorage.setItem('lastScannedPatient', JSON.stringify(patientInfo));
+
+      // Request session access for this patient
+      console.log('📋 QR Scanner - Requesting session access for patient:', patientId);
+      
+      try {
+        const sessionData = await requestPatientAccess(patientId);
+        console.log('✅ Session request created:', sessionData);
+        
+        // Start polling for session status
+        if (sessionData && sessionData._id) {
+          startPollingSession(sessionData._id, patientId);
+        }
+        
+        setLoading(false);
+        
+      } catch (sessionError) {
+        console.error('❌ Session request failed:', sessionError);
+        
+        // Check if the error is about existing session
+        if (sessionError.message && sessionError.message.includes('already have a')) {
+          
+          if (sessionError.message.includes('accepted')) {
+            console.log('✅ Existing accepted session found, navigating to patient details');
+            
+            const navigationPath = `/patient-details/${patientId}`;
+            console.log('🔄 Navigating to existing session patient:', navigationPath);
+            console.log('🔍 Patient ID for existing session:', patientId);
+            
+            setLoading(false);
+            navigate(navigationPath);
+            
+            // Debug navigation
+            setTimeout(() => {
+              console.log('🔍 Existing session navigation completed, new location:', window.location.href);
+            }, 100);
+            
+          } else if (sessionError.message.includes('pending')) {
+            console.log('⏳ Existing pending session found, need to poll for status');
+            setLoading(false);
+            setError('You already have a pending request with this patient. The system will check for updates...');
+            
+            // Try to find the existing session ID and poll it
+            // For now, show waiting state
+            setSessionStatus('pending');
+            
+          } else {
+            setLoading(false);
+            setError('You already have a session with this patient. Please wait or try again later.');
+          }
+        } else {
+          setError(`Failed to request patient access: ${sessionError.message}`);
+          setLoading(false);
+        }
+      }
+
     } catch (err) {
       console.error('💥 QR scan error:', err);
-      setError("Failed to fetch patient data. Please try again.");
-    } finally {
+      setError("Failed to process QR code. Please try again.");
       setLoading(false);
     }
   };
 
   const resetScanner = () => {
+    console.log('🔄 Resetting scanner and cleaning up polling');
+    
     stopScan();
+    
+    // Clean up polling interval
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+      console.log('✅ Polling interval cleared');
+    }
+    
+    // Reset all state
     setScanResult(null);
     setPatientData(null);
     setError(null);
     setLoading(false);
     setManualQRCode('');
     setShowPatientProfile(false);
+    setSessionRequest(null);
+    setSessionStatus(null);
+    
+    console.log('✅ Scanner state reset');
   };
 
   return (
@@ -301,10 +602,40 @@ const QRScanner = () => {
               </div>
             )}
 
-            {loading && (
+            {loading && !sessionRequest && (
               <div className="text-center">
                 <Loader className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-                <p>Loading patient data...</p>
+                <p>Processing QR code...</p>
+              </div>
+            )}
+
+            {(sessionRequest || sessionStatus === 'pending') && sessionStatus !== 'accepted' && sessionStatus !== 'declined' && (
+              <div className="text-center">
+                <div className="mx-auto h-16 w-16 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl flex items-center justify-center mb-6">
+                  <Mail className="h-8 w-8 text-yellow-600 animate-pulse" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Waiting for Patient Approval
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Access request sent to patient
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  The patient will receive a notification on their mobile app to approve or decline your request.
+                  This will timeout in 60 seconds if no response is received.
+                </p>
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <Loader className="h-4 w-4 text-blue-600 animate-spin" />
+                    <span className="text-sm text-blue-700">Checking for response every 2 seconds...</span>
+                  </div>
+                </div>
+                <button
+                  onClick={resetScanner}
+                  className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Cancel Request
+                </button>
               </div>
             )}
 
@@ -312,12 +643,29 @@ const QRScanner = () => {
               <div className="text-center">
                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
                 <p className="text-red-600 mb-4">{error}</p>
-                <button
-                  onClick={resetScanner}
-                  className="w-full bg-red-600 text-white py-2 rounded"
-                >
-                  Try Again
-                </button>
+                <div className="space-y-2">
+                  {error.includes('already have a') && error.includes('accepted') ? (
+                    <button
+                      onClick={() => {
+                        const user = JSON.parse(localStorage.getItem('lastScannedPatient') || '{}');
+                        if (user.id) {
+                          navigate(`/patient-details/${user.id}`);
+                        } else {
+                          resetScanner();
+                        }
+                      }}
+                      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors mb-2"
+                    >
+                      Continue to Patient Details
+                    </button>
+                  ) : null}
+                  <button
+                    onClick={resetScanner}
+                    className="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
               </div>
             )}
 
@@ -396,6 +744,180 @@ const QRScanner = () => {
                   className="w-full bg-green-600 text-white py-2 px-4 rounded-md font-medium hover:bg-green-700 transition-colors mb-3"
                 >
                   Generate Test Patient Token
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      if (!token) {
+                        alert('Please log in as a doctor first');
+                        return;
+                      }
+                      
+                      const response = await fetch(`${API_BASE}/sessions/debug`, {
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      const data = await response.json();
+                      console.log('🔍 Debug info:', data);
+                      alert(`Debug info logged to console. Role: ${data.debug?.authRole}`);
+                    } catch (error) {
+                      console.error('Debug error:', error);
+                      alert('Debug failed - check console');
+                    }
+                  }}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors mb-3"
+                >
+                  Debug Doctor Auth
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      if (!token) {
+                        alert('Please log in as a doctor first');
+                        return;
+                      }
+                      
+                      console.log('🧪 Starting session creation test...');
+                      
+                      const response = await fetch(`${API_BASE}/sessions/test-create`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                          patientId: '507f1f77bcf86cd799439011'
+                        })
+                      });
+                      
+                      console.log('📡 Test response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok
+                      });
+                      
+                      const data = await response.json();
+                      console.log('📋 Test session result:', data);
+                      
+                      if (data.success) {
+                        alert(`✅ Test session created successfully!\nSession ID: ${data.sessionId}\nTest Patient: ${data.testPatient?.name}`);
+                      } else {
+                        console.error('❌ Test failed:', data);
+                        alert(`❌ Test failed: ${data.message}\nError: ${data.error || 'Unknown error'}\nCheck console for details.`);
+                      }
+                    } catch (error) {
+                      console.error('💥 Test session error:', error);
+                      alert(`💥 Test session failed: ${error.message}\nCheck console for full error details.`);
+                    }
+                  }}
+                  className="w-full bg-purple-600 text-white py-2 px-4 rounded-md font-medium hover:bg-purple-700 transition-colors mb-3"
+                >
+                  Test Session Creation
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🔍 Testing session routes health...');
+                      
+                      const healthResponse = await fetch(`${API_BASE}/sessions/health`);
+                      const healthData = await healthResponse.json();
+                      console.log('🏥 Health check:', healthData);
+                      
+                      const dbResponse = await fetch(`${API_BASE}/sessions/db-test`);
+                      const dbData = await dbResponse.json();
+                      console.log('🗄️ DB test:', dbData);
+                      
+                      if (healthData.success && dbData.success) {
+                        alert('✅ All systems working!\nSession routes: OK\nDatabase: OK\nSession model: OK');
+                      } else {
+                        alert('⚠️ Some issues detected. Check console for details.');
+                      }
+                    } catch (error) {
+                      console.error('💥 Health check error:', error);
+                      alert(`💥 Health check failed: ${error.message}`);
+                    }
+                  }}
+                  className="w-full bg-orange-600 text-white py-2 px-4 rounded-md font-medium hover:bg-orange-700 transition-colors mb-3"
+                >
+                  Health Check
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    try {
+                      const lastPatient = JSON.parse(localStorage.getItem('lastScannedPatient') || '{}');
+                      if (!lastPatient.id) {
+                        alert('No patient scanned yet. Scan a QR code first.');
+                        return;
+                      }
+                      
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`${API_BASE}/sessions/debug/${lastPatient.id}`, {
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      
+                      const data = await response.json();
+                      console.log('🔍 Session debug for patient:', data);
+                      
+                      if (data.success) {
+                        const debug = data.debug;
+                        alert(`Session Debug for ${lastPatient.name}:\n\n` +
+                              `Total Sessions: ${debug.allSessions.length}\n` +
+                              `Active Session: ${debug.activeSession ? 'YES' : 'NO'}\n` +
+                              `Status: ${debug.activeSession?.status || 'None'}\n` +
+                              `Expires: ${debug.activeSession?.expiresAt || 'N/A'}\n\n` +
+                              `Check console for full details.`);
+                      } else {
+                        alert(`Debug failed: ${data.error}`);
+                      }
+                    } catch (error) {
+                      console.error('Session debug error:', error);
+                      alert('Session debug failed - check console');
+                    }
+                  }}
+                  className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md font-medium hover:bg-indigo-700 transition-colors mb-3"
+                >
+                  Debug Last Patient Session
+                </button>
+                
+                <button
+                  onClick={() => {
+                    try {
+                      const lastPatient = JSON.parse(localStorage.getItem('lastScannedPatient') || '{}');
+                      if (!lastPatient.id) {
+                        alert('No patient scanned yet. Scan a QR code first.');
+                        return;
+                      }
+                      
+                      const navigationPath = `/patient-details/${lastPatient.id}`;
+                      console.log('🧪 Testing navigation to:', navigationPath);
+                      console.log('🔍 Current location before navigation:', window.location.href);
+                      
+                      navigate(navigationPath);
+                      
+                      setTimeout(() => {
+                        console.log('🔍 Location after test navigation:', window.location.href);
+                        alert(`Navigation test completed!\nTarget: ${navigationPath}\nCurrent: ${window.location.pathname}`);
+                      }, 200);
+                      
+                    } catch (error) {
+                      console.error('Navigation test error:', error);
+                      alert('Navigation test failed - check console');
+                    }
+                  }}
+                  className="w-full bg-teal-600 text-white py-2 px-4 rounded-md font-medium hover:bg-teal-700 transition-colors mb-3"
+                >
+                  Test Navigation to Last Patient
                 </button>
                 <div>• <strong>Manual Testing:</strong></div>
                 <div className="ml-4 space-y-1">
