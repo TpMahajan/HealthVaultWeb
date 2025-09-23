@@ -18,6 +18,7 @@ const QRScanner = () => {
   const [sessionRequest, setSessionRequest] = useState(null);
   const [sessionStatus, setSessionStatus] = useState(null);
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -154,6 +155,14 @@ const QRScanner = () => {
             clearInterval(interval);
             setPollingInterval(null);
             
+            // Prevent multiple navigation attempts
+            if (isNavigating) {
+              console.log('⚠️ Navigation already in progress, skipping...');
+              return;
+            }
+            
+            setIsNavigating(true);
+            
             // Add debugging for navigation
             const navigationPath = `/patient-details/${patientId}`;
             console.log('🔄 Navigating to:', navigationPath);
@@ -166,6 +175,7 @@ const QRScanner = () => {
             // Additional debug after navigation attempt
             setTimeout(() => {
               console.log('🔍 Navigation completed, new location:', window.location.href);
+              setIsNavigating(false);
             }, 100);
             
             return;
@@ -480,6 +490,15 @@ const QRScanner = () => {
           if (sessionError.message.includes('accepted')) {
             console.log('✅ Existing accepted session found, navigating to patient details');
             
+            // Prevent multiple navigation attempts
+            if (isNavigating) {
+              console.log('⚠️ Navigation already in progress, skipping...');
+              setLoading(false);
+              return;
+            }
+            
+            setIsNavigating(true);
+            
             const navigationPath = `/patient-details/${patientId}`;
             console.log('🔄 Navigating to existing session patient:', navigationPath);
             console.log('🔍 Patient ID for existing session:', patientId);
@@ -490,6 +509,7 @@ const QRScanner = () => {
             // Debug navigation
             setTimeout(() => {
               console.log('🔍 Existing session navigation completed, new location:', window.location.href);
+              setIsNavigating(false);
             }, 100);
             
           } else if (sessionError.message.includes('pending')) {
@@ -539,6 +559,7 @@ const QRScanner = () => {
     setShowPatientProfile(false);
     setSessionRequest(null);
     setSessionStatus(null);
+    setIsNavigating(false);
     
     console.log('✅ Scanner state reset');
   };

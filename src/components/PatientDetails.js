@@ -255,7 +255,7 @@ const PatientDetails = () => {
     };
 
     fetchPatientData();
-  }, [id, searchParams]);
+  }, [id, searchParams.get('token')]);
 
   // Fetch medical records from the new endpoint
   const fetchMedicalRecords = async (patientId) => {
