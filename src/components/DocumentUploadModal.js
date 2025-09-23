@@ -10,11 +10,12 @@ import {
   CheckCircle,
   Loader
 } from 'lucide-react';
+import { API_BASE, getAuthHeadersMultipart } from '../constants/api';
 
 const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
   const [formData, setFormData] = useState({
     title: '',
-    type: 'Other',
+    category: 'Report',
     description: ''
   });
   const [selectedFile, setSelectedFile] = useState(null);
@@ -22,6 +23,14 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  const categories = [
+    { value: 'Report', label: 'Report' },
+    { value: 'Prescription', label: 'Prescription' },
+    { value: 'Bill', label: 'Bill' },
+    { value: 'Insurance', label: 'Insurance' }
+  ];
+
+  console.log('🔍 DocumentUploadModal render check:', { isOpen, patient });
   if (!isOpen) return null;
 
   const handleInputChange = (e) => {
@@ -55,14 +64,26 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🚀 DocumentUploadModal - handleSubmit called');
+    console.log('📋 Form data:', formData);
+    console.log('📁 Selected file:', selectedFile);
+    console.log('👤 Patient:', patient);
     
     if (!selectedFile) {
+      console.log('❌ No file selected');
       setError('Please select a file to upload');
       return;
     }
 
     if (!formData.title.trim()) {
+      console.log('❌ No title provided');
       setError('Please enter a document title');
+      return;
+    }
+
+    if (!patient || !patient.id) {
+      console.log('❌ No patient information');
+      setError('Patient information is missing');
       return;
     }
 
@@ -72,23 +93,57 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
     try {
       const token = localStorage.getItem('token');
+      console.log('🔑 Token available:', !!token);
       if (!token) {
         throw new Error('Please login first');
       }
 
       const uploadData = new FormData();
-      uploadData.append('document', selectedFile);
-      uploadData.append('patientId', patient.patientId);
+      uploadData.append('file', selectedFile);
+      uploadData.append('userId', patient.id);
       uploadData.append('title', formData.title);
-      uploadData.append('type', formData.type);
-      uploadData.append('description', formData.description);
+      uploadData.append('category', formData.category);
+      uploadData.append('notes', formData.description);
+      uploadData.append('date', new Date().toISOString());
 
-      const response = await fetch('https://backend-medicalvault.onrender.com/api/files/upload', {
+      console.log('📤 Upload data prepared:', {
+        file: selectedFile.name,
+        userId: patient.id,
+        title: formData.title,
+        category: formData.category,
+        notes: formData.description
+      });
+
+      const apiUrl = `${API_BASE}/files/upload`;
+      console.log('🌐 Calling API:', apiUrl);
+      console.log('🔧 Headers:', getAuthHeadersMultipart());
+      
+      // Test if the base API URL is reachable first
+      try {
+        console.log('🔍 Testing API connectivity...');
+        const healthCheck = await fetch(`${API_BASE.replace('/api', '')}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        console.log('🏥 Health check response:', {
+          status: healthCheck.status,
+          statusText: healthCheck.statusText,
+          ok: healthCheck.ok
+        });
+      } catch (healthError) {
+        console.error('❌ Health check failed:', healthError.message);
+      }
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeadersMultipart(),
         body: uploadData
+      });
+
+      console.log('📡 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       });
 
       // Check if response is JSON
@@ -100,15 +155,18 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
       }
 
       const data = await response.json();
+      console.log('📋 Response data:', data);
 
       if (data.success) {
-        setSuccess('✅ Document uploaded to Cloudinary and saved to MongoDB successfully!');
-        setFormData({ title: '', type: 'Other', description: '' });
+        console.log('✅ Upload successful!');
+        setSuccess('✅ Document uploaded to S3 and saved to MongoDB successfully!');
+        setFormData({ title: '', category: 'Report', description: '' });
         setSelectedFile(null);
         
-        // Call success callback
+        // Call success callback with the uploaded document
         if (onUploadSuccess) {
-          onUploadSuccess(data.document);
+          console.log('🔄 Calling onUploadSuccess callback');
+          onUploadSuccess(data.document || data.data);
         }
         
         // Close modal after 3 seconds
@@ -116,9 +174,11 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
           onClose();
         }, 3000);
       } else {
+        console.log('❌ Upload failed:', data.message);
         setError(data.message || 'Failed to upload document');
       }
     } catch (err) {
+      console.error('💥 Upload error:', err);
       setError(err.message || 'Failed to upload document');
     } finally {
       setUploading(false);
@@ -159,7 +219,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
                 {patient.name} • {patient.patientId}
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 hidden sm:block">
-                📁 Files will be stored in Cloudinary & MongoDB
+                📁 Files will be stored in S3 & MongoDB
               </p>
             </div>
           </div>
@@ -178,7 +238,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
             <div className="flex items-center space-x-2">
               <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
               <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                Document will be uploaded to Cloudinary and metadata saved to MongoDB
+                Document will be uploaded to S3 and metadata saved to MongoDB
               </span>
             </div>
           </div>
@@ -244,23 +304,23 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
             />
           </div>
 
-          {/* Document Type */}
+          {/* Document Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Document Type *
+              Document Category *
             </label>
             <select
-              name="type"
-              value={formData.type}
+              name="category"
+              value={formData.category}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
-              <option value="Lab Report">Lab Report</option>
-              <option value="Imaging">Imaging</option>
-              <option value="Prescription">Prescription</option>
-              <option value="Medical Record">Medical Record</option>
-              <option value="Other">Other</option>
+              {categories.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -314,13 +374,26 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
             </button>
             <button
               type="submit"
+              onClick={async (e) => {
+                console.log('🖱️ Submit button clicked');
+                console.log('📊 Button state:', {
+                  uploading,
+                  hasFile: !!selectedFile,
+                  hasTitle: !!formData.title.trim(),
+                  disabled: uploading || !selectedFile || !formData.title.trim()
+                });
+                
+                // Prevent default form submission and call our handler directly
+                e.preventDefault();
+                await handleSubmit(e);
+              }}
               disabled={uploading || !selectedFile || !formData.title.trim()}
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               {uploading ? (
                 <>
                   <Loader className="h-5 w-5 mr-2 animate-spin" />
-                  Uploading to Cloudinary...
+                  Uploading to S3...
                 </>
               ) : (
                 <>
