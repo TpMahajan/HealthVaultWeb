@@ -70,45 +70,21 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
         notes: formData.notes
       };
 
-      // Try hosted backend first, then fallback to localhost
-      const baseUrls = [
-        'https://healthvault-backend-c6xl.onrender.com',
-        'http://localhost:5000'
-      ];
+      // Use the hosted backend API
+      const response = await fetch('https://healthvault-backend-c6xl.onrender.com/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(appointmentData)
+      });
       
-      let response;
-      let lastError;
-      
-      for (const baseUrl of baseUrls) {
-        try {
-          console.log(`Attempting to connect to: ${baseUrl}/api/appointments`);
-          response = await fetch(`${baseUrl}/api/appointments`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(appointmentData)
-          });
-          
-          console.log(`Response from ${baseUrl}:`, {
-            status: response.status,
-            statusText: response.statusText,
-            contentType: response.headers.get('content-type')
-          });
-          
-          // If we get a response (even if error), break the loop
-          break;
-        } catch (err) {
-          lastError = err;
-          console.log(`Failed to connect to ${baseUrl}:`, err.message);
-          continue;
-        }
-      }
-      
-      if (!response) {
-        throw lastError || new Error('Unable to connect to backend server');
-      }
+      console.log('Appointment creation response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type')
+      });
 
       // Check if response is JSON
       const contentType = response.headers.get('content-type');

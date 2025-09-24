@@ -335,6 +335,7 @@ const Dashboard = () => {
           console.log('Appointment created:', appointment);
           // You can add logic here to refresh dashboard data or show a success message
         }}
+        patient={null} // No specific patient for dashboard appointments
       />
     </div>
   );

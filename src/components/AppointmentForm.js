@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, User, FileText, Save, Loader } from 'lucide-react';
 
-const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
+const AppointmentForm = ({ isOpen, onClose, onSuccess, patient = null }) => {
   const [formData, setFormData] = useState({
-    patientName: '',
+    patientId: patient?.patientId || patient?.id || '',
+    patientName: patient?.name || '',
+    patientEmail: patient?.email || '',
+    patientPhone: patient?.mobile || patient?.phone || '',
     appointmentDate: '',
     appointmentTime: '',
     reason: '',
@@ -11,6 +14,19 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Update form data when patient prop changes
+  useEffect(() => {
+    if (patient) {
+      setFormData(prev => ({
+        ...prev,
+        patientId: patient.patientId || patient.id || '',
+        patientName: patient.name || '',
+        patientEmail: patient.email || '',
+        patientPhone: patient.mobile || patient.phone || ''
+      }));
+    }
+  }, [patient]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -36,13 +52,27 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/appointments', {
+      // Prepare appointment data with required fields
+      const appointmentData = {
+        patientId: formData.patientId || 'unknown', // Will be set by parent component
+        patientName: formData.patientName,
+        patientEmail: formData.patientEmail || '',
+        patientPhone: formData.patientPhone || '',
+        appointmentDate: formData.appointmentDate,
+        appointmentTime: formData.appointmentTime,
+        duration: 30,
+        reason: formData.reason,
+        appointmentType: 'consultation',
+        notes: formData.notes
+      };
+
+      const response = await fetch('https://healthvault-backend-c6xl.onrender.com/api/appointments', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(appointmentData),
       });
 
       const data = await response.json();
@@ -51,7 +81,10 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
       if (data.success) {
         // Reset form
         setFormData({
-          patientName: '',
+          patientId: patient?.patientId || patient?.id || '',
+          patientName: patient?.name || '',
+          patientEmail: patient?.email || '',
+          patientPhone: patient?.mobile || patient?.phone || '',
           appointmentDate: '',
           appointmentTime: '',
           reason: '',
@@ -78,7 +111,10 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
   const handleClose = () => {
     if (!loading) {
       setFormData({
-        patientName: '',
+        patientId: patient?.patientId || patient?.id || '',
+        patientName: patient?.name || '',
+        patientEmail: patient?.email || '',
+        patientPhone: patient?.mobile || patient?.phone || '',
         appointmentDate: '',
         appointmentTime: '',
         reason: '',
@@ -108,6 +144,22 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Patient Info Display */}
+          {patient && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                  {patient.name?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-blue-900">{patient.name}</h3>
+                  <p className="text-xs text-blue-700">ID: {patient.patientId || patient.id}</p>
+                  {patient.email && <p className="text-xs text-blue-700">{patient.email}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Patient Name */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
