@@ -369,16 +369,6 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
             <button
               type="submit"
               disabled={creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()}
-              onClick={(e) => {
-                console.log('🔘 Submit button clicked');
-                console.log('🔘 Button disabled?', creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim());
-                console.log('🔘 Creating state:', creating);
-                console.log('🔘 Form validation:', {
-                  hasDate: !!formData.appointmentDate,
-                  hasTime: !!formData.appointmentTime,
-                  hasReason: !!formData.reason.trim()
-                });
-              }}
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-semibold rounded-xl hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               {creating ? (
