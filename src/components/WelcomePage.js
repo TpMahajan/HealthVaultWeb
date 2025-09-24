@@ -16,7 +16,7 @@ const WelcomePage = () => {
           <Shield className="h-10 w-10 text-white" />
         </div>
         <h1 className="mt-6 text-4xl font-bold text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Welcome to HealthVault
+          Welcome to Medical Vault
         </h1>
         <p className="mt-3 text-gray-600 dark:text-gray-300 text-sm">
           Secure platform for doctors to manage patient health records safely.

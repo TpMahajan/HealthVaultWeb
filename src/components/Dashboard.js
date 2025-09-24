@@ -3,12 +3,14 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../constants/api';
 import TopNavbar from './TopNavbar';
-import AppointmentForm from './AppointmentForm';
+// Removed AppointmentForm import - no longer needed
 import Footer from './Footer';
-import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw } from 'lucide-react';
+import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X } from 'lucide-react';
 
 const Dashboard = () => {
-  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [showAppointments, setShowAppointments] = useState(false);
+  const [appointments, setAppointments] = useState([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     totalPatients: 0,
     recentScans: 0,
@@ -21,6 +23,44 @@ const Dashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Load appointments from backend
+  const loadAppointments = async () => {
+    try {
+      setAppointmentsLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.log('❌ No authentication token found');
+        throw new Error('Please log in as a doctor');
+      }
+
+      const response = await fetch(`${API_BASE}/appointments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch appointments: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('📅 Appointments loaded:', data);
+      
+      if (data.success) {
+        setAppointments(data.appointments || []);
+      } else {
+        throw new Error(data.message || 'Failed to load appointments');
+      }
+    } catch (error) {
+      console.error('❌ Error loading appointments:', error);
+      setAppointments([]);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  };
 
   // Load dashboard data from doctor's active sessions
   const loadDashboardData = async (isRefresh = false) => {
@@ -284,15 +324,18 @@ const Dashboard = () => {
                         </button>
 
                         <button
-                          onClick={() => setShowAppointmentForm(true)}
+                          onClick={() => {
+                            setShowAppointments(true);
+                            loadAppointments();
+                          }}
                           className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-800 hover:from-purple-100 hover:to-pink-100 dark:hover:from-purple-900/30 dark:hover:to-pink-900/30 hover:shadow-md transition-all duration-200 group"
                         >
                           <div className="flex items-center flex-1">
                             <div className="p-2 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 rounded-lg flex-shrink-0 group-hover:scale-110 transition-transform duration-200">
-                              <Plus className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                              <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                             </div>
                             <span className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Schedule Appointment
+                              View Appointments
                             </span>
                           </div>
                           <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:translate-x-1 transition-all duration-200 flex-shrink-0" />
@@ -327,16 +370,128 @@ const Dashboard = () => {
         <Footer />
       </div>
 
-      {/* Appointment Form Modal */}
-      <AppointmentForm
-        isOpen={showAppointmentForm}
-        onClose={() => setShowAppointmentForm(false)}
-        onSuccess={(appointment) => {
-          console.log('Appointment created:', appointment);
-          // You can add logic here to refresh dashboard data or show a success message
-        }}
-        patient={null} // No specific patient for dashboard appointments
-      />
+      {/* Appointments Modal */}
+      {showAppointments && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col mx-2 sm:mx-4">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">My Appointments</h2>
+              <button
+                onClick={() => setShowAppointments(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {appointmentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin text-blue-600 mr-2" />
+                  <span className="text-gray-600 dark:text-gray-400">Loading appointments...</span>
+                </div>
+              ) : appointments.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No appointments found</h3>
+                  <p className="text-gray-600 dark:text-gray-400">You haven't scheduled any appointments yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {appointments.map((appointment) => (
+                    <div key={appointment._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                              {appointment.patientName?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{appointment.patientName}</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">ID: {appointment.patientId}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center text-sm">
+                                <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                                <span className="text-gray-600 dark:text-gray-400">Date:</span>
+                                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
+                                  {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <Clock className="h-4 w-4 text-gray-500 mr-2" />
+                                <span className="text-gray-600 dark:text-gray-400">Time:</span>
+                                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{appointment.appointmentTime}</span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Duration:</span>
+                                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{appointment.duration} minutes</span>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Type:</span>
+                                <span className="ml-2 font-medium text-gray-900 dark:text-gray-100 capitalize">{appointment.appointmentType}</span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                                  appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                  appointment.status === 'confirmed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                  appointment.status === 'completed' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' :
+                                  'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                }`}>
+                                  {appointment.status}
+                                </span>
+                              </div>
+                              {appointment.patientEmail && (
+                                <div className="flex items-center text-sm">
+                                  <span className="text-gray-600 dark:text-gray-400">Email:</span>
+                                  <span className="ml-2 text-gray-900 dark:text-gray-100">{appointment.patientEmail}</span>
+                                </div>
+                              )}
+                              {appointment.patientPhone && (
+                                <div className="flex items-center text-sm">
+                                  <span className="text-gray-600 dark:text-gray-400">Phone:</span>
+                                  <span className="ml-2 text-gray-900 dark:text-gray-100">{appointment.patientPhone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {appointment.reason && (
+                            <div className="mt-3">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Reason:</span>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-600 p-2 rounded border">
+                                {appointment.reason}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {appointment.notes && (
+                            <div className="mt-3">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Notes:</span>
+                              <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-600 p-2 rounded border">
+                                {appointment.notes}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
