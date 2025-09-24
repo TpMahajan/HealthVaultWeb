@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Loader
 } from 'lucide-react';
+import { API_BASE } from '../constants/api';
 
 const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) => {
   const [formData, setFormData] = useState({
@@ -77,54 +78,26 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
       console.log('Appointment data:', appointmentData);
       console.log('Auth token present:', token ? 'Yes' : 'No');
 
-      // Try multiple backend URLs
-      const backendUrls = [
-        'https://backend-medicalvault.onrender.com',
-        'http://localhost:5000'
-      ];
+      // Use API_BASE constant for consistent endpoint
+      const appointmentsUrl = `${API_BASE}/appointments`;
+      console.log(`🚀 Creating appointment at: ${appointmentsUrl}`);
+      console.log('📤 Request payload:', JSON.stringify(appointmentData, null, 2));
       
-      let response;
-      let lastError;
+      const response = await fetch(appointmentsUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(appointmentData)
+      });
       
-      for (const baseUrl of backendUrls) {
-        try {
-          console.log(`🚀 Trying backend: ${baseUrl}/api/appointments`);
-          console.log('📤 Request payload:', JSON.stringify(appointmentData, null, 2));
-          
-          response = await fetch(`${baseUrl}/api/appointments`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(appointmentData)
-          });
-          
-          console.log(`📥 Response from ${baseUrl}:`, {
-            status: response.status,
-            ok: response.ok,
-            statusText: response.statusText
-          });
-          
-          // If we get a response (even if error), break the loop
-          break;
-        } catch (err) {
-          lastError = err;
-          console.log(`❌ Failed to connect to ${baseUrl}:`, err.message);
-          continue;
-        }
-      }
-      
-      if (!response) {
-        throw lastError || new Error('Unable to connect to any backend server');
-      }
-      
-      console.log('📥 Appointment creation response:', {
+      console.log(`📥 Response from backend:`, {
         status: response.status,
-        statusText: response.statusText,
         ok: response.ok,
-        contentType: response.headers.get('content-type'),
-        url: response.url
+        statusText: response.statusText,
+        url: response.url,
+        contentType: response.headers.get('content-type')
       });
 
       // Check response status first

@@ -708,8 +708,79 @@ const PatientDetails = () => {
   };
 
   const handleAppointmentCreated = (newAppointment) => {
-    setAppointments(prev => [newAppointment, ...prev]);
-    console.log('Appointment created successfully:', newAppointment);
+    console.log('🔄 handleAppointmentCreated called with:', newAppointment);
+    console.log('🔄 Current appointments before update:', appointments);
+    
+    setAppointments(prev => {
+      const updatedAppointments = [newAppointment, ...prev];
+      console.log('📅 Updated appointments state:', updatedAppointments);
+      return updatedAppointments;
+    });
+    console.log('✅ Appointment added to local state successfully');
+  };
+
+  // Test function for debugging appointment creation
+  // Call this in browser console: window.testAppointmentCreation()
+  window.testAppointmentCreation = async () => {
+    console.log('🧪 Testing appointment creation...');
+    console.log('👤 Current patient:', patient);
+    console.log('🔑 Token present:', localStorage.getItem('token') ? 'Yes' : 'No');
+    
+    if (!patient) {
+      console.error('❌ No patient loaded');
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('❌ No authentication token');
+      return;
+    }
+    
+    const testData = {
+      patientId: patient.id || patient.patientId,
+      patientName: patient.name,
+      patientEmail: patient.email || '',
+      patientPhone: patient.mobile || '',
+      appointmentDate: '2024-01-20',
+      appointmentTime: '14:30',
+      duration: 30,
+      reason: 'Test appointment from console',
+      appointmentType: 'consultation',
+      notes: 'Test notes'
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE}/appointments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+      
+      console.log('📥 Response:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
+      });
+      
+      const responseText = await response.text();
+      console.log('📥 Response body:', responseText);
+      
+      if (response.ok) {
+        const data = JSON.parse(responseText);
+        console.log('✅ Success:', data);
+        
+        // Test the handleAppointmentCreated function
+        handleAppointmentCreated(data.appointment);
+      } else {
+        console.error('❌ Failed:', response.status, responseText);
+      }
+    } catch (error) {
+      console.error('❌ Error:', error);
+    }
   };
 
   // Filter medical records based on search term
