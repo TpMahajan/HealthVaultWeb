@@ -215,6 +215,13 @@ const GlobalNavbar = () => {
                       src={user.avatar}
                       alt={user.name}
                       className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                      onError={(e) => {
+                        console.error('❌ GlobalNavbar: Failed to load avatar image:', user.avatar);
+                        console.error('❌ GlobalNavbar: Image error:', e);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ GlobalNavbar: Avatar image loaded successfully:', user.avatar);
+                      }}
                     />
                   ) : (
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">

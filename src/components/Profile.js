@@ -174,6 +174,12 @@ const Profile = () => {
         setDoctorData(data.doctor);
         setHasPhoto(true);
         
+        // Update profileData with the new avatar URL
+        setProfileData(prev => ({
+          ...prev,
+          avatar: data.avatarUrl
+        }));
+        
         // Update the user data in AuthContext to reflect the new avatar
         const updatedUser = { ...user, avatar: data.avatarUrl };
         console.log('🔄 Profile - Updating user with avatar:', updatedUser);
@@ -312,6 +318,14 @@ const Profile = () => {
                       src={profileData.avatar}
                       alt={profileData.name}
                       className="mx-auto h-24 w-24 rounded-full object-cover mb-4 shadow-lg"
+                      onError={(e) => {
+                        console.error('❌ Failed to load avatar image:', profileData.avatar);
+                        console.error('❌ Image error:', e);
+                        setHasPhoto(false);
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Avatar image loaded successfully:', profileData.avatar);
+                      }}
                     />
                     {uploadingPhoto && (
                       <div className="absolute inset-0 mx-auto h-24 w-24 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
