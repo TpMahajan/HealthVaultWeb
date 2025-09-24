@@ -66,7 +66,7 @@ const AppointmentForm = ({ isOpen, onClose, onSuccess, patient = null }) => {
         notes: formData.notes
       };
 
-      const response = await fetch('https://healthvault-backend-c6xl.onrender.com/api/appointments', {
+      const response = await fetch('https://backend-medicalvault.onrender.com/api/appointments', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

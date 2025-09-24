@@ -70,8 +70,8 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
         notes: formData.notes
       };
 
-      // Use the hosted backend API
-      const response = await fetch('https://healthvault-backend-c6xl.onrender.com/api/appointments', {
+      // Use the correct backend API
+      const response = await fetch('https://backend-medicalvault.onrender.com/api/appointments', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE =
-  process.env.REACT_APP_API_BASE || "http://localhost:5000/api";
+  process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
 
 // ✅ Use this one because your backend exposes /api/auth/doctor/*
 export const DOCTOR_API_BASE = `${API_BASE}/doctors`;
