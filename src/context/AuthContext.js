@@ -1,11 +1,62 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { DOCTOR_API_BASE } from "../constants/api";
+import { getFCMToken, onMessageListener } from "../firebase";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Register FCM token with backend
+  const registerFCMToken = async (userId) => {
+    try {
+      const token = await getFCMToken();
+      const authToken = localStorage.getItem("token");
+      
+      if (token && authToken) {
+        await fetch(`${DOCTOR_API_BASE}/../notifications/save-token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            fcmToken: token,
+            userId: userId,
+            role: "doctor",
+          }),
+        });
+        console.log("✅ FCM token registered successfully");
+      }
+    } catch (error) {
+      console.error("❌ Failed to register FCM token:", error);
+    }
+  };
+
+  // Setup FCM message listener
+  useEffect(() => {
+    if (user) {
+      onMessageListener().then((payload) => {
+        console.log("📱 Received foreground message:", payload);
+        
+        // Show browser notification
+        if (Notification.permission === 'granted') {
+          new Notification(payload.notification.title, {
+            body: payload.notification.body,
+            icon: '/logo192.png',
+            tag: 'health-vault-notification',
+          });
+        }
+        
+        // Handle different notification types
+        if (payload.data?.type === 'SESSION_RESPONSE') {
+          // Handle session response notification
+          console.log("Patient responded to session request");
+        }
+      });
+    }
+  }, [user]);
 
   // Restore auth state on mount
   useEffect(() => {
@@ -74,6 +125,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.doctor));
       setUser(data.doctor);
+      
+      // Register FCM token after successful login
+      await registerFCMToken(data.doctor.id);
       
       console.log("✅ Login successful, user set:", data.doctor);
 

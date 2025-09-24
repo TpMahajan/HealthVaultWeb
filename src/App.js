@@ -13,6 +13,7 @@ import PatientDetails from './components/PatientDetails';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Vault from './components/Vault';
+import MainLayout from './components/MainLayout';
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -59,13 +60,16 @@ const AppContent = () => {
         <Route path="/signup" element={<SignupPage />} />
 
         {/* Protected Routes */}
+        {/* Dashboard keeps its existing navbar */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/scan" element={<ProtectedRoute><QRScanner /></ProtectedRoute>} />
-        <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-        <Route path="/patient-details/:id" element={<ProtectedRoute><PatientDetails /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/vault" element={<ProtectedRoute><Vault /></ProtectedRoute>} />
+        
+        {/* Other routes use MainLayout with GlobalNavbar */}
+        <Route path="/scan" element={<ProtectedRoute><MainLayout><QRScanner /></MainLayout></ProtectedRoute>} />
+        <Route path="/patients" element={<ProtectedRoute><MainLayout><Patients /></MainLayout></ProtectedRoute>} />
+        <Route path="/patient-details/:id" element={<ProtectedRoute><MainLayout><PatientDetails /></MainLayout></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><MainLayout><Profile /></MainLayout></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><MainLayout><Settings /></MainLayout></ProtectedRoute>} />
+        <Route path="/vault" element={<ProtectedRoute><MainLayout><Vault /></MainLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );
