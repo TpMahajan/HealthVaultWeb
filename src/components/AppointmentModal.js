@@ -27,19 +27,29 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    console.log(`📝 Input changed: ${name} = ${value}`);
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: value
+      };
+      console.log('📝 Updated form data:', newData);
+      return newData;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🚀 handleSubmit called');
+    console.log('📋 Form data:', formData);
     
     if (!formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()) {
+      console.log('❌ Validation failed - missing required fields');
       setError('Please fill in all required fields');
       return;
     }
+    
+    console.log('✅ Validation passed, proceeding with submission');
 
     // Check if appointment date is in the past
     const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime}`);
@@ -359,6 +369,16 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
             <button
               type="submit"
               disabled={creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()}
+              onClick={(e) => {
+                console.log('🔘 Submit button clicked');
+                console.log('🔘 Button disabled?', creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim());
+                console.log('🔘 Creating state:', creating);
+                console.log('🔘 Form validation:', {
+                  hasDate: !!formData.appointmentDate,
+                  hasTime: !!formData.appointmentTime,
+                  hasReason: !!formData.reason.trim()
+                });
+              }}
               className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-semibold rounded-xl hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               {creating ? (
