@@ -45,7 +45,16 @@ const GlobalNavbar = () => {
         <div className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-900 shadow-xl">
           <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
-              <Heart className="h-6 w-6 text-blue-600" />
+              <img 
+                src="/app_icon.png" 
+                alt="HealthVault" 
+                className="h-6 w-6 object-cover rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+              <Heart className="h-6 w-6 text-blue-600" style={{ display: 'none' }} />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">HealthVault</h2>
             </div>
             <button
@@ -103,7 +112,16 @@ const GlobalNavbar = () => {
 
               {/* Logo */}
               <Link to="/dashboard" className="flex items-center space-x-2">
-                <Heart className="h-8 w-8 text-blue-600" />
+                <img 
+                  src="/app_icon.png" 
+                  alt="HealthVault" 
+                  className="h-8 w-8 object-cover rounded"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <Heart className="h-8 w-8 text-blue-600" style={{ display: 'none' }} />
                 <span className="text-xl font-bold text-gray-900 dark:text-gray-100 hidden sm:block">
                   HealthVault
                 </span>
