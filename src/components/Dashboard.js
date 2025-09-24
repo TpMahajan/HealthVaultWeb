@@ -48,9 +48,13 @@ const Dashboard = () => {
 
       const data = await response.json();
       console.log('📅 Appointments loaded:', data);
+      console.log('🔍 Dashboard Debug - Response status:', response.status);
+      console.log('🔍 Dashboard Debug - Appointments count:', data.appointments?.length || 0);
+      console.log('🔍 Dashboard Debug - Full response:', data);
       
       if (data.success) {
         setAppointments(data.appointments || []);
+        console.log('✅ Appointments set in state:', data.appointments || []);
       } else {
         throw new Error(data.message || 'Failed to load appointments');
       }

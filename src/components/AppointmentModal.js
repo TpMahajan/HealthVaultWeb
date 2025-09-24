@@ -70,6 +70,13 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
         notes: formData.notes
       };
 
+      // Debug logging
+      console.log('🔍 AppointmentModal Debug:');
+      console.log('Patient object:', patient);
+      console.log('Patient ID:', patient.id || patient.patientId);
+      console.log('Appointment data:', appointmentData);
+      console.log('Auth token present:', token ? 'Yes' : 'No');
+
       // Use the correct backend API
       const response = await fetch('https://backend-medicalvault.onrender.com/api/appointments', {
         method: 'POST',
