@@ -50,7 +50,7 @@ const LoginPage = () => {
               <Shield className="h-8 w-8 text-white" />
             </div>
             <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              HealthVault
+              Medical Vault
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Doctor Portal - Secure Patient Medical Records Access
