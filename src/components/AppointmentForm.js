@@ -1,287 +1,388 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, User, FileText, Save, Loader } from 'lucide-react';
+import { 
+  X, 
+  Calendar, 
+  Clock, 
+  User, 
+  AlertCircle,
+  CheckCircle,
+  Loader
+} from 'lucide-react';
 
 const AppointmentForm = ({ isOpen, onClose, onSuccess, patient = null }) => {
   const [formData, setFormData] = useState({
-    patientId: patient?.patientId || patient?.id || '',
-    patientName: patient?.name || '',
-    patientEmail: patient?.email || '',
-    patientPhone: patient?.mobile || patient?.phone || '',
     appointmentDate: '',
     appointmentTime: '',
+    duration: 30,
     reason: '',
+    appointmentType: 'consultation',
     notes: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   // Update form data when patient prop changes
   useEffect(() => {
     if (patient) {
-      setFormData(prev => ({
-        ...prev,
-        patientId: patient.patientId || patient.id || '',
-        patientName: patient.name || '',
-        patientEmail: patient.email || '',
-        patientPhone: patient.mobile || patient.phone || ''
-      }));
+      // Patient data is available, form will be pre-filled
+      console.log('Patient data available:', patient);
     }
   }, [patient]);
 
-  const handleInputChange = (field, value) => {
+  if (!isOpen) return null;
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [name]: value
     }));
-    // Clear error when user starts typing
-    if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    
+    if (!formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    // Check if appointment date is in the past
+    const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime}`);
+    if (appointmentDateTime < new Date()) {
+      setError('Appointment date and time must be in the future');
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setSuccess(null);
 
     try {
       const token = localStorage.getItem('token');
-      
-      // Validate required fields
-      if (!formData.patientName || !formData.appointmentDate || !formData.appointmentTime || !formData.reason) {
-        setError('Please fill in all required fields.');
-        setLoading(false);
-        return;
+      if (!token) {
+        throw new Error('Please login first');
       }
 
-      // Prepare appointment data with required fields
       const appointmentData = {
-        patientId: formData.patientId || 'unknown', // Will be set by parent component
-        patientName: formData.patientName,
-        patientEmail: formData.patientEmail || '',
-        patientPhone: formData.patientPhone || '',
+        patientId: patient?.patientId || patient?.id || 'unknown',
+        patientName: patient?.name || formData.patientName || 'Unknown Patient',
+        patientEmail: patient?.email || formData.patientEmail || '',
+        patientPhone: patient?.mobile || patient?.phone || formData.patientPhone || '',
         appointmentDate: formData.appointmentDate,
         appointmentTime: formData.appointmentTime,
-        duration: 30,
+        duration: parseInt(formData.duration),
         reason: formData.reason,
-        appointmentType: 'consultation',
+        appointmentType: formData.appointmentType,
         notes: formData.notes
       };
 
+      // Use the correct backend API
       const response = await fetch('https://backend-medicalvault.onrender.com/api/appointments', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(appointmentData),
+        body: JSON.stringify(appointmentData)
+      });
+      
+      console.log('Appointment creation response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type')
       });
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. This usually means the backend server is not running or the endpoint doesn't exist.`);
+      }
+
       const data = await response.json();
-      console.log('Appointment creation response:', data);
 
       if (data.success) {
-        // Reset form
+        setSuccess('✅ Appointment created and saved to MongoDB successfully!');
         setFormData({
-          patientId: patient?.patientId || patient?.id || '',
-          patientName: patient?.name || '',
-          patientEmail: patient?.email || '',
-          patientPhone: patient?.mobile || patient?.phone || '',
           appointmentDate: '',
           appointmentTime: '',
+          duration: 30,
           reason: '',
+          appointmentType: 'consultation',
           notes: ''
         });
         
-        // Close modal and notify parent
-        onClose();
-        if (onSuccess) onSuccess(data.appointment);
+        // Call success callback
+        if (onSuccess) {
+          onSuccess(data.appointment);
+        }
         
-        // Show success message
-        alert('Appointment created successfully!');
+        // Close modal after 3 seconds
+        setTimeout(() => {
+          onClose();
+        }, 3000);
       } else {
-        setError(data.message || 'Failed to create appointment.');
+        setError(data.message || 'Failed to create appointment');
       }
-    } catch (error) {
-      console.error('Error creating appointment:', error);
-      setError('Error creating appointment. Please try again.');
+    } catch (err) {
+      setError(err.message || 'Failed to create appointment');
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
-  const handleClose = () => {
-    if (!loading) {
-      setFormData({
-        patientId: patient?.patientId || patient?.id || '',
-        patientName: patient?.name || '',
-        patientEmail: patient?.email || '',
-        patientPhone: patient?.mobile || patient?.phone || '',
-        appointmentDate: '',
-        appointmentTime: '',
-        reason: '',
-        notes: ''
-      });
-      setError('');
-      onClose();
+  // Generate time slots
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(time);
+      }
     }
+    return slots;
   };
 
-  if (!isOpen) return null;
+  const timeSlots = generateTimeSlots();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col mx-2 sm:mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Schedule New Appointment</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-sm sm:text-lg flex-shrink-0">
+              {patient ? patient.name?.charAt(0).toUpperCase() : 'A'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">
+                Schedule New Appointment
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+                {patient ? `${patient.name} • ${patient.patientId || patient.id}` : 'General Appointment'}
+              </p>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 hidden sm:block">
+                📅 Appointment will be saved to MongoDB database
+              </p>
+            </div>
+          </div>
           <button
-            onClick={handleClose}
-            disabled={loading}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 disabled:opacity-50"
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <X className="h-5 w-5 text-gray-500" />
+            <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+          {/* Info Box */}
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
+            <div className="flex items-center space-x-2">
+              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+              <span className="text-sm text-green-800 dark:text-green-200 font-medium">
+                Appointment will be saved to MongoDB database
+              </span>
+            </div>
+          </div>
+
           {/* Patient Info Display */}
           {patient && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-center space-x-3">
                 <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
                   {patient.name?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-blue-900">{patient.name}</h3>
-                  <p className="text-xs text-blue-700">ID: {patient.patientId || patient.id}</p>
-                  {patient.email && <p className="text-xs text-blue-700">{patient.email}</p>}
+                  <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">{patient.name}</h3>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">ID: {patient.patientId || patient.id}</p>
+                  {patient.email && <p className="text-xs text-blue-700 dark:text-blue-300">{patient.email}</p>}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Patient Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="h-4 w-4 inline mr-2" />
-              Patient Name *
-            </label>
-            <input
-              type="text"
-              value={formData.patientName}
-              onChange={(e) => handleInputChange('patientName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter patient's full name"
-              required
-              disabled={loading}
-            />
-          </div>
+          {/* Patient Name (for non-patient appointments) */}
+          {!patient && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <User className="h-4 w-4 inline mr-2" />
+                Patient Name *
+              </label>
+              <input
+                type="text"
+                name="patientName"
+                value={formData.patientName || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter patient's full name"
+                required={!patient}
+              />
+            </div>
+          )}
 
           {/* Appointment Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Calendar className="h-4 w-4 inline mr-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Appointment Date *
             </label>
             <input
               type="date"
+              name="appointmentDate"
               value={formData.appointmentDate}
-              onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={handleInputChange}
               min={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              disabled={loading}
             />
           </div>
 
           {/* Appointment Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Clock className="h-4 w-4 inline mr-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Appointment Time *
             </label>
-            <input
-              type="time"
+            <select
+              name="appointmentTime"
               value={formData.appointmentTime}
-              onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              disabled={loading}
-            />
+            >
+              <option value="">Select time</option>
+              {timeSlots.map(time => (
+                <option key={time} value={time}>{time}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Reason for Visit */}
+          {/* Duration */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <FileText className="h-4 w-4 inline mr-2" />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Duration (minutes)
+            </label>
+            <select
+              name="duration"
+              value={formData.duration}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={45}>45 minutes</option>
+              <option value={60}>60 minutes</option>
+              <option value={90}>90 minutes</option>
+              <option value={120}>120 minutes</option>
+            </select>
+          </div>
+
+          {/* Appointment Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Appointment Type
+            </label>
+            <select
+              name="appointmentType"
+              value={formData.appointmentType}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="consultation">Consultation</option>
+              <option value="follow-up">Follow-up</option>
+              <option value="emergency">Emergency</option>
+              <option value="routine">Routine Checkup</option>
+              <option value="specialist">Specialist Visit</option>
+            </select>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Reason for Visit *
             </label>
             <textarea
+              name="reason"
               value={formData.reason}
-              onChange={(e) => handleInputChange('reason', e.target.value)}
+              onChange={handleInputChange}
+              placeholder="Describe the reason for this appointment..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Describe the patient's symptoms or reason for the appointment"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              disabled={loading}
             />
           </div>
 
-          {/* Additional Notes */}
+          {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Additional Notes
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Additional Notes (Optional)
             </label>
             <textarea
+              name="notes"
               value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
+              onChange={handleInputChange}
+              placeholder="Any additional information or special requirements..."
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Any additional notes or special requirements"
-              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-600 text-sm">{error}</p>
+          {/* Error/Success Messages */}
+          {(error || success) && (
+            <div className={`p-3 rounded-lg flex items-center space-x-2 ${
+              error 
+                ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800' 
+                : 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
+            }`}>
+              {error ? (
+                <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              ) : (
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+              )}
+              <span className={`text-sm ${
+                error 
+                  ? 'text-red-800 dark:text-red-200' 
+                  : 'text-green-800 dark:text-green-200'
+              }`}>
+                {error || success}
+              </span>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex space-x-3 pt-4">
+        </form>
+
+        {/* Actions - Sticky Footer */}
+        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 pt-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-b-2xl">
             <button
               type="button"
-              onClick={handleClose}
-              disabled={loading}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50"
+              onClick={onClose}
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
+              disabled={creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-semibold rounded-xl hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              {loading ? (
+              {creating ? (
                 <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving to Database...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Create Appointment
+                  <Calendar className="h-5 w-5 mr-2" />
+                  Create & Save Appointment
                 </>
               )}
             </button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
 
 export default AppointmentForm;
-
