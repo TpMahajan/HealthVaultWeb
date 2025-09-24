@@ -40,8 +40,9 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('🚀 handleSubmit called');
+    console.log('🚀 handleSubmit called - FORM SUBMISSION TRIGGERED!');
     console.log('📋 Form data:', formData);
+    console.log('👤 Patient data:', patient);
     
     if (!formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()) {
       console.log('❌ Validation failed - missing required fields');
@@ -365,6 +366,62 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
               className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                console.log('🧪 TEST BUTTON CLICKED - Direct API call');
+                const token = localStorage.getItem('token');
+                if (!token) {
+                  console.error('❌ No token found');
+                  return;
+                }
+                
+                const testData = {
+                  patientId: patient.id || patient.patientId,
+                  patientName: patient.name,
+                  patientEmail: patient.email || '',
+                  patientPhone: patient.mobile || '',
+                  appointmentDate: '2025-01-20',
+                  appointmentTime: '14:30',
+                  duration: 30,
+                  reason: 'Test appointment',
+                  appointmentType: 'consultation',
+                  notes: 'Test notes'
+                };
+                
+                console.log('🧪 Test data:', testData);
+                
+                try {
+                  const response = await fetch(`${API_BASE}/appointments`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                  });
+                  
+                  console.log('🧪 Test response status:', response.status);
+                  const responseText = await response.text();
+                  console.log('🧪 Test response body:', responseText);
+                  
+                  if (response.ok) {
+                    const data = JSON.parse(responseText);
+                    console.log('🧪 Test SUCCESS:', data);
+                    if (onAppointmentCreated) {
+                      onAppointmentCreated(data.appointment);
+                    }
+                  } else {
+                    console.error('🧪 Test FAILED:', response.status, responseText);
+                  }
+                } catch (error) {
+                  console.error('🧪 Test ERROR:', error);
+                }
+              }}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 mr-2"
+            >
+              🧪 TEST API
             </button>
             <button
               type="submit"
