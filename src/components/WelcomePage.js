@@ -12,8 +12,17 @@ const WelcomePage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col justify-center items-center p-4">
       <div className="text-center max-w-lg">
         {/* Logo */}
-        <div className="mx-auto h-20 w-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-          <Shield className="h-10 w-10 text-white" />
+        <div className="mx-auto h-20 w-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+          <img 
+            src="/app_icon.png" 
+            alt="Medical Vault" 
+            className="h-16 w-16 object-cover rounded-xl"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
+          />
+          <Shield className="h-10 w-10 text-white" style={{ display: 'none' }} />
         </div>
         <h1 className="mt-6 text-4xl font-bold text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           Welcome to Medical Vault
