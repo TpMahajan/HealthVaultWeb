@@ -77,33 +77,90 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
       console.log('Appointment data:', appointmentData);
       console.log('Auth token present:', token ? 'Yes' : 'No');
 
-      // Use the correct backend API
-      const response = await fetch('https://backend-medicalvault.onrender.com/api/appointments', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(appointmentData)
-      });
+      // Try multiple backend URLs
+      const backendUrls = [
+        'https://backend-medicalvault.onrender.com',
+        'http://localhost:5000'
+      ];
       
-      console.log('Appointment creation response:', {
+      let response;
+      let lastError;
+      
+      for (const baseUrl of backendUrls) {
+        try {
+          console.log(`🚀 Trying backend: ${baseUrl}/api/appointments`);
+          console.log('📤 Request payload:', JSON.stringify(appointmentData, null, 2));
+          
+          response = await fetch(`${baseUrl}/api/appointments`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(appointmentData)
+          });
+          
+          console.log(`📥 Response from ${baseUrl}:`, {
+            status: response.status,
+            ok: response.ok,
+            statusText: response.statusText
+          });
+          
+          // If we get a response (even if error), break the loop
+          break;
+        } catch (err) {
+          lastError = err;
+          console.log(`❌ Failed to connect to ${baseUrl}:`, err.message);
+          continue;
+        }
+      }
+      
+      if (!response) {
+        throw lastError || new Error('Unable to connect to any backend server');
+      }
+      
+      console.log('📥 Appointment creation response:', {
         status: response.status,
         statusText: response.statusText,
-        contentType: response.headers.get('content-type')
+        ok: response.ok,
+        contentType: response.headers.get('content-type'),
+        url: response.url
       });
+
+      // Check response status first
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ HTTP Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        if (response.status === 401) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (response.status === 400) {
+          errorMessage = 'Invalid data provided. Please check all fields.';
+        } else if (response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        console.error('Non-JSON response:', text);
+        console.error('❌ Non-JSON response:', text);
         throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}. This usually means the backend server is not running or the endpoint doesn't exist.`);
       }
 
       const data = await response.json();
+      console.log('📋 Parsed response data:', data);
 
       if (data.success) {
+        console.log('✅ Appointment created successfully:', data.appointment);
         setSuccess('✅ Appointment created and saved to MongoDB successfully!');
         setFormData({
           appointmentDate: '',
@@ -124,6 +181,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
           onClose();
         }, 3000);
       } else {
+        console.error('❌ Backend returned success: false:', data);
         setError(data.message || 'Failed to create appointment');
       }
     } catch (err) {
