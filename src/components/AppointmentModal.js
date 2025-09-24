@@ -58,7 +58,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
       }
 
       const appointmentData = {
-        patientId: patient.patientId,
+        patientId: patient.id || patient.patientId,
         patientName: patient.name,
         patientEmail: patient.email || '',
         patientPhone: patient.mobile || '',
@@ -154,7 +154,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
                 Schedule Appointment
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
-                {patient.name} • {patient.patientId}
+                {patient.name} • {patient.id || patient.patientId}
               </p>
               <p className="text-xs text-green-600 dark:text-green-400 mt-1 hidden sm:block">
                 📅 Appointment will be saved to MongoDB database

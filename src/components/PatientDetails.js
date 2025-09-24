@@ -42,6 +42,7 @@ const PatientDetails = () => {
   const [isCachedData, setIsCachedData] = useState(false);
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordsSearchTerm, setRecordsSearchTerm] = useState('');
 
   // Fetch patient data from API
   useEffect(() => {
@@ -711,6 +712,18 @@ const PatientDetails = () => {
     console.log('Appointment created successfully:', newAppointment);
   };
 
+  // Filter medical records based on search term
+  const filteredMedicalRecords = medicalRecords.filter(record => {
+    if (!recordsSearchTerm) return true;
+    
+    const searchLower = recordsSearchTerm.toLowerCase();
+    return (
+      record.title?.toLowerCase().includes(searchLower) ||
+      record.category?.toLowerCase().includes(searchLower) ||
+      new Date(record.uploadedAt || record.createdAt).toLocaleDateString().toLowerCase().includes(searchLower)
+    );
+  });
+
   const handleDownloadSummary = async () => {
     setDownloadLoading('summary');
     
@@ -1020,6 +1033,22 @@ const PatientDetails = () => {
                     </div>
                   </div>
 
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search records by title, category, or date..."
+                      value={recordsSearchTerm}
+                      onChange={(e) => setRecordsSearchTerm(e.target.value)}
+                      className="w-full px-4 py-3 pl-10 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                  </div>
+
                   {/* Records List */}
                   {recordsLoading ? (
                     <div className="text-center py-12">
@@ -1033,7 +1062,7 @@ const PatientDetails = () => {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {medicalRecords.map((record) => (
+                      {filteredMedicalRecords.map((record) => (
                         <div
                           key={record._id}
                           className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200"
@@ -1075,14 +1104,17 @@ const PatientDetails = () => {
                   )}
 
                   {/* Empty State */}
-                  {!recordsLoading && medicalRecords.length === 0 && (
+                  {!recordsLoading && filteredMedicalRecords.length === 0 && (
                     <div className="text-center py-12">
                       <FileText className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                        No medical records found
+                        {recordsSearchTerm ? 'No records match your search' : 'No medical records found'}
                       </h3>
                       <p className="text-gray-600 dark:text-gray-300 mb-4">
-                        This patient doesn't have any medical records yet, or there might be an issue loading them.
+                        {recordsSearchTerm 
+                          ? `No records found matching "${recordsSearchTerm}". Try a different search term.`
+                          : "This patient doesn't have any medical records yet, or there might be an issue loading them."
+                        }
                       </p>
                       <div className="space-x-3">
                         <button 
