@@ -24,6 +24,52 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Calculate today's appointments count
+  const getTodayAppointmentsCount = (appointments) => {
+    if (!appointments || appointments.length === 0) return 0;
+    
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const todayAppointments = appointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.appointmentDate);
+      const appointmentDateString = appointmentDate.toISOString().split('T')[0];
+      return appointmentDateString === todayString;
+    });
+    
+    console.log('📅 Today\'s appointments:', todayAppointments.length, 'out of', appointments.length, 'total');
+    return todayAppointments.length;
+  };
+
+  // Update today's appointments count
+  const updateTodayAppointmentsCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE}/appointments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.appointments) {
+          const todayCount = getTodayAppointmentsCount(data.appointments);
+          setDashboardData(prev => ({
+            ...prev,
+            todayAppointments: todayCount
+          }));
+          console.log('🔄 Updated today\'s appointments count:', todayCount);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to update today\'s appointments count:', error);
+    }
+  };
+
   // Load appointments from backend
   const loadAppointments = async () => {
     try {
@@ -120,10 +166,26 @@ const Dashboard = () => {
                 index === 2 ? '1 hour ago' : '2 hours ago'
         }));
 
+        // Load appointments to get real today's count
+        const appointmentsResponse = await fetch(`${API_BASE}/appointments`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        let todayAppointmentsCount = 0;
+        if (appointmentsResponse.ok) {
+          const appointmentsData = await appointmentsResponse.json();
+          if (appointmentsData.success && appointmentsData.appointments) {
+            todayAppointmentsCount = getTodayAppointmentsCount(appointmentsData.appointments);
+          }
+        }
+
         setDashboardData({
           totalPatients: totalPatients,
           recentScans: recentScans,
-          todayAppointments: Math.floor(Math.random() * 8) + 0, // Simulated - could be replaced with real data
+          todayAppointments: todayAppointmentsCount,
           criticalPatients: expiringSoon,
           recentActivity: recentActivity
         });
@@ -148,10 +210,30 @@ const Dashboard = () => {
           const cachedPatients = JSON.parse(cached).filter(p => p.expiresAt > Date.now());
           console.log('📦 Dashboard - Using cached data as fallback:', cachedPatients.length);
           
+          // Try to get real appointment count even with cached data
+          let todayAppointmentsCount = 0;
+          try {
+            const appointmentsResponse = await fetch(`${API_BASE}/appointments`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (appointmentsResponse.ok) {
+              const appointmentsData = await appointmentsResponse.json();
+              if (appointmentsData.success && appointmentsData.appointments) {
+                todayAppointmentsCount = getTodayAppointmentsCount(appointmentsData.appointments);
+              }
+            }
+          } catch (appointmentError) {
+            console.log('⚠️ Could not load appointments for today count, using 0');
+          }
+
           setDashboardData({
             totalPatients: cachedPatients.length,
             recentScans: cachedPatients.length,
-            todayAppointments: Math.floor(Math.random() * 8) + 2,
+            todayAppointments: todayAppointmentsCount,
             criticalPatients: Math.floor(cachedPatients.length * 0.2),
             recentActivity: cachedPatients.slice(0, 4).map((patient, index) => ({
               id: index + 1,
@@ -193,6 +275,19 @@ const Dashboard = () => {
   // Load dashboard data on component mount
   useEffect(() => {
     loadDashboardData();
+  }, []);
+
+  // Update today's appointments count periodically
+  useEffect(() => {
+    // Update immediately
+    updateTodayAppointmentsCount();
+    
+    // Update every 5 minutes
+    const interval = setInterval(() => {
+      updateTodayAppointmentsCount();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
   }, []);
 
   // Refresh dashboard data
