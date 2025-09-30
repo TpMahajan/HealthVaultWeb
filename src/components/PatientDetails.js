@@ -60,15 +60,25 @@ const PatientDetails = () => {
         console.log('🔍 PatientDetails - Fetching patient data for ID:', id);
         console.log('🔍 PatientDetails - Using token:', patientToken ? 'Present' : 'Not found');
         
-        // Check if we're using session-based access (doctor accessing patient data)
-        const doctorToken = localStorage.getItem('token');
-        const isSessionBasedAccess = !patientToken && doctorToken;
+        // Determine role from stored token
+        const storedToken = localStorage.getItem('token');
+        const decodeRole = (tok) => {
+          try {
+            const payload = JSON.parse(atob(tok.split('.')[1] || ''));
+            return payload?.role || null;
+          } catch { return null; }
+        };
+        const storedRole = storedToken ? decodeRole(storedToken) : null;
+
+        const isDoctorFlow = !patientToken && storedToken && storedRole === 'doctor';
+        const isPatientFlow = !patientToken && storedToken && storedRole === 'patient';
+        const isSessionBasedAccess = isDoctorFlow;
         setIsAnonymousView(!!patientToken);
         
         if (isSessionBasedAccess) {
           console.log('🔐 PatientDetails - Using session-based access with doctor token');
           console.log('🔍 PatientDetails - Patient ID from URL:', id);
-          console.log('🔍 PatientDetails - Doctor token present:', !!doctorToken);
+          console.log('🔍 PatientDetails - Doctor token present:', !!storedToken);
           
           // Use doctor's token to access patient data through session
           const apiUrl = `${API_BASE}/users/${id}`;
@@ -76,7 +86,7 @@ const PatientDetails = () => {
           
           const response = await fetch(apiUrl, {
             headers: {
-              'Authorization': `Bearer ${doctorToken}`,
+              'Authorization': `Bearer ${storedToken}`,
               'Content-Type': 'application/json'
             }
           });
@@ -144,6 +154,52 @@ const PatientDetails = () => {
           }
         }
         
+        // Patient self-access: use /auth/me
+        if (isPatientFlow) {
+          console.log('👤 PatientDetails - Using patient self-access via /auth/me');
+          const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const data = await response.json();
+          if (response.ok && data.success && data.data?.user) {
+            const user = data.data.user;
+            const patientData = {
+              id: user._id || user.id,
+              name: user.name || 'Unknown',
+              age: user.age || null,
+              gender: user.gender || null,
+              dateOfBirth: user.dateOfBirth || null,
+              bloodType: user.bloodType || null,
+              height: user.height || null,
+              weight: user.weight || null,
+              email: user.email || null,
+              mobile: user.mobile || null,
+              lastVisit: user.lastVisit || null,
+              nextAppointment: user.nextAppointment || null,
+              emergencyContact: user.emergencyContact || {
+                name: null,
+                relationship: null,
+                phone: null
+              },
+              medicalHistory: user.medicalHistory || [],
+              medications: user.medications || [],
+              medicalRecords: user.medicalRecords || [],
+              profilePicture: user.profilePicture || null
+            };
+            setPatient(patientData);
+            setIsCachedData(false);
+            setLoading(false);
+            return;
+          } else {
+            setError(data.message || 'Failed to fetch current user');
+            setLoading(false);
+            return;
+          }
+        }
+
         if (!patientToken) {
           // Try to get patient data from cached patients
           console.log('🔍 PatientDetails - No token, checking cached patients');
