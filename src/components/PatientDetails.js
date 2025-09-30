@@ -54,6 +54,7 @@ const PatientDetails = () => {
         
         // Get patient token from URL parameters
         const patientToken = searchParams.get('token');
+        console.log('[PatientDetails] useEffect: id=', id, 'token present?', !!patientToken);
         console.log('🔍 PatientDetails - Fetching patient data for ID:', id);
         console.log('🔍 PatientDetails - Using token:', patientToken ? 'Present' : 'Not found');
         
@@ -69,7 +70,7 @@ const PatientDetails = () => {
           
           // Use doctor's token to access patient data through session
           const apiUrl = `${API_BASE}/users/${id}`;
-          console.log('📡 PatientDetails - Calling API:', apiUrl);
+          console.log('📡 PatientDetails - Calling API (session/doctor):', apiUrl, 'with header token');
           
           const response = await fetch(apiUrl, {
             headers: {
@@ -185,7 +186,9 @@ const PatientDetails = () => {
         }
 
         // Anonymous view: fetch public patient profile with token
-        const response = await fetch(`${API_BASE}/users/${id}?token=${encodeURIComponent(patientToken)}`, {
+        const anonUrl = `${API_BASE}/users/${id}?token=${encodeURIComponent(patientToken)}`;
+        console.log('📡 PatientDetails - Calling API (anonymous):', anonUrl);
+        const response = await fetch(anonUrl, {
           headers: {
             'Authorization': `Bearer ${patientToken}`,
             'Content-Type': 'application/json'
@@ -293,7 +296,7 @@ const PatientDetails = () => {
 
       for (const endpoint of endpoints) {
         try {
-          console.log('📡 Trying endpoint:', endpoint);
+          console.log('📡 Trying endpoint:', endpoint, 'with token from', anonToken ? 'anon query/header' : 'localStorage');
           const response = await fetch(endpoint, {
             headers: {
               'Authorization': `Bearer ${token}`,
