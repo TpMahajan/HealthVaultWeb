@@ -524,12 +524,11 @@ const PatientDetails = () => {
     try {
       const anonToken = searchParams.get('token');
       const url = `${API_BASE}/files/${docId}/preview${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`;
-      res = await fetch(url, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` },
-        mode: 'cors',
-        redirect: 'follow',
-      });
+      const options = { method: 'GET', mode: 'cors', redirect: 'follow' };
+      if (token) {
+        options.headers = { 'Authorization': `Bearer ${token}` };
+      }
+      res = await fetch(url, options);
     } catch (e) {
       throw new Error('Network error while fetching preview URL');
     }
@@ -552,12 +551,11 @@ const PatientDetails = () => {
     try {
       const anonToken = searchParams.get('token');
       const url = `${API_BASE}/files/${docId}/download?json=true${anonToken ? `&token=${encodeURIComponent(anonToken)}` : ''}`;
-      res = await fetch(url, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` },
-        mode: 'cors',
-        redirect: 'follow',
-      });
+      const options = { method: 'GET', mode: 'cors', redirect: 'follow' };
+      if (token) {
+        options.headers = { 'Authorization': `Bearer ${token}` };
+      }
+      res = await fetch(url, options);
     } catch (e) {
       throw new Error('Network error while fetching download URL');
     }
@@ -586,12 +584,10 @@ const PatientDetails = () => {
         return;
       }
       
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token available');
-        alert('Please log in to preview files');
-        return;
-      }
+      const storedToken = localStorage.getItem('token');
+      const storedRole = localStorage.getItem('role');
+      const anonToken = searchParams.get('token');
+      const isAnonymous = !storedToken && !!anonToken;
 
       // Determine file type with better detection
       const mimeType = doc.mimeType || doc.fileType || '';
@@ -625,11 +621,11 @@ const PatientDetails = () => {
 
       if (isPDF || isLikelyPDF) {
         // PDFs: open in new tab using signed URL
-        const signedUrl = await getSignedPreviewUrl(doc._id, token);
+        const signedUrl = await getSignedPreviewUrl(doc._id, isAnonymous ? null : storedToken);
         const win = window.open(signedUrl, '_blank', 'noopener');
       } else if (isImage || isLikelyImage) {
         // Images: fetch signed URL; open in new tab for reliability and also set inline preview
-        const signedUrl = await getSignedPreviewUrl(doc._id, token);
+        const signedUrl = await getSignedPreviewUrl(doc._id, isAnonymous ? null : storedToken);
         const win = window.open(signedUrl, '_blank', 'noopener');
         setInlinePreview({ visible: true, url: signedUrl, title: doc.title || 'Image Preview' });
       } else {
@@ -655,15 +651,12 @@ const PatientDetails = () => {
         return;
       }
       
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token available');
-        alert('Please log in to download files');
-        return;
-      }
+      const storedToken = localStorage.getItem('token');
+      const anonToken = searchParams.get('token');
+      const isAnonymous = !storedToken && !!anonToken;
 
       // Always use backend download endpoint to get signed URL, then trigger download
-      const downloadUrl = await getSignedDownloadUrl(doc._id, token);
+      const downloadUrl = await getSignedDownloadUrl(doc._id, isAnonymous ? null : storedToken);
       console.log('🔽 Signed download URL:', downloadUrl);
 
       // Show loading indicator
@@ -715,13 +708,9 @@ const PatientDetails = () => {
     setDownloadLoading('bulk');
     
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No authentication token available');
-        alert('Please log in to download files');
-        setDownloadLoading(null);
-        return;
-      }
+      const storedToken = localStorage.getItem('token');
+      const anonToken = searchParams.get('token');
+      const isAnonymous = !storedToken && !!anonToken;
 
       console.log(`🔽 Starting bulk download for ${docs.length} files`);
 
@@ -732,7 +721,7 @@ const PatientDetails = () => {
         if (doc && doc._id) {
           try {
             // Get signed URL via backend download endpoint and open in new tab
-            const signedUrl = await getSignedDownloadUrl(doc._id, token);
+            const signedUrl = await getSignedDownloadUrl(doc._id, isAnonymous ? null : storedToken);
             const link = document.createElement('a');
             link.href = signedUrl;
             link.target = '_blank';
