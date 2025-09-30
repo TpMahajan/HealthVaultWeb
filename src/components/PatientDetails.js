@@ -36,6 +36,7 @@ const PatientDetails = () => {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [documents, setDocuments] = useState([]);
+  const [isAnonymousView, setIsAnonymousView] = useState(false);
   // Inline preview state (image on same page, PDFs in new tab)
   const [inlinePreview, setInlinePreview] = useState({ visible: false, url: '', title: '' });
   const [appointments, setAppointments] = useState([]);
@@ -59,6 +60,7 @@ const PatientDetails = () => {
         // Check if we're using session-based access (doctor accessing patient data)
         const doctorToken = localStorage.getItem('token');
         const isSessionBasedAccess = !patientToken && doctorToken;
+        setIsAnonymousView(!!patientToken);
         
         if (isSessionBasedAccess) {
           console.log('🔐 PatientDetails - Using session-based access with doctor token');
@@ -182,8 +184,8 @@ const PatientDetails = () => {
           }
         }
 
-        // Fetch patient data using the /auth/me endpoint (original flow)
-        const response = await fetch(`${API_BASE}/auth/me`, {
+        // Anonymous view: fetch public patient profile with token
+        const response = await fetch(`${API_BASE}/users/${id}?token=${encodeURIComponent(patientToken)}`, {
           headers: {
             'Authorization': `Bearer ${patientToken}`,
             'Content-Type': 'application/json'
@@ -213,8 +215,8 @@ const PatientDetails = () => {
           return;
         }
 
-        if (data.success && data.data && data.data.user) {
-          const user = data.data.user;
+        if (data.success && (data.data || data.user || data.patient)) {
+          const user = (data.data && (data.data.user || data.data)) || data.user || data.patient;
           
           // Transform user data to patient format
           const patientData = {
@@ -269,7 +271,8 @@ const PatientDetails = () => {
     try {
       setRecordsLoading(true);
       
-      const token = localStorage.getItem('token');
+      const anonToken = searchParams.get('token');
+      const token = anonToken || localStorage.getItem('token');
       if (!token) {
         console.log('No token available for fetching medical records');
         return;
@@ -280,9 +283,9 @@ const PatientDetails = () => {
 
       // Try multiple endpoints to find the right one
       const endpoints = [
-        `${API_BASE}/users/${patientId}/records`,
-        `${API_BASE}/files/user/${patientId}`,
-        `${API_BASE}/files/patient/${patientId}`
+        `${API_BASE}/users/${patientId}/records${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`,
+        `${API_BASE}/files/user/${patientId}${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`,
+        `${API_BASE}/files/patient/${patientId}${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`
       ];
 
       let allRecords = [];
@@ -412,7 +415,9 @@ const PatientDetails = () => {
   const getSignedPreviewUrl = async (docId, token) => {
     let res;
     try {
-      res = await fetch(`${API_BASE}/files/${docId}/preview`, {
+      const anonToken = searchParams.get('token');
+      const url = `${API_BASE}/files/${docId}/preview${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`;
+      res = await fetch(url, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
         mode: 'cors',
@@ -438,7 +443,9 @@ const PatientDetails = () => {
   const getSignedDownloadUrl = async (docId, token) => {
     let res;
     try {
-      res = await fetch(`${API_BASE}/files/${docId}/download?json=true`, {
+      const anonToken = searchParams.get('token');
+      const url = `${API_BASE}/files/${docId}/download?json=true${anonToken ? `&token=${encodeURIComponent(anonToken)}` : ''}`;
+      res = await fetch(url, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
         mode: 'cors',
@@ -925,18 +932,22 @@ const PatientDetails = () => {
             <p className="mt-2 text-gray-600 dark:text-gray-300">Patient ID: {patient.id}</p>
           </div>
           <div className="flex space-x-3">
+            {!isAnonymousView && (
             <button 
               onClick={handleDocumentUpload}
               className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
               <Upload className="h-4 w-4 mr-2" />
               Upload Document
             </button>
+            )}
+            {!isAnonymousView && (
             <button 
               onClick={handleScheduleAppointment}
               className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-green-700 hover:to-teal-700 transition-all duration-200">
               <Calendar className="h-4 w-4 mr-2" />
               Schedule Appointment
             </button>
+            )}
             <button 
               onClick={handleDownloadSummary}
               disabled={downloadLoading === 'summary'}
