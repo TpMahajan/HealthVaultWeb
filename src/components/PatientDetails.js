@@ -60,18 +60,11 @@ const PatientDetails = () => {
         console.log('🔍 PatientDetails - Fetching patient data for ID:', id);
         console.log('🔍 PatientDetails - Using token:', patientToken ? 'Present' : 'Not found');
         
-        // Determine role from stored token
+        // Determine role from localStorage
         const storedToken = localStorage.getItem('token');
-        const decodeRole = (tok) => {
-          try {
-            const payload = JSON.parse(atob(tok.split('.')[1] || ''));
-            return payload?.role || null;
-          } catch { return null; }
-        };
-        const storedRole = storedToken ? decodeRole(storedToken) : null;
-
-        const isDoctorFlow = storedToken && storedRole === 'doctor';
-        const isPatientFlow = storedToken && storedRole === 'patient';
+        const storedRole = localStorage.getItem('role'); // "doctor" | "patient"
+        const isDoctorFlow = !!storedToken && storedRole === 'doctor';
+        const isPatientFlow = !!storedToken && storedRole === 'patient';
         const isAnonFlow = !storedToken && !!patientToken;
         const isSessionBasedAccess = isDoctorFlow; // doctor has priority
         setIsAnonymousView(isAnonFlow);
@@ -374,34 +367,43 @@ const PatientDetails = () => {
       setRecordsLoading(true);
       
       const anonToken = searchParams.get('token');
-      const token = anonToken || localStorage.getItem('token');
-      if (!token) {
-        console.log('No token available for fetching medical records');
-        return;
-      }
+      const storedToken = localStorage.getItem('token');
+      const storedRole = localStorage.getItem('role');
+      const isDoctor = !!storedToken && storedRole === 'doctor';
+      const isPatient = !!storedToken && storedRole === 'patient';
+      const isAnonymous = !storedToken && !!anonToken;
 
       console.log('🔍 Fetching medical records for patient:', patientId);
       console.log('🔑 Using token:', token.substring(0, 20) + '...');
 
-      // Try multiple endpoints to find the right one
-      const endpoints = [
-        `${API_BASE}/users/${patientId}/records${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`,
-        `${API_BASE}/files/user/${patientId}${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`,
-        `${API_BASE}/files/patient/${patientId}${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`
-      ];
+      let endpoints = [];
+      let headers = {};
+      if (isDoctor) {
+        // Doctor: session-validated
+        endpoints = [ `${API_BASE}/users/${patientId}/records` ];
+        headers = { 'Authorization': `Bearer ${storedToken}`, 'Content-Type': 'application/json' };
+      } else if (isPatient) {
+        // Patient: own files listing
+        endpoints = [ `${API_BASE}/files/user/${patientId}` ];
+        headers = { 'Authorization': `Bearer ${storedToken}`, 'Content-Type': 'application/json' };
+      } else if (isAnonymous) {
+        // Anonymous: allowlisted records endpoint with query token, no Authorization header
+        endpoints = [ `${API_BASE}/users/${patientId}/records?token=${encodeURIComponent(anonToken)}` ];
+        headers = {}; // no auth header
+      } else {
+        console.log('No auth context available for fetching medical records');
+        setMedicalRecords([]);
+        setRecordsLoading(false);
+        return;
+      }
 
       let allRecords = [];
       let lastError = null;
 
       for (const endpoint of endpoints) {
         try {
-          console.log('📡 Trying endpoint:', endpoint, 'with token from', anonToken ? 'anon query/header' : 'localStorage');
-          const response = await fetch(endpoint, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
+          console.log('📡 Trying endpoint:', endpoint, 'headers:', Object.keys(headers));
+          const response = await fetch(endpoint, { headers });
 
           console.log('📡 Response status:', response.status);
 

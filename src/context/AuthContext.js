@@ -140,6 +140,7 @@ export const AuthProvider = ({ children }) => {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.doctor));
+      localStorage.setItem("role", "doctor");
       setUser(data.doctor);
       
       // Register FCM token after successful login
@@ -183,6 +184,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
   };
 
   const updateUser = (updatedUserData) => {
