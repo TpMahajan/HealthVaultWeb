@@ -374,7 +374,10 @@ const PatientDetails = () => {
       const isAnonymous = !storedToken && !!anonToken;
 
       console.log('🔍 Fetching medical records for patient:', patientId);
-      console.log('🔑 Using token:', token.substring(0, 20) + '...');
+      const debugToken = isDoctor || isPatient ? storedToken : (isAnonymous ? anonToken : '');
+      if (debugToken) {
+        console.log('🔑 Using token:', String(debugToken).substring(0, 20) + '...');
+      }
 
       let endpoints = [];
       let headers = {};
