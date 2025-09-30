@@ -70,10 +70,11 @@ const PatientDetails = () => {
         };
         const storedRole = storedToken ? decodeRole(storedToken) : null;
 
-        const isDoctorFlow = !patientToken && storedToken && storedRole === 'doctor';
-        const isPatientFlow = !patientToken && storedToken && storedRole === 'patient';
-        const isSessionBasedAccess = isDoctorFlow;
-        setIsAnonymousView(!!patientToken);
+        const isDoctorFlow = storedToken && storedRole === 'doctor';
+        const isPatientFlow = storedToken && storedRole === 'patient';
+        const isAnonFlow = !storedToken && !!patientToken;
+        const isSessionBasedAccess = isDoctorFlow; // doctor has priority
+        setIsAnonymousView(isAnonFlow);
         
         if (isSessionBasedAccess) {
           console.log('🔐 PatientDetails - Using session-based access with doctor token');
@@ -200,6 +201,51 @@ const PatientDetails = () => {
           }
         }
 
+        if (isPatientFlow) {
+          console.log('👤 PatientDetails - Using patient self-access via /auth/me');
+          const response = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${storedToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          const data = await response.json();
+          if (response.ok && data.success && data.data?.user) {
+            const user = data.data.user;
+            const patientData = {
+              id: user._id || user.id,
+              name: user.name || 'Unknown',
+              age: user.age || null,
+              gender: user.gender || null,
+              dateOfBirth: user.dateOfBirth || null,
+              bloodType: user.bloodType || null,
+              height: user.height || null,
+              weight: user.weight || null,
+              email: user.email || null,
+              mobile: user.mobile || null,
+              lastVisit: user.lastVisit || null,
+              nextAppointment: user.nextAppointment || null,
+              emergencyContact: user.emergencyContact || {
+                name: null,
+                relationship: null,
+                phone: null
+              },
+              medicalHistory: user.medicalHistory || [],
+              medications: user.medications || [],
+              medicalRecords: user.medicalRecords || [],
+              profilePicture: user.profilePicture || null
+            };
+            setPatient(patientData);
+            setIsCachedData(false);
+            setLoading(false);
+            return;
+          } else {
+            setError(data.message || 'Failed to fetch current user');
+            setLoading(false);
+            return;
+          }
+        }
+
         if (!patientToken) {
           // Try to get patient data from cached patients
           console.log('🔍 PatientDetails - No token, checking cached patients');
@@ -243,15 +289,10 @@ const PatientDetails = () => {
           }
         }
 
-        // Anonymous view: fetch public patient profile with token
+        // Anonymous view: fetch public patient profile with token (no Authorization header)
         const anonUrl = `${API_BASE}/users/${id}?token=${encodeURIComponent(patientToken)}`;
         console.log('📡 PatientDetails - Calling API (anonymous):', anonUrl);
-        const response = await fetch(anonUrl, {
-          headers: {
-            'Authorization': `Bearer ${patientToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await fetch(anonUrl);
 
         console.log('📡 PatientDetails - Response status:', response.status);
         
