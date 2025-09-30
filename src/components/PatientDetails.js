@@ -17,6 +17,7 @@ import {
   Plus
 } from 'lucide-react';
 import { API_BASE } from '../constants/api';
+import { useAuth } from '../context/AuthContext';
 import Footer from './Footer';
 import MedicalRecordsModal from './MedicalRecordsModal';
 import DocumentUploadModal from './DocumentUploadModal';
@@ -27,6 +28,7 @@ const PatientDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { anonAuth } = useAuth();
   const [patient, setPatient] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);

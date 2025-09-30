@@ -7,6 +7,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [anonAuth, setAnonAuth] = useState(null); // { role: 'anonymous', userId }
 
   // Register FCM token with backend
   const registerFCMToken = async (userId) => {
@@ -62,6 +63,21 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const restoreAuthState = () => {
       try {
+        // Detect anonymous token in URL (do not persist)
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const urlToken = params.get('token');
+          if (urlToken) {
+            const payload = JSON.parse(atob(urlToken.split('.')[1] || ''));
+            if (payload?.role === 'anonymous' && payload?.userId) {
+              setAnonAuth({ role: 'anonymous', userId: payload.userId });
+              console.log('🔐 AuthContext - Anonymous token detected, userId:', payload.userId);
+            }
+          }
+        } catch (e) {
+          console.warn('AuthContext - Failed to parse URL token:', e);
+        }
+
         const storedUser = localStorage.getItem("user");
         const storedToken = localStorage.getItem("token");
         
@@ -177,7 +193,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading, anonAuth }}>
       {children}
     </AuthContext.Provider>
   );
