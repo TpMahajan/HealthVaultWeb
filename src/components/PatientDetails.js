@@ -121,9 +121,10 @@ const PatientDetails = () => {
             user = data.data?.user;
             console.log('👤 PatientDetails - Patient self-access user data:', user);
           } else {
-            // For /users/:id, user is directly under data.data
-            user = data.data;
+            // For /users/:id, user is nested under data.data.user
+            user = data.data?.user || data.data;
             console.log('🔍 PatientDetails - Direct user data:', user);
+            console.log('🔍 PatientDetails - Full data structure:', data.data);
           }
 
           if (user) {
