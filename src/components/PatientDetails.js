@@ -69,8 +69,19 @@ const PatientDetails = () => {
           isAnonymous,
           hasStoredToken: !!storedToken,
           hasUrlToken: !!urlToken,
-          storedRole
+          storedRole,
+          urlToken: urlToken ? urlToken.substring(0, 20) + '...' : null
         });
+
+        // Additional debugging for anonymous access
+        if (urlToken) {
+          try {
+            const tokenPayload = JSON.parse(atob(urlToken.split('.')[1] || ''));
+            console.log('🔍 PatientDetails - URL token payload:', tokenPayload);
+          } catch (e) {
+            console.error('❌ PatientDetails - Failed to decode URL token:', e);
+          }
+        }
 
         setIsAnonymousView(isAnonymous);
 

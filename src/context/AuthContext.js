@@ -77,16 +77,25 @@ export const AuthProvider = ({ children }) => {
           try {
             const params = new URLSearchParams(window.location.search);
             const urlToken = params.get('token');
+            console.log('🔍 AuthContext - Checking for URL token:', !!urlToken);
             if (urlToken) {
+              console.log('🔍 AuthContext - URL token found, attempting to decode...');
               const payload = JSON.parse(atob(urlToken.split('.')[1] || ''));
+              console.log('🔍 AuthContext - Decoded token payload:', payload);
               if (payload?.role === 'anonymous' && payload?.userId) {
                 setAnonAuth({ role: 'anonymous', userId: payload.userId });
                 console.log('🔐 AuthContext - Anonymous token detected, userId:', payload.userId);
+              } else {
+                console.log('⚠️ AuthContext - Token found but not anonymous or missing userId');
               }
+            } else {
+              console.log('📭 AuthContext - No URL token found');
             }
           } catch (e) {
             console.warn('AuthContext - Failed to parse URL token:', e);
           }
+        } else {
+          console.log('🔍 AuthContext - Stored auth data exists, skipping anonymous token detection');
         }
         
         if (storedUser && storedToken && storedRole) {
