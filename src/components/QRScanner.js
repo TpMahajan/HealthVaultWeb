@@ -483,10 +483,13 @@ const QRScanner = () => {
         return;
       }
       
-      // Check if this is an anonymous token
+      // Check if this is an anonymous token AND the user is not logged in
+      const storedToken = localStorage.getItem('token');
+      const storedRole = localStorage.getItem('role');
+      const isLoggedInDoctor = storedToken && storedRole === 'doctor';
       const isAnonymousToken = tokenPayload.role === 'anonymous';
       
-      if (isAnonymousToken) {
+      if (isAnonymousToken && !isLoggedInDoctor) {
         console.log('👻 QR Scanner - Anonymous token detected, navigating directly to patient details');
         
         // For anonymous tokens, navigate directly to patient details with token
@@ -496,6 +499,11 @@ const QRScanner = () => {
         setLoading(false);
         navigate(navigationPath);
         return;
+      }
+      
+      if (isLoggedInDoctor) {
+        console.log('🔐 QR Scanner - Logged in doctor detected, using doctor session flow');
+        // Continue with doctor session flow below
       }
       
       // Cache the patient data for future reference
