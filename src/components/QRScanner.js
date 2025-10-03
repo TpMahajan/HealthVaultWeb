@@ -393,43 +393,72 @@ const QRScanner = () => {
 
       console.log('🔍 QR Scanner - Extracting patient ID from token:', patientToken);
 
-      // First, get patient ID from the token by calling /auth/me with patient's token
-      const patientResponse = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${patientToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('📡 QR Scanner - Patient lookup response status:', patientResponse.status);
+      // Decode the token to get patient ID directly (for anonymous tokens)
+      let patientId = null;
+      let user = null;
+      let tokenPayload = null;
       
-      const patientData = await patientResponse.json();
-
-      if (patientResponse.status === 401) {
-        if (patientData.message === "User not found") {
-          setError("Invalid patient token - user not found in database");
-        } else if (patientData.message === "Invalid token.") {
-          setError("Invalid patient token format");
-        } else if (patientData.message === "Token expired.") {
-          setError("Patient token has expired");
+      try {
+        tokenPayload = JSON.parse(atob(patientToken.split('.')[1]));
+        console.log('🔍 QR Scanner - Token payload:', tokenPayload);
+        
+        if (tokenPayload.role === 'anonymous' && tokenPayload.userId) {
+          patientId = tokenPayload.userId;
+          console.log('✅ QR Scanner - Anonymous token decoded, patientId:', patientId);
+          
+          // For anonymous tokens, we don't have full user data, so we'll fetch it later
+          // or use a minimal user object for now
+          user = {
+            _id: patientId,
+            id: patientId,
+            name: 'Patient', // Will be fetched later
+            email: 'patient@example.com' // Will be fetched later
+          };
         } else {
-          setError(`Authentication failed: ${patientData.message}`);
+          // For non-anonymous tokens, call /auth/me
+          const patientResponse = await fetch(`${API_BASE}/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${patientToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          console.log('📡 QR Scanner - Patient lookup response status:', patientResponse.status);
+          
+          const patientData = await patientResponse.json();
+
+          if (patientResponse.status === 401) {
+            if (patientData.message === "User not found") {
+              setError("Invalid patient token - user not found in database");
+            } else if (patientData.message === "Invalid token.") {
+              setError("Invalid patient token format");
+            } else if (patientData.message === "Token expired.") {
+              setError("Patient token has expired");
+            } else {
+              setError(`Authentication failed: ${patientData.message}`);
+            }
+            return;
+          }
+
+          if (patientResponse.status === 403) {
+            setError("Patient account is deactivated");
+            return;
+          }
+
+          if (!patientData.success || !patientData.data || !patientData.data.user) {
+            setError(patientData.message || "Failed to identify patient");
+            return;
+          }
+
+          user = patientData.data.user;
+          patientId = user._id || user.id;
         }
+      } catch (tokenError) {
+        console.error('❌ QR Scanner - Failed to decode token:', tokenError);
+        setError("Invalid token format");
+        setLoading(false);
         return;
       }
-
-      if (patientResponse.status === 403) {
-        setError("Patient account is deactivated");
-        return;
-      }
-
-      if (!patientData.success || !patientData.data || !patientData.data.user) {
-        setError(patientData.message || "Failed to identify patient");
-        return;
-      }
-
-      const user = patientData.data.user;
-      const patientId = user._id || user.id;
 
       console.log('✅ QR Scanner - Patient identified:', {
         name: user.name,
@@ -454,6 +483,21 @@ const QRScanner = () => {
         return;
       }
       
+      // Check if this is an anonymous token
+      const isAnonymousToken = tokenPayload.role === 'anonymous';
+      
+      if (isAnonymousToken) {
+        console.log('👻 QR Scanner - Anonymous token detected, navigating directly to patient details');
+        
+        // For anonymous tokens, navigate directly to patient details with token
+        const navigationPath = `/patient-details/${patientId}?token=${encodeURIComponent(patientToken)}`;
+        console.log('🔄 Navigating to anonymous patient details:', navigationPath);
+        
+        setLoading(false);
+        navigate(navigationPath);
+        return;
+      }
+      
       // Cache the patient data for future reference
       const patientInfo = {
         id: patientId,
@@ -467,7 +511,7 @@ const QRScanner = () => {
       // Also store as last scanned patient for continue button
       localStorage.setItem('lastScannedPatient', JSON.stringify(patientInfo));
 
-      // Request session access for this patient
+      // Request session access for this patient (for registered doctors)
       console.log('📋 QR Scanner - Requesting session access for patient:', patientId);
       
       try {
