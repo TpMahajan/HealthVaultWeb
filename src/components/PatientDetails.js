@@ -101,7 +101,14 @@ const PatientDetails = () => {
         const response = await fetch(apiUrl, { headers });
         const data = await response.json();
 
+        console.log('📡 PatientDetails - Full API response:', {
+          status: response.status,
+          ok: response.ok,
+          data: data
+        });
+
         if (!response.ok) {
+          console.error('❌ PatientDetails - API error:', data);
           setError(data.message || `Failed to fetch patient data: ${response.status}`);
           setLoading(false);
           return;
@@ -112,9 +119,11 @@ const PatientDetails = () => {
           if (isPatient) {
             // For /auth/me, user is nested under data.data
             user = data.data?.user;
+            console.log('👤 PatientDetails - Patient self-access user data:', user);
           } else {
             // For /users/:id, user is directly under data.data
             user = data.data;
+            console.log('🔍 PatientDetails - Direct user data:', user);
           }
 
           if (user) {
@@ -142,13 +151,15 @@ const PatientDetails = () => {
               profilePicture: user.profilePicture || null
             };
             
-            console.log('✅ PatientDetails - Patient data loaded:', patientData);
+            console.log('✅ PatientDetails - Processed patient data:', patientData);
             setPatient(patientData);
             setIsCachedData(false);
           } else {
+            console.error('❌ PatientDetails - No user data found in response');
             setError("Patient data not found in response.");
           }
         } else {
+          console.error('❌ PatientDetails - API returned success: false:', data);
           setError(data.message || "Failed to fetch patient data");
         }
       } catch (err) {
@@ -754,6 +765,8 @@ const PatientDetails = () => {
   }
 
   if (!patient) {
+    console.log('❌ PatientDetails - No patient data, showing error state');
+    console.log('❌ PatientDetails - Current state:', { loading, error, patient });
     return (
       <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="text-center">
