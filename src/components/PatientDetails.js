@@ -54,293 +54,100 @@ const PatientDetails = () => {
         setLoading(true);
         setError(null);
         
-        // Get patient token from URL parameters
-        const patientToken = searchParams.get('token');
-        console.log('[PatientDetails] useEffect: id=', id, 'token present?', !!patientToken);
-        console.log('🔍 PatientDetails - Fetching patient data for ID:', id);
-        console.log('🔍 PatientDetails - Using token:', patientToken ? 'Present' : 'Not found');
-        
-        // Determine role from localStorage
-        const storedToken = localStorage.getItem('token');
-        const storedRole = localStorage.getItem('role'); // "doctor" | "patient"
-        const isDoctorFlow = !!storedToken && storedRole === 'doctor';
-        const isPatientFlow = !!storedToken && storedRole === 'patient';
-        const isAnonFlow = !storedToken && !!patientToken;
-        const isSessionBasedAccess = isDoctorFlow; // doctor has priority
-        setIsAnonymousView(isAnonFlow);
-        
-        if (isSessionBasedAccess) {
-          console.log('🔐 PatientDetails - Using session-based access with doctor token');
-          console.log('🔍 PatientDetails - Patient ID from URL:', id);
-          console.log('🔍 PatientDetails - Doctor token present:', !!storedToken);
-          
-          // Use doctor's token to access patient data through session
-          const apiUrl = `${API_BASE}/users/${id}`;
-          console.log('📡 PatientDetails - Calling API (session/doctor):', apiUrl, 'with header token');
-          
-          const response = await fetch(apiUrl, {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
+        // Role detection with proper priority
+        const urlToken = searchParams.get("token");
+        const storedToken = localStorage.getItem("token");
+        const storedRole = localStorage.getItem("role");
 
-          console.log('📡 PatientDetails - Session-based response:', {
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok,
-            url: response.url
-          });
-          
-          const data = await response.json();
-          console.log('📋 PatientDetails - Session-based patient data:', data);
+        const isDoctor = storedToken && storedRole === "doctor";
+        const isPatient = storedToken && storedRole === "patient";
+        const isAnonymous = !storedToken && urlToken;
 
-          if (response.status === 403 && data.code === 'NO_ACTIVE_SESSION') {
-            setError('No active session with this patient. Please scan QR code and get patient approval first.');
-            setLoading(false);
-            return;
-          }
+        console.log('🔍 PatientDetails - Role detection:', {
+          isDoctor,
+          isPatient, 
+          isAnonymous,
+          hasStoredToken: !!storedToken,
+          hasUrlToken: !!urlToken,
+          storedRole
+        });
 
-          if (!response.ok) {
-            setError(data.message || `Failed to fetch patient data: ${response.status}`);
-            setLoading(false);
-            return;
-          }
+        setIsAnonymousView(isAnonymous);
 
-          if (data.success && data.data) {
-            // Handle different response structures
-            const user = data.sessionAccess ? data.data : data.data.user;
-            
-            const patientData = {
-              id: user._id || user.id,
-              name: user.name || 'Unknown',
-              age: user.age || null,
-              gender: user.gender || null,
-              dateOfBirth: user.dateOfBirth || null,
-              bloodType: user.bloodType || null,
-              height: user.height || null,
-              weight: user.weight || null,
-              email: user.email || null,
-              mobile: user.mobile || null,
-              lastVisit: user.lastVisit || null,
-              nextAppointment: user.nextAppointment || null,
-              emergencyContact: user.emergencyContact || {
-                name: null,
-                relationship: null,
-                phone: null
-              },
-              medicalHistory: user.medicalHistory || [],
-              medications: user.medications || [],
-              medicalRecords: user.medicalRecords || [],
-              profilePicture: user.profilePicture || null
-            };
-            
-            console.log('✅ PatientDetails - Session-based patient data loaded:', patientData);
-            console.log('🔐 Session access:', data.sessionAccess);
-            setPatient(patientData);
-            setIsCachedData(false);
-            setLoading(false);
-            return;
-          } else {
-            setError(data.message || "Failed to fetch patient data");
-            setLoading(false);
-            return;
-          }
-        }
-        
-        // Patient self-access: use /auth/me
-        if (isPatientFlow) {
-          console.log('👤 PatientDetails - Using patient self-access via /auth/me');
-          const response = await fetch(`${API_BASE}/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const data = await response.json();
-          if (response.ok && data.success && data.data?.user) {
-            const user = data.data.user;
-            const patientData = {
-              id: user._id || user.id,
-              name: user.name || 'Unknown',
-              age: user.age || null,
-              gender: user.gender || null,
-              dateOfBirth: user.dateOfBirth || null,
-              bloodType: user.bloodType || null,
-              height: user.height || null,
-              weight: user.weight || null,
-              email: user.email || null,
-              mobile: user.mobile || null,
-              lastVisit: user.lastVisit || null,
-              nextAppointment: user.nextAppointment || null,
-              emergencyContact: user.emergencyContact || {
-                name: null,
-                relationship: null,
-                phone: null
-              },
-              medicalHistory: user.medicalHistory || [],
-              medications: user.medications || [],
-              medicalRecords: user.medicalRecords || [],
-              profilePicture: user.profilePicture || null
-            };
-            setPatient(patientData);
-            setIsCachedData(false);
-            setLoading(false);
-            return;
-          } else {
-            setError(data.message || 'Failed to fetch current user');
-            setLoading(false);
-            return;
-          }
+        let apiUrl = '';
+        let headers = { 'Content-Type': 'application/json' };
+
+        if (isDoctor) {
+          console.log('🔐 PatientDetails - Doctor access flow');
+          apiUrl = `${API_BASE}/users/${id}`;
+          headers['Authorization'] = `Bearer ${storedToken}`;
+        } else if (isPatient) {
+          console.log('👤 PatientDetails - Patient self-access flow');
+          apiUrl = `${API_BASE}/auth/me`;
+          headers['Authorization'] = `Bearer ${storedToken}`;
+        } else if (isAnonymous) {
+          console.log('👻 PatientDetails - Anonymous access flow');
+          apiUrl = `${API_BASE}/users/${id}?token=${encodeURIComponent(urlToken)}`;
+          // No Authorization header for anonymous
+        } else {
+          setError('No valid access method found. Please log in or scan a QR code.');
+          setLoading(false);
+          return;
         }
 
-        if (isPatientFlow) {
-          console.log('👤 PatientDetails - Using patient self-access via /auth/me');
-          const response = await fetch(`${API_BASE}/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          const data = await response.json();
-          if (response.ok && data.success && data.data?.user) {
-            const user = data.data.user;
-            const patientData = {
-              id: user._id || user.id,
-              name: user.name || 'Unknown',
-              age: user.age || null,
-              gender: user.gender || null,
-              dateOfBirth: user.dateOfBirth || null,
-              bloodType: user.bloodType || null,
-              height: user.height || null,
-              weight: user.weight || null,
-              email: user.email || null,
-              mobile: user.mobile || null,
-              lastVisit: user.lastVisit || null,
-              nextAppointment: user.nextAppointment || null,
-              emergencyContact: user.emergencyContact || {
-                name: null,
-                relationship: null,
-                phone: null
-              },
-              medicalHistory: user.medicalHistory || [],
-              medications: user.medications || [],
-              medicalRecords: user.medicalRecords || [],
-              profilePicture: user.profilePicture || null
-            };
-            setPatient(patientData);
-            setIsCachedData(false);
-            setLoading(false);
-            return;
-          } else {
-            setError(data.message || 'Failed to fetch current user');
-            setLoading(false);
-            return;
-          }
-        }
+        console.log(`📡 PatientDetails - Calling API: ${apiUrl}`);
+        console.log(`📡 PatientDetails - Headers:`, headers);
 
-        if (!patientToken) {
-          // Try to get patient data from cached patients
-          console.log('🔍 PatientDetails - No token, checking cached patients');
-          const cachedPatients = JSON.parse(localStorage.getItem('patients') || '[]');
-          const cachedPatient = cachedPatients.find(p => p.id === id);
-          
-          if (cachedPatient) {
-            console.log('✅ PatientDetails - Found cached patient:', cachedPatient);
-            // Transform cached patient data to patient format
-            const patientData = {
-              id: cachedPatient.id,
-              name: cachedPatient.name,
-              email: cachedPatient.email,
-              mobile: cachedPatient.mobile,
-              age: null,
-              gender: null,
-              dateOfBirth: null,
-              bloodType: null,
-              height: null,
-              weight: null,
-              lastVisit: null,
-              nextAppointment: null,
-              emergencyContact: {
-                name: null,
-                relationship: null,
-                phone: null
-              },
-              medicalHistory: [],
-              medications: [],
-              medicalRecords: [],
-              profilePicture: null
-            };
-            setPatient(patientData);
-            setIsCachedData(true);
-            setLoading(false);
-            return;
-          } else {
-            setError('No patient token provided and patient not found in cache. Please scan QR code again.');
-            setLoading(false);
-            return;
-          }
-        }
-
-        // Anonymous view: fetch public patient profile with token (no Authorization header)
-        const anonUrl = `${API_BASE}/users/${id}?token=${encodeURIComponent(patientToken)}`;
-        console.log('📡 PatientDetails - Calling API (anonymous):', anonUrl);
-        const response = await fetch(anonUrl);
-
-        console.log('📡 PatientDetails - Response status:', response.status);
-        
+        const response = await fetch(apiUrl, { headers });
         const data = await response.json();
-        console.log('📋 PatientDetails - Patient data response:', data);
 
-        if (response.status === 401) {
-          if (data.message === "User not found") {
-            setError("Patient not found in database");
-          } else if (data.message === "Invalid token.") {
-            setError("Invalid patient token");
-          } else if (data.message === "Token expired.") {
-            setError("Patient token has expired");
+        if (!response.ok) {
+          setError(data.message || `Failed to fetch patient data: ${response.status}`);
+          setLoading(false);
+          return;
+        }
+
+        if (data.success) {
+          let user = null;
+          if (isPatient) {
+            // For /auth/me, user is nested under data.data
+            user = data.data?.user;
           } else {
-            setError(`Authentication failed: ${data.message}`);
+            // For /users/:id, user is directly under data.data
+            user = data.data;
           }
-          return;
-        }
 
-        if (response.status === 403) {
-          setError("Patient account is deactivated");
-          return;
-        }
-
-        if (data.success && (data.data || data.user || data.patient)) {
-          const user = (data.data && (data.data.user || data.data)) || data.user || data.patient;
-          
-          // Transform user data to patient format
-          const patientData = {
-            id: user._id || user.id,
-            name: user.name || 'Unknown',
-            age: user.age || null,
-            gender: user.gender || null,
-            dateOfBirth: user.dateOfBirth || null,
-            bloodType: user.bloodType || null,
-            height: user.height || null,
-            weight: user.weight || null,
-            email: user.email || null,
-            mobile: user.mobile || null,
-            lastVisit: user.lastVisit || null,
-            nextAppointment: user.nextAppointment || null,
-            emergencyContact: user.emergencyContact || {
-              name: null,
-              relationship: null,
-              phone: null
-            },
-            medicalHistory: user.medicalHistory || [],
-            medications: user.medications || [],
-            medicalRecords: user.medicalRecords || [],
-            profilePicture: user.profilePicture || null
-          };
-          
-          console.log('✅ PatientDetails - Patient data loaded:', patientData);
-          setPatient(patientData);
-          setIsCachedData(false);
+          if (user) {
+            const patientData = {
+              id: user._id || user.id,
+              name: user.name || 'Unknown',
+              age: user.age || null,
+              gender: user.gender || null,
+              dateOfBirth: user.dateOfBirth || null,
+              bloodType: user.bloodType || null,
+              height: user.height || null,
+              weight: user.weight || null,
+              email: user.email || null,
+              mobile: user.mobile || null,
+              lastVisit: user.lastVisit || null,
+              nextAppointment: user.nextAppointment || null,
+              emergencyContact: user.emergencyContact || {
+                name: null,
+                relationship: null,
+                phone: null
+              },
+              medicalHistory: user.medicalHistory || [],
+              medications: user.medications || [],
+              medicalRecords: user.medicalRecords || [],
+              profilePicture: user.profilePicture || null
+            };
+            
+            console.log('✅ PatientDetails - Patient data loaded:', patientData);
+            setPatient(patientData);
+            setIsCachedData(false);
+          } else {
+            setError("Patient data not found in response.");
+          }
         } else {
           setError(data.message || "Failed to fetch patient data");
         }
@@ -366,33 +173,33 @@ const PatientDetails = () => {
     try {
       setRecordsLoading(true);
       
-      const anonToken = searchParams.get('token');
-      const storedToken = localStorage.getItem('token');
-      const storedRole = localStorage.getItem('role');
-      const isDoctor = !!storedToken && storedRole === 'doctor';
-      const isPatient = !!storedToken && storedRole === 'patient';
-      const isAnonymous = !storedToken && !!anonToken;
+      // Use same role detection logic as fetchPatientData
+      const urlToken = searchParams.get("token");
+      const storedToken = localStorage.getItem("token");
+      const storedRole = localStorage.getItem("role");
+
+      const isDoctor = storedToken && storedRole === "doctor";
+      const isPatient = storedToken && storedRole === "patient";
+      const isAnonymous = !storedToken && urlToken;
 
       console.log('🔍 Fetching medical records for patient:', patientId);
-      const debugToken = isDoctor || isPatient ? storedToken : (isAnonymous ? anonToken : '');
-      if (debugToken) {
-        console.log('🔑 Using token:', String(debugToken).substring(0, 20) + '...');
-      }
+      console.log('🔍 Role detection for records:', { isDoctor, isPatient, isAnonymous });
 
-      let endpoints = [];
-      let headers = {};
+      let endpoint = '';
+      let headers = { 'Content-Type': 'application/json' };
+
       if (isDoctor) {
         // Doctor: session-validated
-        endpoints = [ `${API_BASE}/users/${patientId}/records` ];
-        headers = { 'Authorization': `Bearer ${storedToken}`, 'Content-Type': 'application/json' };
+        endpoint = `${API_BASE}/users/${patientId}/records`;
+        headers['Authorization'] = `Bearer ${storedToken}`;
       } else if (isPatient) {
         // Patient: own files listing
-        endpoints = [ `${API_BASE}/files/user/${patientId}` ];
-        headers = { 'Authorization': `Bearer ${storedToken}`, 'Content-Type': 'application/json' };
+        endpoint = `${API_BASE}/files/user/${patientId}`;
+        headers['Authorization'] = `Bearer ${storedToken}`;
       } else if (isAnonymous) {
         // Anonymous: allowlisted records endpoint with query token, no Authorization header
-        endpoints = [ `${API_BASE}/users/${patientId}/records?token=${encodeURIComponent(anonToken)}` ];
-        headers = {}; // no auth header
+        endpoint = `${API_BASE}/users/${patientId}/records?token=${encodeURIComponent(urlToken)}`;
+        // No Authorization header for anonymous
       } else {
         console.log('No auth context available for fetching medical records');
         setMedicalRecords([]);
@@ -400,58 +207,44 @@ const PatientDetails = () => {
         return;
       }
 
-      let allRecords = [];
-      let lastError = null;
+      console.log('📡 Calling endpoint:', endpoint, 'headers:', Object.keys(headers));
+      const response = await fetch(endpoint, { headers });
 
-      for (const endpoint of endpoints) {
-        try {
-          console.log('📡 Trying endpoint:', endpoint, 'headers:', Object.keys(headers));
-          const response = await fetch(endpoint, { headers });
+      console.log('📡 Response status:', response.status);
 
-          console.log('📡 Response status:', response.status);
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log('📋 Response data:', data);
-            
-            if (data.success) {
-              // Handle different response structures
-              if (data.records) {
-                // Grouped structure
-                allRecords = [
-                  ...(data.records.reports || []),
-                  ...(data.records.prescriptions || []),
-                  ...(data.records.bills || []),
-                  ...(data.records.insurance || [])
-                ];
-              } else if (data.documents) {
-                // Direct documents array
-                allRecords = data.documents;
-              } else if (Array.isArray(data)) {
-                // Direct array
-                allRecords = data;
-              }
-              
-              console.log('📄 Records found:', allRecords.length);
-              break; // Success, exit loop
-            }
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            lastError = `HTTP ${response.status}: ${errorData.message || response.statusText}`;
-            console.log('❌ Endpoint failed:', endpoint, lastError);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📋 Response data:', data);
+        
+        if (data.success) {
+          let allRecords = [];
+          // Handle different response structures
+          if (data.records) {
+            // Grouped structure
+            allRecords = [
+              ...(data.records.reports || []),
+              ...(data.records.prescriptions || []),
+              ...(data.records.bills || []),
+              ...(data.records.insurance || [])
+            ];
+          } else if (data.documents) {
+            // Direct documents array
+            allRecords = data.documents;
+          } else if (Array.isArray(data)) {
+            // Direct array
+            allRecords = data;
           }
-        } catch (err) {
-          lastError = err.message;
-          console.log('❌ Endpoint error:', endpoint, err.message);
+          
+          console.log('📄 Records found:', allRecords.length);
+          setMedicalRecords(allRecords);
+          console.log('✅ Medical records loaded:', allRecords.length, 'records');
+        } else {
+          console.error('❌ API returned success: false:', data.message);
+          setMedicalRecords([]);
         }
-      }
-
-      if (allRecords.length > 0) {
-        console.log('📊 Final records:', allRecords);
-        setMedicalRecords(allRecords);
-        console.log('✅ Medical records loaded:', allRecords.length, 'records');
       } else {
-        console.error('❌ No records found from any endpoint. Last error:', lastError);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Endpoint failed:', endpoint, `HTTP ${response.status}: ${errorData.message || response.statusText}`);
         setMedicalRecords([]);
       }
     } catch (err) {

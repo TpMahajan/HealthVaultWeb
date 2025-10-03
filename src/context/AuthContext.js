@@ -63,29 +63,33 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const restoreAuthState = () => {
       try {
-        // Detect anonymous token in URL (do not persist)
-        try {
-          const params = new URLSearchParams(window.location.search);
-          const urlToken = params.get('token');
-          if (urlToken) {
-            const payload = JSON.parse(atob(urlToken.split('.')[1] || ''));
-            if (payload?.role === 'anonymous' && payload?.userId) {
-              setAnonAuth({ role: 'anonymous', userId: payload.userId });
-              console.log('🔐 AuthContext - Anonymous token detected, userId:', payload.userId);
-            }
-          }
-        } catch (e) {
-          console.warn('AuthContext - Failed to parse URL token:', e);
-        }
-
         const storedUser = localStorage.getItem("user");
         const storedToken = localStorage.getItem("token");
+        const storedRole = localStorage.getItem("role");
         
         console.log("🔍 AuthContext - Restoring auth state...");
         console.log("🔍 AuthContext - Stored user:", storedUser ? "Present" : "Not found");
         console.log("🔍 AuthContext - Stored token:", storedToken ? "Present" : "Not found");
+        console.log("🔍 AuthContext - Stored role:", storedRole || "Not found");
         
-        if (storedUser && storedToken) {
+        // Only detect anonymous token if no stored auth data exists
+        if (!storedUser && !storedToken) {
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const urlToken = params.get('token');
+            if (urlToken) {
+              const payload = JSON.parse(atob(urlToken.split('.')[1] || ''));
+              if (payload?.role === 'anonymous' && payload?.userId) {
+                setAnonAuth({ role: 'anonymous', userId: payload.userId });
+                console.log('🔐 AuthContext - Anonymous token detected, userId:', payload.userId);
+              }
+            }
+          } catch (e) {
+            console.warn('AuthContext - Failed to parse URL token:', e);
+          }
+        }
+        
+        if (storedUser && storedToken && storedRole) {
           const userData = JSON.parse(storedUser);
           
           // Validate token by checking if it's expired
@@ -97,14 +101,16 @@ export const AuthProvider = ({ children }) => {
               console.log("⏰ AuthContext - Token expired, clearing auth data");
               localStorage.removeItem("user");
               localStorage.removeItem("token");
+              localStorage.removeItem("role");
             } else {
-              setUser(userData);
-              console.log("✅ AuthContext - User restored from localStorage:", userData);
+              setUser({ ...userData, role: storedRole });
+              console.log("✅ AuthContext - User restored from localStorage:", userData, "Role:", storedRole);
             }
           } catch (tokenError) {
             console.error("❌ AuthContext - Invalid token format, clearing auth data:", tokenError);
             localStorage.removeItem("user");
             localStorage.removeItem("token");
+            localStorage.removeItem("role");
           }
         } else {
           console.log("📭 AuthContext - No stored auth data found");
@@ -114,6 +120,7 @@ export const AuthProvider = ({ children }) => {
         // Clear corrupted data
         localStorage.removeItem("user");
         localStorage.removeItem("token");
+        localStorage.removeItem("role");
       } finally {
         setIsLoading(false);
         console.log("🏁 AuthContext - Auth state restoration complete");
@@ -182,6 +189,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    setAnonAuth(null);
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
