@@ -183,6 +183,10 @@ const PatientDetails = () => {
     };
 
     fetchPatientData();
+    // Ensure single fetch per id/token by cleaning up race conditions
+    return () => {
+      setLoading(false);
+    };
   }, [id, searchParams.get('token')]);
 
   // Fetch medical records from the new endpoint
@@ -283,7 +287,9 @@ const PatientDetails = () => {
     if (patient && patient.id) {
       fetchMedicalRecords(patient.id);
     }
-  }, [patient, isCachedData]);
+    // Avoid duplicate fetches when route re-renders quickly
+    // by not depending on isCachedData changes here
+  }, [patient]);
 
   const getStatusColor = (status) => {
     switch (status) {

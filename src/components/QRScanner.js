@@ -19,6 +19,7 @@ const QRScanner = () => {
   const [sessionStatus, setSessionStatus] = useState(null);
   const [pollingInterval, setPollingInterval] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const hasNavigatedRef = useRef(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -154,6 +155,8 @@ const QRScanner = () => {
             console.log('✅ Session accepted! Redirecting to patient details...');
             clearInterval(interval);
             setPollingInterval(null);
+            // Stop camera immediately once we have a result
+            try { stopScan(); } catch {}
             
             // Prevent multiple navigation attempts
             if (isNavigating) {
@@ -169,8 +172,11 @@ const QRScanner = () => {
             console.log('🔍 Patient ID for navigation:', patientId);
             console.log('🔍 Current location:', window.location.href);
             
-            // Navigate to patient details
-            navigate(navigationPath);
+            // Navigate to patient details just once
+            if (!hasNavigatedRef.current) {
+              hasNavigatedRef.current = true;
+              navigate(navigationPath, { replace: true });
+            }
             
             // Additional debug after navigation attempt
             setTimeout(() => {
@@ -184,6 +190,7 @@ const QRScanner = () => {
             console.log('❌ Session declined by patient');
             clearInterval(interval);
             setPollingInterval(null);
+            try { stopScan(); } catch {}
             setSessionStatus('declined');
             setError('Access request declined by patient.');
             return;
@@ -192,6 +199,7 @@ const QRScanner = () => {
             console.log('⏰ Session expired');
             clearInterval(interval);
             setPollingInterval(null);
+            try { stopScan(); } catch {}
             setSessionStatus('expired');
             setError('Session request expired. Please try again.');
             return;
@@ -281,11 +289,22 @@ const QRScanner = () => {
       if (pollingInterval) {
         clearInterval(pollingInterval);
       }
+      // Always stop camera when leaving page
+      try { stopScan(); } catch {}
     };
   }, [pollingInterval]);
 
   const startScan = async () => {
     try {
+      // Ensure any previous camera stream is fully stopped before starting a new one
+      if (stream) {
+        try { stream.getTracks().forEach(t => t.stop()); } catch {}
+        if (videoRef.current) {
+          try { videoRef.current.pause(); } catch {}
+          videoRef.current.srcObject = null;
+        }
+        setStream(null);
+      }
       setIsScanning(true);
       setScanResult(null);
       setPatientData(null);
@@ -307,8 +326,12 @@ const QRScanner = () => {
 
   const stopScan = () => {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      try { stream.getTracks().forEach(track => track.stop()); } catch {}
       setStream(null);
+    }
+    if (videoRef.current) {
+      try { videoRef.current.pause(); } catch {}
+      videoRef.current.srcObject = null;
     }
     setIsScanning(false);
   };
@@ -497,7 +520,10 @@ const QRScanner = () => {
         console.log('🔄 Navigating to anonymous patient details:', navigationPath);
         
         setLoading(false);
-        navigate(navigationPath);
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          navigate(navigationPath, { replace: true });
+        }
         return;
       }
       
@@ -525,6 +551,8 @@ const QRScanner = () => {
       try {
         const sessionData = await requestPatientAccess(patientId);
         console.log('✅ Session request created:', sessionData);
+        // Stop camera as soon as the request is sent; we don't need the camera active anymore
+        try { stopScan(); } catch {}
         
         // Start polling for session status
         if (sessionData && sessionData._id) {
@@ -556,7 +584,10 @@ const QRScanner = () => {
             console.log('🔍 Patient ID for existing session:', patientId);
             
             setLoading(false);
-            navigate(navigationPath);
+            if (!hasNavigatedRef.current) {
+              hasNavigatedRef.current = true;
+              navigate(navigationPath, { replace: true });
+            }
             
             // Debug navigation
             setTimeout(() => {
