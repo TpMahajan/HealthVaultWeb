@@ -801,12 +801,12 @@ const PatientDetails = () => {
   return (
     <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
-      <div className="mb-8 p-4">
+      <div className="mb-4 sm:mb-6 md:mb-8 p-3 sm:p-4">
         <button
           onClick={() => navigate('/patients')}
-          className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:text-gray-100 mb-4 transition-colors duration-200"
+          className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 transition-colors duration-200 text-sm sm:text-base"
         >
-          <ArrowLeft className="h-5 w-5 mr-2" />
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5 sm:mr-2" />
           Back to Patients
         </button>
 
@@ -840,48 +840,81 @@ const PatientDetails = () => {
           </div>
         )}
         
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">{patient.name}</h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-300">Patient ID: {patient.id}</p>
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate">{patient.name}</h1>
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate">Patient ID: {patient.id}</p>
+            </div>
+            {/* Desktop: All buttons in a row */}
+            <div className="hidden sm:flex space-x-2 md:space-x-3 flex-shrink-0">
+              {!isAnonymousView && (
+                <button 
+                  onClick={handleDocumentUpload}
+                  className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
+                  <Upload className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                  <span className="hidden md:inline">Upload</span>
+                </button>
+              )}
+              {!isAnonymousView && (
+                <button 
+                  onClick={handleScheduleAppointment}
+                  className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-green-700 hover:to-teal-700 transition-all duration-200">
+                  <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                  <span className="hidden md:inline">Appointment</span>
+                </button>
+              )}
+              <button 
+                onClick={handleDownloadSummary}
+                disabled={downloadLoading === 'summary'}
+                className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                {downloadLoading === 'summary' ? (
+                  <Loader className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                )}
+                <span className="hidden md:inline">Summary</span>
+              </button>
+            </div>
           </div>
-          <div className="flex space-x-3">
+          {/* Mobile: Stacked buttons */}
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
             {!isAnonymousView && (
-            <button 
-              onClick={handleDocumentUpload}
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Document
-            </button>
+              <button 
+                onClick={handleDocumentUpload}
+                className="inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
+                <Upload className="h-3.5 w-3.5 mr-1.5" />
+                Upload
+              </button>
             )}
             {!isAnonymousView && (
-            <button 
-              onClick={handleScheduleAppointment}
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-green-700 hover:to-teal-700 transition-all duration-200">
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule Appointment
-            </button>
+              <button 
+                onClick={handleScheduleAppointment}
+                className="inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white text-xs font-medium rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-200">
+                <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                Appointment
+              </button>
             )}
             <button 
               onClick={handleDownloadSummary}
               disabled={downloadLoading === 'summary'}
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white text-sm font-medium rounded-xl hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+              className={`inline-flex items-center justify-center px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white text-xs font-medium rounded-lg hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ${!isAnonymousView ? '' : 'col-span-2'}`}>
               {downloadLoading === 'summary' ? (
-                <Loader className="h-4 w-4 mr-2 animate-spin" />
+                <Loader className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="h-3.5 w-3.5 mr-1.5" />
               )}
-              Download Summary
+              Summary
             </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 px-3 sm:px-4">
         {/* Patient Info Sidebar */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sticky top-24">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 dark:text-gray-100 mb-4">Patient Information</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 lg:sticky lg:top-24">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Patient Information</h2>
             
             <div className="space-y-4">
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
@@ -928,27 +961,28 @@ const PatientDetails = () => {
         {/* Main Content */}
         <div className="lg:col-span-2">
           {/* Tabs */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
-            <div className="border-b border-gray-200 dark:border-gray-700">
-              <nav className="flex space-x-8 px-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-4 sm:mb-6">
+            <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+              <nav className="flex space-x-4 sm:space-x-6 md:space-x-8 px-3 sm:px-4 md:px-6 min-w-max">
                 {[
                   { id: 'overview', name: 'Overview', count: null },
-                  { id: 'records', name: 'Medical Records', count: medicalRecords.length },
-                  { id: 'medications', name: 'Medications', count: patient.medications.length },
-                  { id: 'history', name: 'Medical History', count: patient.medicalHistory.length }
+                  { id: 'records', name: 'Records', fullName: 'Medical Records', count: medicalRecords.length },
+                  { id: 'medications', name: 'Meds', fullName: 'Medications', count: patient.medications.length },
+                  { id: 'history', name: 'History', fullName: 'Medical History', count: patient.medicalHistory.length }
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                    className={`py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap transition-colors duration-200 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    {tab.name}
-                    {tab.count && (
-                      <span className="ml-2 bg-gray-100 text-gray-900 dark:text-gray-100 py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    <span className="sm:hidden">{tab.name}</span>
+                    <span className="hidden sm:inline">{tab.fullName || tab.name}</span>
+                    {tab.count !== null && tab.count !== undefined && (
+                      <span className="ml-1.5 sm:ml-2 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 py-0.5 px-1.5 sm:px-2.5 rounded-full text-xs font-medium">
                         {tab.count}
                       </span>
                     )}
@@ -957,7 +991,7 @@ const PatientDetails = () => {
               </nav>
             </div>
 
-            <div className="p-6">
+            <div className="p-3 sm:p-4 md:p-6">
               {/* Overview Tab */}
               {activeTab === 'overview' && (
                 <div className="space-y-6">
@@ -990,41 +1024,73 @@ const PatientDetails = () => {
 
               {/* Medical Records Tab */}
               {activeTab === 'records' && (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {/* Records Header */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Medical Records</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex-1">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">Medical Records</h3>
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                         {recordsLoading ? 'Loading...' : `${medicalRecords.length} records available`}
                       </p>
                     </div>
-                    <div className="flex space-x-3">
+                    {/* Desktop buttons */}
+                    <div className="hidden sm:flex space-x-2 md:space-x-3">
                       <button
                         onClick={() => fetchMedicalRecords(patient.id)}
-                        className="inline-flex items-center px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                        className="inline-flex items-center px-3 md:px-4 py-2 bg-gray-600 text-white text-xs md:text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
                       >
-                        <Loader className="h-4 w-4 mr-2" />
-                        Refresh
+                        <Loader className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                        <span className="hidden md:inline">Refresh</span>
                       </button>
                       <button
                         onClick={handleViewAllRecords}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center px-3 md:px-4 py-2 bg-blue-600 text-white text-xs md:text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View All
+                        <Eye className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                        <span className="hidden md:inline">View All</span>
                       </button>
                       <button
                         onClick={handleBulkDownload}
                         disabled={downloadLoading === 'bulk'}
-                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="inline-flex items-center px-3 md:px-4 py-2 bg-green-600 text-white text-xs md:text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {downloadLoading === 'bulk' ? (
-                          <Loader className="h-4 w-4 mr-2 animate-spin" />
+                          <Loader className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2 animate-spin" />
                         ) : (
-                          <Download className="h-4 w-4 mr-2" />
+                          <Download className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
                         )}
-                        Download All
+                        <span className="hidden md:inline">Download All</span>
+                      </button>
+                    </div>
+                    {/* Mobile buttons */}
+                    <div className="grid grid-cols-3 gap-2 sm:hidden">
+                      <button
+                        onClick={() => fetchMedicalRecords(patient.id)}
+                        className="inline-flex items-center justify-center px-2 py-2 bg-gray-600 text-white text-xs font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        <Loader className="h-3.5 w-3.5 mr-1" />
+                        Refresh
+                      </button>
+                      <button
+                        onClick={handleViewAllRecords}
+                        className="inline-flex items-center justify-center px-2 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" />
+                        View
+                      </button>
+                      <button
+                        onClick={handleBulkDownload}
+                        disabled={downloadLoading === 'bulk'}
+                        className="inline-flex items-center justify-center px-2 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {downloadLoading === 'bulk' ? (
+                          <Loader className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            All
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
