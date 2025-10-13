@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Shield, Mail } from 'lucide-react';
@@ -11,8 +11,9 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth(); // ✅ from AuthContext
+  const { login, loginWithGoogle } = useAuth(); // ✅ from AuthContext
   const navigate = useNavigate(); // ✅ router navigation
+  const googleBtnRef = useRef(null);
 
   // ✅ Handle form submit
   const handleSubmit = async (e) => {
@@ -39,6 +40,40 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  // Initialize Google Identity Services button
+  useEffect(() => {
+    if (!window.google) return;
+    try {
+      window.google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          const idToken = response.credential;
+          const result = await loginWithGoogle(idToken);
+          if (result.success) {
+            navigate('/');
+          } else {
+            alert(result.error || 'Google sign-in failed');
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        context: 'signin'
+      });
+      if (googleBtnRef.current) {
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          shape: 'rectangular',
+          text: 'continue_with',
+          logo_alignment: 'left'
+        });
+      }
+    } catch (e) {
+      console.warn('Google init failed', e);
+    }
+  }, [loginWithGoogle, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col justify-between p-4">
@@ -167,6 +202,11 @@ const LoginPage = () => {
                 )}
               </button>
             </form>
+
+            {/* Google Sign-In */}
+            <div className="mt-6">
+              <div ref={googleBtnRef} className="flex justify-center" />
+            </div>
 
             {/* Demo Credentials */}
             {/* <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">

@@ -45,3 +45,21 @@ export const doctorLogin = async (email, password) => {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 };
+
+// ---------------- PATIENT GOOGLE AUTH (WEB) ----------------
+export const googleWebAuth = async (idToken) => {
+  try {
+    const res = await fetch(`${API_BASE}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || `Google auth failed (${res.status})`);
+    }
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message || 'Google auth failed' };
+  }
+};

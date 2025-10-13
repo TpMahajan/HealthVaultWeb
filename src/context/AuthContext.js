@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { DOCTOR_API_BASE } from "../constants/api";
+import { DOCTOR_API_BASE, googleWebAuth } from "../constants/api";
 import { getFCMToken, onMessageListener } from "../firebase";
 
 const AuthContext = createContext();
@@ -211,8 +211,20 @@ export const AuthProvider = ({ children }) => {
     console.log('✅ AuthContext - User data updated successfully');
   };
 
+  // Google web login/signup for patients
+  const loginWithGoogle = async (idToken) => {
+    const result = await googleWebAuth(idToken);
+    if (!result.success) return { success: false, error: result.error };
+    const { token, user } = result.data;
+    localStorage.setItem("token", token);
+    localStorage.setItem("role", "patient");
+    localStorage.setItem("user", JSON.stringify(user));
+    setUser(user);
+    return { success: true };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading, anonAuth }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading, anonAuth, loginWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

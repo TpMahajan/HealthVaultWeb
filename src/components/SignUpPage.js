@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Shield, User, Phone, Mail } from 'lucide-react';
@@ -17,8 +17,9 @@ const SignUpPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const googleBtnRef = useRef(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -47,20 +48,52 @@ const SignUpPage = () => {
 
     try {
       const result = await signup(formData.name, formData.email, formData.mobile, formData.password);
-if (result.success) {
-  // if you want “create -> go to login”, clear token/user then navigate:
-  localStorage.removeItem('user');
-  localStorage.removeItem('token');
-  navigate('/login');
-} else {
-  setError(result.error || 'Registration failed');
-}
+      if (result.success) {
+        // If backend returned token+user we already set it in context; navigate to dashboard
+        navigate('/dashboard');
+      } else {
+        setError(result.error || 'Registration failed');
+      }
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  // Initialize Google Identity Services button
+  useEffect(() => {
+    if (!window.google) return;
+    try {
+      window.google.accounts.id.initialize({
+        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          const idToken = response.credential;
+          const result = await loginWithGoogle(idToken);
+          if (result.success) {
+            navigate('/dashboard');
+          } else {
+            alert(result.error || 'Google signup failed');
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        context: 'signup'
+      });
+      if (googleBtnRef.current) {
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          shape: 'rectangular',
+          text: 'signup_with',
+          logo_alignment: 'left'
+        });
+      }
+    } catch (e) {
+      console.warn('Google init failed', e);
+    }
+  }, [loginWithGoogle, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col justify-between p-4">
@@ -262,6 +295,10 @@ if (result.success) {
                 </p>
               </div>
             </form>
+          {/* Google Sign Up */}
+          <div className="mt-6">
+            <div ref={googleBtnRef} className="flex justify-center" />
+          </div>
           </div>
         </div>
       </div>
