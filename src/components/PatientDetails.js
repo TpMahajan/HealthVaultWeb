@@ -1145,12 +1145,6 @@ const PatientDetails = () => {
                             </div>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(record.status || 'pending')}`}>
-                              <span className="flex items-center space-x-1">
-                                {getStatusIcon(record.status || 'pending')}
-                                <span>{record.status || 'pending'}</span>
-                              </span>
-                            </span>
                             <button 
                               onClick={() => handlePreview(record)}
                               className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
