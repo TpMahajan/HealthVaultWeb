@@ -370,10 +370,13 @@ const QRScanner = () => {
   };
 
   useEffect(() => {
+    let interval = null;
     if (isScanning && videoRef.current) {
-      const interval = setInterval(detectQRCode, 100); // Check every 100ms for better responsiveness
-      return () => clearInterval(interval);
+      interval = setInterval(detectQRCode, 120); // slightly slower to avoid duplicate fires
     }
+    return () => {
+      if (interval) try { clearInterval(interval); } catch {}
+    };
   }, [isScanning]);
 
   const handleManualQRSubmit = async (e) => {
