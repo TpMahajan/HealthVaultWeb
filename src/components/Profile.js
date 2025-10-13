@@ -166,7 +166,15 @@ const Profile = () => {
       });
 
       console.log('📡 Upload response status:', response.status);
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const raw = await response.text();
+      let data;
+      try {
+        data = contentType.includes('application/json') ? JSON.parse(raw) : { success: false, message: raw };
+      } catch (e) {
+        console.warn('⚠️ Non-JSON response for avatar upload:', raw);
+        data = { success: false, message: raw };
+      }
       console.log('📋 Upload response:', data);
 
       if (data.success) {
