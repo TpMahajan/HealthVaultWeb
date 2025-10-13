@@ -576,14 +576,16 @@ const QRScanner = () => {
       console.log('📋 QR Scanner - Requesting session access for patient:', patientId);
       
       try {
-        const sessionData = await requestPatientAccess(patientId, patientToken);
+        // For registered doctors, use the doctor's auth token from localStorage
+        const sessionData = await requestPatientAccess(patientId);
         console.log('✅ Session request created:', sessionData);
         // Stop camera as soon as the request is sent; we don't need the camera active anymore
         try { stopScan(); } catch {}
         
         // Start polling for session status
         if (sessionData && sessionData._id) {
-          startPollingSession(sessionData._id, patientId, patientToken);
+          // For registered doctors, do not pass patient token; normal auth is used
+          startPollingSession(sessionData._id, patientId);
         }
         
         setLoading(false);
