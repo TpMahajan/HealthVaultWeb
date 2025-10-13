@@ -851,30 +851,30 @@ const PatientDetails = () => {
             <div className="flex-1 min-w-0">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate">{patient.name}</h1>
               <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate">Patient ID: {patient.id}</p>
-            </div>
+          </div>
             {/* Desktop: All buttons in a row */}
             <div className="hidden sm:flex space-x-2 md:space-x-3 flex-shrink-0">
-              {!isAnonymousView && (
-                <button 
-                  onClick={handleDocumentUpload}
+            {!isAnonymousView && (
+            <button 
+              onClick={handleDocumentUpload}
                   className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
                   <Upload className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
                   <span className="hidden md:inline">Upload</span>
-                </button>
-              )}
-              {!isAnonymousView && (
-                <button 
-                  onClick={handleScheduleAppointment}
+            </button>
+            )}
+            {!isAnonymousView && (
+            <button 
+              onClick={handleScheduleAppointment}
                   className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-green-700 hover:to-teal-700 transition-all duration-200">
                   <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
                   <span className="hidden md:inline">Appointment</span>
-                </button>
-              )}
-              <button 
-                onClick={handleDownloadSummary}
-                disabled={downloadLoading === 'summary'}
+            </button>
+            )}
+            <button 
+              onClick={handleDownloadSummary}
+              disabled={downloadLoading === 'summary'}
                 className="inline-flex items-center px-3 md:px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white text-xs md:text-sm font-medium rounded-lg md:rounded-xl hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
-                {downloadLoading === 'summary' ? (
+              {downloadLoading === 'summary' ? (
                   <Loader className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2 animate-spin" />
                 ) : (
                   <Download className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
@@ -916,7 +916,7 @@ const PatientDetails = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 px-3 sm:px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 px-2 sm:px-4">
         {/* Patient Info Sidebar */}
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 lg:sticky lg:top-24">
