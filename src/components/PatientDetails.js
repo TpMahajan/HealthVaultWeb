@@ -208,9 +208,11 @@ const PatientDetails = () => {
       const storedToken = localStorage.getItem("token");
       const storedRole = localStorage.getItem("role");
 
-      const isDoctor = storedToken && storedRole === "doctor";
-      const isPatient = storedToken && storedRole === "patient";
-      const isAnonymous = !storedToken && urlToken;
+      // PRIORITY: URL token takes precedence over anything in localStorage
+      const hasUrlAnonToken = !!urlToken;
+      const isDoctor = !hasUrlAnonToken && storedToken && storedRole === "doctor";
+      const isPatient = !hasUrlAnonToken && storedToken && storedRole === "patient";
+      const isAnonymous = hasUrlAnonToken; // treat as anonymous whenever token is present in URL
 
       console.log('🔍 Fetching medical records for patient:', patientId);
       console.log('🔍 Role detection for records:', { isDoctor, isPatient, isAnonymous });
@@ -227,9 +229,9 @@ const PatientDetails = () => {
         endpoint = `${API_BASE}/files/user/${patientId}`;
         headers['Authorization'] = `Bearer ${storedToken}`;
       } else if (isAnonymous) {
-        // Anonymous: allowlisted records endpoint with query token, no Authorization header
-        endpoint = `${API_BASE}/users/${patientId}/records?token=${encodeURIComponent(urlToken)}`;
-        // No Authorization header for anonymous
+        // Anonymous: allowlisted records endpoint with Authorization header
+        endpoint = `${API_BASE}/users/${patientId}/records`;
+        headers['Authorization'] = `Bearer ${urlToken}`;
       } else {
         console.log('No auth context available for fetching medical records');
         setMedicalRecords([]);
