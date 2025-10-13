@@ -45,8 +45,13 @@ const LoginPage = () => {
   useEffect(() => {
     if (!window.google) return;
     try {
+      const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || window.__GOOGLE_CLIENT_ID__;
+      if (!clientId) {
+        console.warn('Google Client ID not configured');
+        return;
+      }
       window.google.accounts.id.initialize({
-        client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        client_id: clientId,
         callback: async (response) => {
           const idToken = response.credential;
           const result = await loginWithGoogle(idToken);

@@ -15,6 +15,13 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Optional: set your Google Web Client ID here if you don't use .env -->
+    <script>
+      // Paste your Web Client ID between the quotes to enable Google buttons without .env
+      window.__GOOGLE_CLIENT_ID__ ="17869523090-bkk7sg3pei58pgq9h8mh5he85i6khg8r.apps.googleusercontent.com";
+    </script>
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
