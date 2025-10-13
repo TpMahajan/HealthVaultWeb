@@ -181,14 +181,14 @@ const Profile = () => {
         console.log('✅ Photo uploaded successfully:', data.avatarUrl);
         setDoctorData(data.doctor);
         setHasPhoto(true);
-        
-        // Update profileData with the new avatar URL
+
+        // The backend stores S3 key in doctor.avatar; frontend uses avatarUrl for display
         setProfileData(prev => ({
           ...prev,
           avatar: data.avatarUrl
         }));
-        
-        // Update the user data in AuthContext to reflect the new avatar
+
+        // Update the user data in AuthContext to reflect the display URL
         const updatedUser = { ...user, avatar: data.avatarUrl };
         console.log('🔄 Profile - Updating user with avatar:', updatedUser);
         updateUser(updatedUser);
@@ -240,12 +240,13 @@ const Profile = () => {
         if (data.success) {
           console.log('Doctor data received:', data.doctor);
           setDoctorData(data.doctor);
+          const displayAvatar = data.doctor.avatarUrl || data.doctor.avatar || '';
           setProfileData(prev => ({
             ...prev,
             name: data.doctor.name || '',
             email: data.doctor.email || '',
             phone: data.doctor.mobile || '',
-            avatar: data.doctor.avatar || '',
+            avatar: displayAvatar,
             specialty: data.doctor.specialty || '',
             license: data.doctor.license || '',
             experience: data.doctor.experience || '',
@@ -259,7 +260,7 @@ const Profile = () => {
           }));
           
           // Set hasPhoto based on avatar
-          setHasPhoto(!!data.doctor.avatar);
+          setHasPhoto(!!displayAvatar);
         } else {
           console.error('Failed to fetch profile:', data.message);
           // Fallback to user data from context

@@ -144,18 +144,20 @@ const TopNavbar = () => {
               >
                 {(() => {
                   console.log('🔍 TopNavbar - User data:', user);
-                  console.log('🔍 TopNavbar - User avatar:', user?.avatar);
-                  return user?.avatar ? (
+                  const avatarSrc = user?.avatar || user?.avatarUrl;
+                  console.log('🔍 TopNavbar - Avatar src:', avatarSrc);
+                  return avatarSrc ? (
                     <img
-                      src={user.avatar}
-                      alt={user.name}
+                      src={avatarSrc}
+                      alt={user?.name || 'Doctor'}
                       className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
                       onError={(e) => {
-                        console.error('❌ TopNavbar: Failed to load avatar image:', user.avatar);
+                        console.error('❌ TopNavbar: Failed to load avatar image:', avatarSrc);
                         console.error('❌ TopNavbar: Image error:', e);
+                        e.currentTarget.style.display = 'none';
                       }}
                       onLoad={() => {
-                        console.log('✅ TopNavbar: Avatar image loaded successfully:', user.avatar);
+                        console.log('✅ TopNavbar: Avatar image loaded successfully:', avatarSrc);
                       }}
                     />
                   ) : (
