@@ -516,18 +516,39 @@ const QRScanner = () => {
       const isAnonymousToken = tokenPayload.role === 'anonymous';
       
       if (isAnonymousToken && !isLoggedInDoctor) {
-        console.log('👻 QR Scanner - Anonymous token detected, navigating directly to patient details');
-        
-        // For anonymous tokens, navigate directly to patient details with token
-        const navigationPath = `/patient-details/${patientId}?token=${encodeURIComponent(patientToken)}`;
-        console.log('🔄 Navigating to anonymous patient details:', navigationPath);
-        
-        setLoading(false);
-        if (!hasNavigatedRef.current) {
-          hasNavigatedRef.current = true;
-          navigate(navigationPath, { replace: true });
+        console.log('👻 QR Scanner - Anonymous token detected, creating anonymous session request');
+        // Create a session request as anonymous doctor; patient decides
+        try {
+          const response = await fetch(`${API_BASE}/sessions/request`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${patientToken}`, // pass anon token
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              patientId: patientId,
+              requestMessage: 'Anonymous Doctor is requesting access to view your medical records'
+            })
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            setError(data.message || 'Failed to send access request');
+            setLoading(false);
+            return;
+          }
+          console.log('✅ Anonymous session created:', data.session?._id);
+          // Stop camera and begin polling using the same anon token
+          try { stopScan(); } catch {}
+          startPollingSession(data.session._id, patientId);
+          setLoading(false);
+          setSessionStatus('pending');
+          return;
+        } catch (e) {
+          console.error('❌ Anonymous session request error:', e);
+          setError('Failed to send anonymous access request');
+          setLoading(false);
+          return;
         }
-        return;
       }
       
       if (isLoggedInDoctor) {
