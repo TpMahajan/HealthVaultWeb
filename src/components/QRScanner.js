@@ -73,23 +73,23 @@ const QRScanner = () => {
   };
 
   // Session management functions
-  const requestPatientAccess = async (patientId) => {
+  const requestPatientAccess = async (patientId, token = null) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const authToken = token || localStorage.getItem('token');
+      if (!authToken) {
         throw new Error('No authentication token found. Please log in.');
       }
 
       console.log('🔄 Requesting patient access:', {
         patientId: patientId,
         apiUrl: `${API_BASE}/sessions/request`,
-        hasToken: !!token
+        hasToken: !!authToken
       });
 
       const response = await fetch(`${API_BASE}/sessions/request`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -126,8 +126,8 @@ const QRScanner = () => {
     }
   };
 
-  const startPollingSession = (sessionId, patientId) => {
-    console.log('🔄 Starting session polling:', { sessionId, patientId });
+  const startPollingSession = (sessionId, patientId, patientToken = null) => {
+    console.log('🔄 Starting session polling:', { sessionId, patientId, hasToken: !!patientToken });
     
     if (pollingInterval) {
       clearInterval(pollingInterval);
@@ -167,7 +167,10 @@ const QRScanner = () => {
             setIsNavigating(true);
             
             // Add debugging for navigation
-            const navigationPath = `/patient-details/${patientId}`;
+            let navigationPath = `/patient-details/${patientId}`;
+            if (patientToken) {
+              navigationPath += `?token=${encodeURIComponent(patientToken)}`;
+            }
             console.log('🔄 Navigating to:', navigationPath);
             console.log('🔍 Patient ID for navigation:', patientId);
             console.log('🔍 Current location:', window.location.href);
@@ -539,7 +542,7 @@ const QRScanner = () => {
           console.log('✅ Anonymous session created:', data.session?._id);
           // Stop camera and begin polling using the same anon token
           try { stopScan(); } catch {}
-          startPollingSession(data.session._id, patientId);
+          startPollingSession(data.session._id, patientId, patientToken);
           setLoading(false);
           setSessionStatus('pending');
           return;
@@ -573,14 +576,14 @@ const QRScanner = () => {
       console.log('📋 QR Scanner - Requesting session access for patient:', patientId);
       
       try {
-        const sessionData = await requestPatientAccess(patientId);
+        const sessionData = await requestPatientAccess(patientId, patientToken);
         console.log('✅ Session request created:', sessionData);
         // Stop camera as soon as the request is sent; we don't need the camera active anymore
         try { stopScan(); } catch {}
         
         // Start polling for session status
         if (sessionData && sessionData._id) {
-          startPollingSession(sessionData._id, patientId);
+          startPollingSession(sessionData._id, patientId, patientToken);
         }
         
         setLoading(false);
@@ -603,7 +606,10 @@ const QRScanner = () => {
             
             setIsNavigating(true);
             
-            const navigationPath = `/patient-details/${patientId}`;
+            let navigationPath = `/patient-details/${patientId}`;
+            if (patientToken) {
+              navigationPath += `?token=${encodeURIComponent(patientToken)}`;
+            }
             console.log('🔄 Navigating to existing session patient:', navigationPath);
             console.log('🔍 Patient ID for existing session:', patientId);
             
