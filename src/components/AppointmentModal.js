@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   X, 
   Calendar, 
@@ -22,6 +22,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const formRef = useRef(null);
 
   if (!isOpen) return null;
 
@@ -39,7 +40,11 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (creating) {
+      console.log('⏳ Submission already in progress, ignoring duplicate click');
+      return;
+    }
     console.log('🚀 handleSubmit called - FORM SUBMISSION TRIGGERED!');
     console.log('📋 Form data:', formData);
     console.log('👤 Patient data:', patient);
@@ -216,7 +221,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
           {/* Info Box */}
           <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
             <div className="flex items-center space-x-2">
@@ -365,6 +370,12 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
             <button
               type="submit"
               disabled={creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()}
+              onClick={() => {
+                console.log('🖱️ Create & Save clicked');
+                if (formRef.current && typeof formRef.current.requestSubmit === 'function') {
+                  try { formRef.current.requestSubmit(); } catch {}
+                }
+              }}
               className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
             >
               {creating ? (
