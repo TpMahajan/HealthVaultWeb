@@ -59,9 +59,11 @@ const PatientDetails = () => {
         const storedToken = localStorage.getItem("token");
         const storedRole = localStorage.getItem("role");
 
-        const isDoctor = storedToken && storedRole === "doctor";
-        const isPatient = storedToken && storedRole === "patient";
-        const isAnonymous = !storedToken && urlToken;
+        // PRIORITY: URL token takes precedence over anything in localStorage
+        const hasUrlAnonToken = !!urlToken;
+        const isDoctor = !hasUrlAnonToken && storedToken && storedRole === "doctor";
+        const isPatient = !hasUrlAnonToken && storedToken && storedRole === "patient";
+        const isAnonymous = hasUrlAnonToken; // treat as anonymous whenever token is present in URL
 
         console.log('🔍 PatientDetails - Role detection:', {
           isDoctor,
@@ -98,8 +100,9 @@ const PatientDetails = () => {
           headers['Authorization'] = `Bearer ${storedToken}`;
         } else if (isAnonymous) {
           console.log('👻 PatientDetails - Anonymous access flow');
-          apiUrl = `${API_BASE}/users/${id}?token=${encodeURIComponent(urlToken)}`;
-          // No Authorization header for anonymous
+          apiUrl = `${API_BASE}/users/${id}`;
+          // Prefer sending token via Authorization header (optionalAuth also supports query)
+          headers['Authorization'] = `Bearer ${urlToken}`;
         } else {
           setError('No valid access method found. Please log in or scan a QR code.');
           setLoading(false);
