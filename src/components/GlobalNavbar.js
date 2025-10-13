@@ -210,24 +210,28 @@ const GlobalNavbar = () => {
                   aria-label="Profile menu"
                   className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors duration-200"
                 >
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
-                      onError={(e) => {
-                        console.error('❌ GlobalNavbar: Failed to load avatar image:', user.avatar);
-                        console.error('❌ GlobalNavbar: Image error:', e);
-                      }}
-                      onLoad={() => {
-                        console.log('✅ GlobalNavbar: Avatar image loaded successfully:', user.avatar);
-                      }}
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <Stethoscope className="h-4 w-4 text-white" />
-                    </div>
-                  )}
+                  {(() => {
+                    const avatarSrc = user?.avatar || user?.avatarUrl;
+                    return avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt={user.name}
+                        className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                        onError={(e) => {
+                          console.error('❌ GlobalNavbar: Failed to load avatar image:', avatarSrc);
+                          console.error('❌ GlobalNavbar: Image error:', e);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                        onLoad={() => {
+                          console.log('✅ GlobalNavbar: Avatar image loaded successfully:', avatarSrc);
+                        }}
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                        <Stethoscope className="h-4 w-4 text-white" />
+                      </div>
+                    );
+                  })()}
                   <div className="hidden md:block text-left">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{user?.specialty || 'Doctor'}</p>
