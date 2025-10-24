@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  MessageCircle, 
   X, 
   Send, 
   Bot, 
-  User, 
   Loader, 
   Upload, 
   FileText,
-  Image,
   Download,
   Calendar,
   Users,
@@ -29,11 +26,13 @@ const AIAssistant = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [connectionError, setConnectionError] = useState(null);
+  const [debugMode, setDebugMode] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();
 
-  // Initialize with welcome message
+  // Initialize with welcome message and test connection
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const welcomeMessage = userRole === 'doctor' 
@@ -46,8 +45,50 @@ const AIAssistant = ({
         content: welcomeMessage,
         timestamp: new Date()
       }]);
+
+      // Test AI connection on initialization
+      testAIConnection();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, userRole, user?.name, patientName]);
+
+  // Test AI connection
+  const testAIConnection = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('❌ No token found for AI connection test');
+        setConnectionError('No authentication token found');
+        return;
+      }
+
+      console.log('🧪 Testing AI connection...');
+      const response = await fetch(`${API_BASE}/ai/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ AI connection test successful:', data);
+        setConnectionError(null);
+      } else {
+        console.error('❌ AI connection test failed:', response.status, response.statusText);
+        setConnectionError(`AI service unavailable (${response.status})`);
+      }
+    } catch (error) {
+      console.error('❌ AI connection test error:', error);
+      setConnectionError('Network error - cannot connect to AI service');
+    }
+  };
+
+  // Retry connection
+  const retryConnection = () => {
+    setConnectionError(null);
+    testAIConnection();
+  };
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -65,6 +106,7 @@ const AIAssistant = ({
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentMessage = inputMessage.trim();
     setInputMessage('');
     setIsLoading(true);
     setIsTyping(true);
@@ -72,8 +114,26 @@ const AIAssistant = ({
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No authentication token found');
+        throw new Error('No authentication token found. Please log in again.');
       }
+
+      // Check if token is expired
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const isExpired = tokenPayload.exp * 1000 < Date.now();
+        if (isExpired) {
+          throw new Error('Authentication token has expired. Please log in again.');
+        }
+      } catch (tokenError) {
+        throw new Error('Invalid authentication token. Please log in again.');
+      }
+
+      console.log('🤖 Sending AI request:', {
+        prompt: currentMessage,
+        patientId,
+        userRole,
+        apiBase: API_BASE
+      });
 
       const response = await fetch(`${API_BASE}/ai/ask`, {
         method: 'POST',
@@ -82,16 +142,36 @@ const AIAssistant = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt: inputMessage.trim(),
+          prompt: currentMessage,
           ...(patientId && { patientId })
         })
       });
 
+      console.log('📡 AI Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`AI request failed: ${response.statusText}`);
+        let errorMessage = `AI request failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          console.error('❌ AI Error response:', errorData);
+          errorMessage = errorData.message || errorMessage;
+          
+          // Handle specific error cases
+          if (response.status === 401) {
+            errorMessage = 'Authentication failed. Please log in again.';
+          } else if (response.status === 403) {
+            errorMessage = 'You do not have permission to use the AI Assistant.';
+          } else if (response.status === 500) {
+            errorMessage = 'The AI service is temporarily unavailable. Please try again later.';
+          }
+        } catch (parseError) {
+          console.error('❌ Could not parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log('✅ AI Response data:', data);
       
       if (data.success) {
         const assistantMessage = {
@@ -113,15 +193,37 @@ const AIAssistant = ({
         throw new Error(data.message || 'AI request failed');
       }
     } catch (error) {
-      console.error('AI Assistant error:', error);
-      const errorMessage = {
+      console.error('❌ AI Assistant error:', error);
+      
+      let errorMessage = 'I encountered an error. Please try again.';
+      
+      if (error.message.includes('No authentication token') || error.message.includes('Invalid authentication token') || error.message.includes('token has expired')) {
+        errorMessage = 'Please log in again to use the AI Assistant.';
+        // Clear invalid token
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+      } else if (error.message.includes('401')) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (error.message.includes('403')) {
+        errorMessage = 'You do not have permission to use the AI Assistant.';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'The AI service is temporarily unavailable. Please try again later.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'The request timed out. Please try again.';
+      } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to the AI service. Please check your internet connection and try again.';
+      } else {
+        errorMessage = `Error: ${error.message}`;
+      }
+
+      const errorMessageObj = {
         id: Date.now() + 1,
         type: 'assistant',
-        content: `I'm sorry, I encountered an error: ${error.message}. Please try again.`,
+        content: errorMessage,
         timestamp: new Date(),
         isError: true
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMessageObj]);
     } finally {
       setIsLoading(false);
       setIsTyping(false);
@@ -227,13 +329,75 @@ const AIAssistant = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <X className="h-5 w-5 text-white" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setDebugMode(!debugMode)}
+              className="p-1 text-white/60 hover:text-white/80 text-xs"
+              title="Toggle Debug Mode"
+            >
+              Debug
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-white" />
+            </button>
+          </div>
         </div>
+
+        {/* Debug Panel */}
+        {debugMode && (
+          <div className="p-4 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Debug Information</h4>
+            <div className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+              <div><strong>API Base:</strong> {API_BASE}</div>
+              <div><strong>User Role:</strong> {userRole}</div>
+              <div><strong>Patient ID:</strong> {patientId || 'None'}</div>
+              <div><strong>Token Present:</strong> {localStorage.getItem('token') ? 'Yes' : 'No'}</div>
+              <div><strong>Connection Status:</strong> {connectionError ? 'Error' : 'OK'}</div>
+              {connectionError && <div><strong>Error:</strong> {connectionError}</div>}
+            </div>
+            <div className="mt-2 flex space-x-2">
+              <button
+                onClick={testAIConnection}
+                className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+              >
+                Test Connection
+              </button>
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem('token');
+                  console.log('🔍 Debug - Token:', token ? token.substring(0, 20) + '...' : 'None');
+                  console.log('🔍 Debug - API Base:', API_BASE);
+                  console.log('🔍 Debug - User Role:', userRole);
+                  console.log('🔍 Debug - Patient ID:', patientId);
+                }}
+                className="text-xs bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 px-2 py-1 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
+              >
+                Log Debug
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Connection Error Display */}
+        {connectionError && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                <span className="text-sm text-red-800 dark:text-red-200">{connectionError}</span>
+              </div>
+              <button
+                onClick={retryConnection}
+                className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
