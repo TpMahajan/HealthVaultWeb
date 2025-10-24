@@ -22,8 +22,8 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/app_icon.png', // Medical Vault app icon
-    badge: '/app_icon.png',
+    icon: '/app_icon.png?v=2', // Medical Vault app icon
+    badge: '/app_icon.png?v=2',
     tag: 'health-vault-notification',
     requireInteraction: true,
     actions: [

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from 'react';
 import { Menu, Bell, User, X, Home, Users, QrCode, UserCircle, Settings, LogOut, Stethoscope, Sun, Moon, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -46,7 +47,7 @@ const GlobalNavbar = () => {
           <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2">
               <img 
-                src="/app_icon.png" 
+                src="/app_icon.png?v=2" 
                 alt="HealthVault" 
                 className="h-6 w-6 object-cover rounded"
                 onError={(e) => {
@@ -113,7 +114,7 @@ const GlobalNavbar = () => {
               {/* Logo */}
               <Link to="/dashboard" className="flex items-center space-x-2">
                 <img 
-                  src="/app_icon.png" 
+                  src="/app_icon.png?v=2" 
                   alt="HealthVault" 
                   className="h-8 w-8 object-cover rounded"
                   onError={(e) => {

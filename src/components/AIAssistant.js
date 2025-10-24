@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageCircle, 
@@ -29,16 +30,35 @@ const AIAssistant = ({
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationContext, setConversationContext] = useState({});
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();
 
-  // Initialize with welcome message
+  // Initialize with welcome message and conversation context
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const welcomeMessage = userRole === 'doctor' 
-        ? `Hello Dr. ${user?.name || 'Doctor'}! I'm your AI Assistant. I can help you with patient information, appointments, and medical data analysis. How can I assist you today?`
-        : `Hello ${patientName || 'Patient'}! I'm your AI Assistant. I can help you understand your medical records, reports, and health information. What would you like to know?`;
+        ? `Hello Dr. ${user?.name || 'Doctor'}! I'm your AI Assistant specialized for medical professionals. I can help you with:
+        
+• Patient information and medical records analysis
+• Clinical insights and treatment recommendations  
+• Appointment management and scheduling
+• Medical documentation and report generation
+• Diagnosis support and medical terminology
+• Patient care coordination
+
+How can I assist you with your medical practice today?`
+        : `Hello ${patientName || 'Patient'}! I'm your AI Assistant designed to help you understand your health information. I can assist you with:
+
+• Explaining your medical reports in simple terms
+• Understanding medications and treatments
+• Health education and wellness tips
+• Appointment scheduling and reminders
+• Organizing your personal health records
+• General health questions and guidance
+
+What would you like to know about your health today?`;
       
       setMessages([{
         id: Date.now(),
@@ -46,8 +66,18 @@ const AIAssistant = ({
         content: welcomeMessage,
         timestamp: new Date()
       }]);
+      
+      // Initialize conversation context
+      setConversationContext({
+        userRole,
+        patientId,
+        patientName,
+        sessionStart: new Date(),
+        topics: [],
+        preferences: {}
+      });
     }
-  }, [isOpen, userRole, user?.name, patientName]);
+  }, [isOpen, userRole, user?.name, patientName, patientId, messages.length]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -83,6 +113,8 @@ const AIAssistant = ({
         },
         body: JSON.stringify({
           prompt: inputMessage.trim(),
+          userRole: userRole,
+          conversationContext: conversationContext,
           ...(patientId && { patientId })
         })
       });
@@ -109,6 +141,17 @@ const AIAssistant = ({
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // Update conversation context with new topics and preferences
+        setConversationContext(prev => ({
+          ...prev,
+          topics: [...(prev.topics || []), inputMessage.trim()],
+          lastInteraction: new Date(),
+          preferences: {
+            ...prev.preferences,
+            ...(data.preferences || {})
+          }
+        }));
       } else {
         throw new Error(data.message || 'AI request failed');
       }
@@ -154,17 +197,21 @@ const AIAssistant = ({
   const getQuickActions = () => {
     if (userRole === 'doctor') {
       return [
-        { icon: Users, label: 'Show my patients', action: 'Show me my active patients' },
-        { icon: Calendar, label: 'Today\'s appointments', action: 'What are my appointments for today?' },
-        { icon: FileText, label: 'Recent reports', action: 'Show me recent medical reports' },
-        { icon: AlertCircle, label: 'Critical patients', action: 'Show me patients with critical conditions' }
+        { icon: Users, label: 'My Patients', action: 'Show me my active patients and their recent activity' },
+        { icon: Calendar, label: 'Today\'s Schedule', action: 'What are my appointments for today and any urgent cases?' },
+        { icon: FileText, label: 'Recent Reports', action: 'Show me recent medical reports that need my attention' },
+        { icon: AlertCircle, label: 'Critical Cases', action: 'Show me patients with critical conditions or urgent follow-ups' },
+        { icon: Bot, label: 'Clinical Insights', action: 'Help me analyze patient data and provide clinical recommendations' },
+        { icon: CheckCircle, label: 'Treatment Plans', action: 'Assist me in creating or reviewing treatment plans' }
       ];
     } else {
       return [
-        { icon: FileText, label: 'My reports', action: 'Show me my medical reports' },
-        { icon: Calendar, label: 'My appointments', action: 'What are my upcoming appointments?' },
-        { icon: Download, label: 'Download records', action: 'Help me download my medical records' },
-        { icon: CheckCircle, label: 'Health summary', action: 'Give me a summary of my health status' }
+        { icon: FileText, label: 'My Health Records', action: 'Show me my medical reports and explain them in simple terms' },
+        { icon: Calendar, label: 'My Appointments', action: 'What are my upcoming appointments and what should I prepare?' },
+        { icon: Download, label: 'Download Records', action: 'Help me download and organize my medical records' },
+        { icon: CheckCircle, label: 'Health Summary', action: 'Give me a comprehensive summary of my health status' },
+        { icon: Bot, label: 'Health Tips', action: 'Provide me with personalized health tips and wellness advice' },
+        { icon: AlertCircle, label: 'Medication Info', action: 'Help me understand my medications and their side effects' }
       ];
     }
   };
@@ -295,10 +342,10 @@ const AIAssistant = ({
                 <button
                   key={index}
                   onClick={() => handleQuickAction(action.action)}
-                  className="flex items-center space-x-2 p-2 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 p-3 text-xs bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 hover:from-purple-100 hover:to-blue-100 dark:hover:from-purple-800/30 dark:hover:to-blue-800/30 rounded-lg transition-all duration-200 border border-purple-200 dark:border-purple-700"
                 >
-                  <action.icon className="h-3 w-3" />
-                  <span className="truncate">{action.label}</span>
+                  <action.icon className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="truncate font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
                 </button>
               ))}
             </div>

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +7,8 @@ import TopNavbar from './TopNavbar';
 // Removed AppointmentForm import - no longer needed
 import Footer from './Footer';
 import AIAssistant from './AIAssistant';
-import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X, MessageCircle } from 'lucide-react';
+import AnimatedChatButton from './AnimatedChatButton';
+import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X } from 'lucide-react';
 
 const Dashboard = () => {
   const [showAppointments, setShowAppointments] = useState(false);
@@ -471,14 +473,10 @@ const Dashboard = () => {
         <Footer />
       </div>
 
-      {/* AI Assistant Floating Button */}
-      <button
+      {/* AI Assistant Animated Button */}
+      <AnimatedChatButton
         onClick={() => setShowAIAssistant(true)}
-        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-        title="AI Assistant"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </button>
+      />
 
       {/* AI Assistant Modal */}
       <AIAssistant

@@ -108,7 +108,7 @@ const SignUpPage = () => {
           <div className="text-center">
             <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
               <img 
-                src="/app_icon.png" 
+                src="/app_icon.png?v=2" 
                 alt="Medical Vault" 
                 className="h-14 w-14 object-cover rounded-xl"
                 onError={(e) => {
