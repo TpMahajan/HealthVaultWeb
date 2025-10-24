@@ -62,6 +62,21 @@ const AIAssistant = ({
         return;
       }
 
+      // Check if token is expired
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        const isExpired = tokenPayload.exp * 1000 < Date.now();
+        if (isExpired) {
+          console.log('❌ Token is expired');
+          setConnectionError('Authentication token has expired. Please log in again.');
+          return;
+        }
+      } catch (tokenError) {
+        console.log('❌ Invalid token format');
+        setConnectionError('Invalid authentication token. Please log in again.');
+        return;
+      }
+
       console.log('🧪 Testing AI connection...');
       const response = await fetch(`${API_BASE}/ai/status`, {
         headers: {
@@ -76,11 +91,25 @@ const AIAssistant = ({
         setConnectionError(null);
       } else {
         console.error('❌ AI connection test failed:', response.status, response.statusText);
-        setConnectionError(`AI service unavailable (${response.status})`);
+        
+        if (response.status === 401) {
+          setConnectionError('Authentication failed. Please log in again.');
+          // Clear invalid token
+          localStorage.removeItem('token');
+          localStorage.removeItem('role');
+        } else if (response.status === 500) {
+          setConnectionError('AI service is temporarily unavailable. Please try again later.');
+        } else {
+          setConnectionError(`AI service unavailable (${response.status})`);
+        }
       }
     } catch (error) {
       console.error('❌ AI connection test error:', error);
-      setConnectionError('Network error - cannot connect to AI service');
+      if (error.message.includes('Failed to fetch')) {
+        setConnectionError('Cannot connect to the AI service. Please check your internet connection.');
+      } else {
+        setConnectionError('Network error - cannot connect to AI service');
+      }
     }
   };
 
@@ -389,12 +418,28 @@ const AIAssistant = ({
                 <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                 <span className="text-sm text-red-800 dark:text-red-200">{connectionError}</span>
               </div>
-              <button
-                onClick={retryConnection}
-                className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
-              >
-                Retry
-              </button>
+              <div className="flex space-x-2">
+                {connectionError.includes('Authentication') || connectionError.includes('token') ? (
+                  <button
+                    onClick={() => {
+                      // Clear tokens and redirect to login
+                      localStorage.removeItem('token');
+                      localStorage.removeItem('role');
+                      window.location.href = '/login';
+                    }}
+                    className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
+                  >
+                    Login
+                  </button>
+                ) : (
+                  <button
+                    onClick={retryConnection}
+                    className="text-xs bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
