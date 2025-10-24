@@ -5,7 +5,8 @@ import { API_BASE } from '../constants/api';
 import TopNavbar from './TopNavbar';
 // Removed AppointmentForm import - no longer needed
 import Footer from './Footer';
-import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X } from 'lucide-react';
+import AIAssistant from './AIAssistant';
+import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X, MessageCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const [showAppointments, setShowAppointments] = useState(false);
@@ -20,6 +21,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -468,6 +470,22 @@ const Dashboard = () => {
         {/* Footer */}
         <Footer />
       </div>
+
+      {/* AI Assistant Floating Button */}
+      <button
+        onClick={() => setShowAIAssistant(true)}
+        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+        title="AI Assistant"
+      >
+        <MessageCircle className="h-6 w-6" />
+      </button>
+
+      {/* AI Assistant Modal */}
+      <AIAssistant
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        userRole="doctor"
+      />
 
       {/* Appointments Modal */}
       {showAppointments && (

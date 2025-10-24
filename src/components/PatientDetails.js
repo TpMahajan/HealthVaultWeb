@@ -14,7 +14,8 @@ import {
   FileText as FileTextIcon,
   Loader,
   Upload,
-  Plus
+  Plus,
+  MessageCircle
 } from 'lucide-react';
 import { API_BASE } from '../constants/api';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +23,7 @@ import Footer from './Footer';
 import MedicalRecordsModal from './MedicalRecordsModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import AppointmentModal from './AppointmentModal';
+import AIAssistant from './AIAssistant';
 import { generatePatientSummaryPDF } from '../utils/pdfGenerator';
 
 const PatientDetails = () => {
@@ -46,6 +48,7 @@ const PatientDetails = () => {
   const [medicalRecords, setMedicalRecords] = useState([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsSearchTerm, setRecordsSearchTerm] = useState('');
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   // Fetch patient data from API
   useEffect(() => {
@@ -1251,6 +1254,24 @@ const PatientDetails = () => {
 
       {/* Footer */}
       <Footer />
+
+      {/* AI Assistant Floating Button */}
+      <button
+        onClick={() => setShowAIAssistant(true)}
+        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+        title="AI Assistant"
+      >
+        <MessageCircle className="h-6 w-6" />
+      </button>
+
+      {/* AI Assistant Modal */}
+      <AIAssistant
+        isOpen={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        userRole="patient"
+        patientId={patient?.id}
+        patientName={patient?.name}
+      />
 
       {/* Medical Records Modal */}
       {patient && (
