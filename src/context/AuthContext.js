@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
         if (Notification.permission === 'granted') {
           new Notification(payload.notification.title, {
             body: payload.notification.body,
-            icon: '/logo192.png',
+            icon: '/app_icon.png',
             tag: 'health-vault-notification',
           });
         }
