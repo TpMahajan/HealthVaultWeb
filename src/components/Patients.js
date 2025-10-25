@@ -322,26 +322,7 @@ const Patients = () => {
         )}
 
         {/* Info Banner */}
-        {patients.length > 0 && (
-          <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Patient Data Caching
-                </h3>
-                <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                  <p>
-                    Patient data is automatically cached for 7 days when you scan their QR code. 
-                    Expired patients are automatically removed from the cache.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        
       </div>
 
       <Footer />
