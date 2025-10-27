@@ -8,7 +8,6 @@ import TopNavbar from './TopNavbar';
 import Footer from './Footer';
 import AIAssistant from './AIAssistant';
 import AnimatedChatButton from './AnimatedChatButton';
-import NotificationTest from './NotificationTest';
 import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X } from 'lucide-react';
 
 const Dashboard = () => {
@@ -464,10 +463,7 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* Notification Test Section */}
-                  <div className="mt-8">
-                    <NotificationTest />
-                  </div>
+                  {/* Notification Test Section removed */}
                 </>
               )}
             </div>
@@ -480,9 +476,7 @@ const Dashboard = () => {
       </div>
 
       {/* AI Assistant Animated Button */}
-      <AnimatedChatButton
-        onClick={() => setShowAIAssistant(true)}
-      />
+      <AnimatedChatButton onClick={() => setShowAIAssistant(true)} />
 
       {/* AI Assistant Modal */}
       <AIAssistant

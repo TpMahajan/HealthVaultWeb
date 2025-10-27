@@ -9,8 +9,12 @@ const WelcomePage = () => {
   const { isAuthenticated, user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col justify-center items-center p-4">
-      <div className="text-center max-w-lg">
+    <div
+      className="min-h-screen relative flex flex-col justify-center items-center p-4"
+      style={{ backgroundImage: "url('/BackgroundWeb.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 opacity-90"></div>
+      <div className="relative z-10 text-center max-w-lg">
         {/* Logo */}
         <div className="mx-auto h-20 w-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
           <img 
@@ -72,7 +76,9 @@ const WelcomePage = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <div className="relative z-10 w-full">
+        <Footer />
+      </div>
     </div>
   );
 };

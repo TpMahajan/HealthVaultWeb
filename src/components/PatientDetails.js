@@ -17,14 +17,15 @@ import {
   Plus,
   MessageCircle
 } from 'lucide-react';
-import { API_BASE } from '../constants/api';
 import { useAuth } from '../context/AuthContext';
 import Footer from './Footer';
 import MedicalRecordsModal from './MedicalRecordsModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import AppointmentModal from './AppointmentModal';
 import AIAssistant from './AIAssistant';
+import AnimatedChatButton from './AnimatedChatButton';
 import { generatePatientSummaryPDF } from '../utils/pdfGenerator';
+import { API_BASE } from '../constants/api';
 
 const PatientDetails = () => {
   const { id } = useParams();
@@ -49,6 +50,7 @@ const PatientDetails = () => {
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsSearchTerm, setRecordsSearchTerm] = useState('');
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  
 
   // Fetch patient data from API
   useEffect(() => {
@@ -1030,6 +1032,7 @@ const PatientDetails = () => {
                       <p className="text-sm text-green-700">Overall: Stable</p>
                       <p className="text-sm text-green-700">Risk Level: Low</p>
                     </div>
+                    
                   </div>
                   
                   {/* Quick Actions removed as requested */}
@@ -1255,20 +1258,14 @@ const PatientDetails = () => {
       {/* Footer */}
       <Footer />
 
-      {/* AI Assistant Floating Button */}
-      <button
-        onClick={() => setShowAIAssistant(true)}
-        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-        title="AI Assistant"
-      >
-        <MessageCircle className="h-6 w-6" />
-      </button>
+      {/* AI Assistant Animated Button */}
+      <AnimatedChatButton onClick={() => setShowAIAssistant(true)} />
 
       {/* AI Assistant Modal */}
       <AIAssistant
         isOpen={showAIAssistant}
         onClose={() => setShowAIAssistant(false)}
-        userRole="patient"
+        userRole={(localStorage.getItem('role') === 'doctor' && !searchParams.get('token')) ? 'doctor' : 'patient'}
         patientId={patient?.id}
         patientName={patient?.name}
       />

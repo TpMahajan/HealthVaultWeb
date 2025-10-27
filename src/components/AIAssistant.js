@@ -31,6 +31,7 @@ const AIAssistant = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationContext, setConversationContext] = useState({});
+  const [conversationId, setConversationId] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { user } = useAuth();
@@ -38,6 +39,35 @@ const AIAssistant = ({
   // Initialize with welcome message and conversation context
   useEffect(() => {
     if (isOpen && messages.length === 0) {
+      // Load recent chat from backend (24h)
+      (async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (token) {
+            const url = `${API_BASE}/ai/chat${patientId ? `?patientId=${encodeURIComponent(patientId)}` : ''}`;
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.success && data.messages && data.messages.length > 0) {
+                setMessages(data.messages.map((m, idx) => ({
+                  id: Date.now() + idx,
+                  type: m.role === 'user' ? 'user' : 'assistant',
+                  content: m.content,
+                  timestamp: new Date(m.timestamp || Date.now()),
+                  metadata: m.metadata
+                })));
+                if (data.conversationId) setConversationId(data.conversationId);
+                return; // Skip welcome message if previous chat exists
+              } else if (data.conversationId) {
+                setConversationId(data.conversationId);
+              }
+            }
+          }
+        } catch (e) {
+          console.log('Chat preload failed:', e.message);
+        }
+      })();
+
       const welcomeMessage = userRole === 'doctor' 
         ? `Hello Dr. ${user?.name || 'Doctor'}! I'm your AI Assistant specialized for medical professionals. I can help you with:
         
@@ -115,12 +145,24 @@ What would you like to know about your health today?`;
           prompt: inputMessage.trim(),
           userRole: userRole,
           conversationContext: conversationContext,
-          ...(patientId && { patientId })
+          ...(patientId && { patientId }),
+          ...(conversationId && { conversationId })
         })
       });
 
       if (!response.ok) {
-        throw new Error(`AI request failed: ${response.statusText}`);
+        // Try to extract backend error message for better UX
+        let backendMessage = '';
+        try {
+          const errData = await response.json();
+          backendMessage = errData?.message || '';
+        } catch (_) {
+          try {
+            const errText = await response.text();
+            backendMessage = errText || '';
+          } catch {}
+        }
+        throw new Error(`AI request failed${backendMessage ? `: ${backendMessage}` : ''}`);
       }
 
       const data = await response.json();
@@ -141,6 +183,7 @@ What would you like to know about your health today?`;
         };
 
         setMessages(prev => [...prev, assistantMessage]);
+        if (data.context?.conversationId) setConversationId(data.context.conversationId);
         
         // Update conversation context with new topics and preferences
         setConversationContext(prev => ({
@@ -243,6 +286,51 @@ What would you like to know about your health today?`;
               </div>
             </div>
           )}
+        </div>
+      );
+    }
+    // Render file lists with preview/analyze actions
+    if (Array.isArray(message.metadata?.data) && message.metadata?.responseType === 'list' && userRole === 'doctor') {
+      const items = message.metadata.data;
+      return (
+        <div className="space-y-2">
+          <div className="whitespace-pre-wrap">{message.content}</div>
+          <div className="space-y-2">
+            {items.slice(0, 5).map((it, idx) => (
+              <div key={idx} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-md p-2">
+                <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                  <span className="font-medium">{it.name || it.title}</span>
+                  {it.type && <span className="ml-2 text-gray-600 dark:text-gray-300">({it.type})</span>}
+                  {it.date && <span className="ml-2 text-gray-600 dark:text-gray-300">{new Date(it.date).toLocaleDateString()}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const token = localStorage.getItem('token');
+                        const url = `${API_BASE}/files/${it.id}/preview`;
+                        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+                        const data = await res.json();
+                        if (data.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+                      } catch {}
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => {
+                      setInputMessage(`Analyze document ${it.id}`);
+                      handleSendMessage();
+                    }}
+                    className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    Analyze
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
@@ -355,6 +443,26 @@ What would you like to know about your health today?`;
         {/* Input */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-2">
+            {/* Clear Chat */}
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('token');
+                  if (!token) return;
+                  const url = `${API_BASE}/ai/chat${patientId ? `?patientId=${encodeURIComponent(patientId)}` : ''}`;
+                  const res = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                  if (res.ok) {
+                    setMessages([]);
+                    setConversationId(null);
+                  }
+                } catch (e) {
+                  console.log('Clear chat failed:', e.message);
+                }
+              }}
+              className="px-3 py-2 text-xs rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Clear Chat
+            </button>
             <input
               type="file"
               ref={fileInputRef}
