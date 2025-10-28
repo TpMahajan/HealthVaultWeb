@@ -817,7 +817,7 @@ const PatientDetails = () => {
   return (
     <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
-      <div className="mb-4 sm:mb-6 md:mb-8 p-3 sm:p-4">
+      <div className="mb-2 sm:mb-3 md:mb-4 px-3 sm:px-4 pt-1">
         <button
           onClick={() => navigate('/patients')}
           className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 transition-colors duration-200 text-sm sm:text-base"
@@ -862,6 +862,7 @@ const PatientDetails = () => {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate">{patient.name}</h1>
               <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate">Patient ID: {patient.id}</p>
           </div>
+            
             {/* Desktop: All buttons in a row */}
             <div className="hidden sm:flex space-x-2 md:space-x-3 flex-shrink-0">
             {!isAnonymousView && (

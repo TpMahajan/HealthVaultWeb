@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, User, Calendar, FileText, Download, Eye, Loader, AlertCircle, Clock, Mail, Phone, ArrowRight } from 'lucide-react';
+import { Search, User, Calendar, Eye, Loader, AlertCircle, Clock, Mail, Phone, ArrowRight } from 'lucide-react';
 import { API_BASE } from '../constants/api';
 import Footer from './Footer';
 
@@ -177,9 +177,9 @@ const Patients = () => {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="flex-grow p-4 sm:p-6">
+      <div className="flex-grow px-4 sm:px-6 pt-0.5 sm:pt-1 pb-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Patients</h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
             View patients with active sessions (20-minute session expiry)

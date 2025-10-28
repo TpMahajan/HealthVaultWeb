@@ -60,7 +60,7 @@ function Settings() {
         theme,
       }
     }));
-  }, [theme]);
+  }, [theme, setTheme]);
 
   // Load security settings from backend
   const loadSecuritySettings = async () => {
@@ -144,17 +144,63 @@ function Settings() {
 
   // Load settings on component mount
   useEffect(() => {
+    const loadDoctorPreferences = async (baseUrl) => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(`${baseUrl}/api/doctors/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.doctor) {
+          const prefs = data.doctor.preferences || {};
+          setSettings(prev => ({
+            ...prev,
+            language: prefs.language || prev.language,
+            timezone: prefs.timezone || prev.timezone,
+            appearance: { ...prev.appearance, theme: prefs.theme || prev.appearance.theme }
+          }));
+          if (prefs.theme) setTheme(prefs.theme);
+          try {
+            localStorage.setItem('doctorPreferences', JSON.stringify({
+              language: prefs.language || settings.language,
+              timezone: prefs.timezone || settings.timezone,
+              theme: prefs.theme || settings.appearance.theme,
+            }));
+          } catch {}
+        }
+      } catch {}
+    };
+
     const initializeSettings = async () => {
+      // Load cached preferences immediately for better UX
+      try {
+        const cached = JSON.parse(localStorage.getItem('doctorPreferences') || '{}');
+        if (cached && (cached.language || cached.timezone || cached.theme)) {
+          setSettings(prev => ({
+            ...prev,
+            language: cached.language || prev.language,
+            timezone: cached.timezone || prev.timezone,
+            appearance: { ...prev.appearance, theme: cached.theme || prev.appearance.theme }
+          }));
+          if (cached.theme) setTheme(cached.theme);
+        }
+      } catch {}
+
       const workingBackend = await testBackendConnection();
       if (workingBackend) {
         await loadSecuritySettings();
+        await loadDoctorPreferences(workingBackend);
       } else {
         setError('Unable to connect to backend server. Please ensure the server is running.');
       }
     };
     
     initializeSettings();
-  }, []);
+  }, [setTheme, settings.language, settings.timezone, settings.appearance.theme]);
 
   const handleSettingChange = (category, setting, value) => {
     setSettings(prev => ({
@@ -228,16 +274,70 @@ function Settings() {
       if (data.success) {
         setSuccess('Security settings saved successfully!');
         setPasswordInfo(data.passwordInfo);
-        // Clear success message after 3 seconds
-        setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(data.message || 'Failed to save security settings');
       }
+
+      // Save Preferences (language, timezone, theme)
+      const saved = await saveDoctorPreferences();
+      if (saved) {
+        // also cache locally to survive offline
+        try {
+          localStorage.setItem('doctorPreferences', JSON.stringify({
+            language: settings.language,
+            timezone: settings.timezone,
+            theme: settings.appearance.theme,
+          }));
+        } catch {}
+        setSuccess('Settings saved successfully!');
+        setTimeout(() => setSuccess(null), 3000);
+      }
     } catch (err) {
       console.error('Save settings error:', err);
-      setError(`Network error: ${err.message}. Please check your connection and try again.`);
+      setError('Unable to save settings. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // (moved inside useEffect)
+
+  // Persist preferences to backend (PUT profile)
+  const saveDoctorPreferences = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      const baseUrls = [
+        'https://healthvault-backend-c6xl.onrender.com',
+        'http://localhost:5000'
+      ];
+      let response;
+      for (const base of baseUrls) {
+        try {
+          response = await fetch(`${base}/api/doctors/profile`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              preferences: {
+                language: settings.language,
+                timezone: settings.timezone,
+                theme: settings.appearance.theme
+              }
+            })
+          });
+          if (response) break;
+        } catch (e) {
+          continue;
+        }
+      }
+      if (!response) return false;
+      const data = await response.json();
+      return response.ok && data.success;
+    } catch (e) {
+      return false;
     }
   };
 
@@ -254,11 +354,109 @@ function Settings() {
     { id: 'preferences', name: 'Preferences', icon: Globe }
   ];
 
+  // Language and timezone metadata for Preferences tab
+  const languageMeta = [
+    { id: 'en', label: 'English (Default)' },
+    { id: 'hi', label: 'Hindi' },
+    { id: 'es', label: 'Spanish' },
+    { id: 'ru', label: 'Russian' },
+    { id: 'ko', label: 'Korean' },
+    { id: 'ja', label: 'Japanese' },
+    { id: 'zh', label: 'Chinese' }
+  ];
+
+  const languageTimezones = {
+    en: [
+      // Placeholder; will be replaced by full list via getAllTimezones()
+      { value: 'UTC', label: 'UTC' }
+    ],
+    hi: [
+      { value: 'Asia/Kolkata', label: 'India Standard Time (IST)' }
+    ],
+    es: [
+      { value: 'Europe/Madrid', label: 'Central European Time (CET)' },
+      { value: 'America/Mexico_City', label: 'Central Time (Mexico City)' },
+      { value: 'America/Bogota', label: 'Colombia Time (COT)' }
+    ],
+    ru: [
+      { value: 'Europe/Moscow', label: 'Moscow Time (MSK)' }
+    ],
+    ko: [
+      { value: 'Asia/Seoul', label: 'Korea Standard Time (KST)' }
+    ],
+    ja: [
+      { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' }
+    ],
+    zh: [
+      { value: 'Asia/Shanghai', label: 'China Standard Time (CST)' },
+      { value: 'Asia/Taipei', label: 'Taiwan Standard Time (CST)' }
+    ]
+  };
+
+  // Build a comprehensive timezone list for English using Intl API
+  const getAllTimezones = () => {
+    try {
+      // Modern browsers expose the full IANA list
+      if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+        const list = Intl.supportedValuesOf('timeZone').map((tz) => ({ value: tz, label: tz }));
+        // Ensure IST (Asia/Kolkata) is present and clearly labeled
+        const hasIST = list.some((t) => t.value === 'Asia/Kolkata');
+        if (!hasIST) {
+          list.unshift({ value: 'Asia/Kolkata', label: 'India Standard Time (IST)' });
+        } else {
+          for (const t of list) {
+            if (t.value === 'Asia/Kolkata') {
+              t.label = 'India Standard Time (IST)';
+              break;
+            }
+          }
+        }
+        return list;
+      }
+    } catch {}
+    // Fallback to a broad but finite set if Intl.supportedValuesOf is not available
+    const fallbackTz = [
+      'UTC','Europe/London','Europe/Paris','Europe/Berlin','Europe/Madrid','Europe/Rome','Europe/Moscow',
+      'Africa/Cairo','Africa/Johannesburg','Africa/Nairobi',
+      'Asia/Dubai','Asia/Jerusalem','Asia/Kolkata','Asia/Karachi','Asia/Dhaka','Asia/Bangkok','Asia/Jakarta',
+      'Asia/Shanghai','Asia/Hong_Kong','Asia/Taipei','Asia/Tokyo','Asia/Seoul','Asia/Singapore',
+      'Australia/Sydney','Australia/Perth','Pacific/Auckland',
+      'America/St_Johns','America/Halifax','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu',
+      'America/Mexico_City','America/Bogota','America/Lima','America/Sao_Paulo','America/Argentina/Buenos_Aires'
+    ];
+    // Ensure friendly label for IST
+    return fallbackTz.map((tz) => ({ value: tz, label: tz === 'Asia/Kolkata' ? 'India Standard Time (IST)' : tz }));
+  };
+
+  const getTimezonesForLanguage = (lang) => {
+    if (lang === 'en') return getAllTimezones();
+    return languageTimezones[lang] || [];
+  };
+
+  const availableTimezones = getTimezonesForLanguage(settings.language);
+
+  const handleLanguageChange = (lang) => {
+    handlePreferenceChange('language', lang);
+    const tzs = getTimezonesForLanguage(lang);
+    if (tzs && tzs.length) {
+      // Prefer IST for English; otherwise first available
+      const ist = tzs.find((t) => t.value === 'Asia/Kolkata');
+      handlePreferenceChange('timezone', lang === 'en' && ist ? ist.value : tzs[0].value);
+    }
+  };
+
+  // Reflect selected language in <html lang="..."> for accessibility
+  useEffect(() => {
+    try {
+      document.documentElement.lang = settings.language || 'en';
+    } catch {}
+  }, [settings.language]);
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto w-full flex-grow p-4">
+      <div className="max-w-4xl mx-auto w-full flex-grow px-4 pt-3 pb-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-4">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
             Customize your application preferences and account settings
@@ -584,24 +782,22 @@ function Settings() {
             {/* Preferences Tab */}
             {activeTab === 'preferences' && (
               <div className="space-y-6">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">General Preferences</h3>
-                
-                {/* Language Settings */}
-                <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Preferences</h3>
+
+                {/* Language & Timezone (dynamic) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                       Language
                     </label>
                     <select
                       value={settings.language}
-                      onChange={(e) => handlePreferenceChange('language', e.target.value)}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                      <option value="fr">Français</option>
-                      <option value="de">Deutsch</option>
-                      <option value="it">Italiano</option>
+                      {languageMeta.map((lang) => (
+                        <option key={lang.id} value={lang.id}>{lang.label}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -614,34 +810,13 @@ function Settings() {
                       onChange={(e) => handlePreferenceChange('timezone', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
-                      <option value="America/New_York">Eastern Time (ET)</option>
-                      <option value="America/Chicago">Central Time (CT)</option>
-                      <option value="America/Denver">Mountain Time (MT)</option>
-                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
-                      <option value="Europe/London">Greenwich Mean Time (GMT)</option>
-                      <option value="Europe/Paris">Central European Time (CET)</option>
-                      <option value="Asia/Tokyo">Japan Standard Time (JST)</option>
-                      <option value="Asia/India">Indian Standard Time (IST)</option>
+                      {availableTimezones.map((tz) => (
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      ))}
                     </select>
-                  </div>
-                </div>
-
-                {/* Additional Preferences */}
-                <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
-                  <h4 className="text-md font-medium text-blue-900 dark:text-blue-100 mb-3">System Preferences</h4>
-                  <div className="space-y-3 text-sm text-blue-800 dark:text-blue-200">
-                    <div>
-                      <strong>Auto-save:</strong> Changes are automatically saved every 30 seconds
-                    </div>
-                    <div>
-                      <strong>Offline Mode:</strong> Continue working when internet connection is unstable
-                    </div>
-                    <div>
-                      <strong>Keyboard Shortcuts:</strong> Use Ctrl+K to open command palette
-                    </div>
-                    <div>
-                      <strong>Accessibility:</strong> High contrast mode and screen reader support available
-                    </div>
+                    {availableTimezones.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No timezones available for the selected language.</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -700,13 +875,7 @@ function Settings() {
               </div>
             )}
             
-            <div className="flex justify-between">
-              <button
-                onClick={testBackendConnection}
-                className="inline-flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
-              >
-                Test Connection
-              </button>
+            <div className="flex justify-end">
               <button
                 onClick={handleSave}
                 disabled={loading}

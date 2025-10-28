@@ -19,6 +19,112 @@ import {
 import { API_BASE } from '../constants/api';
 import { useAuth } from '../context/AuthContext';
 
+// Lightweight table for structured data
+const SimpleTable = ({ data }) => {
+  try {
+    const hasMatrix = Array.isArray(data?.rows) && Array.isArray(data?.columns);
+    if (hasMatrix) {
+      return (
+        <div className="overflow-x-auto border rounded-md">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                {data.columns.map((c, idx) => (
+                  <th key={idx} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+              {data.rows.map((row, rIdx) => (
+                <tr key={rIdx}>
+                  {data.columns.map((c, cIdx) => (
+                    <td key={cIdx} className="px-3 py-2 text-gray-800 dark:text-gray-100">{String(row[cIdx] ?? '')}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    // Key-value or {labels, values}
+    if (Array.isArray(data?.labels) && Array.isArray(data?.values)) {
+      const columns = ['Label', 'Value'];
+      return (
+        <div className="overflow-x-auto border rounded-md">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                {columns.map((c) => (
+                  <th key={c} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">{c}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+              {data.labels.map((label, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{String(label)}</td>
+                  <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{String(data.values[i] ?? '')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    const entries = Object.entries(data || {});
+    return (
+      <div className="overflow-x-auto border rounded-md">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">Key</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">Value</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+            {entries.map(([k, v]) => (
+              <tr key={k}>
+                <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{k}</td>
+                <td className="px-3 py-2 text-gray-800 dark:text-gray-100">{String(v)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  } catch {
+    return null;
+  }
+};
+
+// Lightweight bar chart using CSS heights
+const SimpleBarChart = ({ data, title }) => {
+  if (!Array.isArray(data?.labels) || !Array.isArray(data?.values) || data.labels.length === 0) return null;
+  const max = Math.max(...data.values.map((v) => Number(v) || 0), 1);
+  return (
+    <div className="w-full">
+      {title && (
+        <div className="mb-2 text-sm font-medium text-gray-800 dark:text-gray-100">{title}</div>
+      )}
+      <div className="flex items-end gap-2 h-40 p-2 border rounded-md bg-white dark:bg-gray-900">
+        {data.values.map((v, i) => {
+          const h = Math.max(4, Math.round((Number(v) || 0) / max * 140));
+          return (
+            <div key={i} className="flex flex-col items-center gap-1">
+              <div className="text-xs text-gray-600 dark:text-gray-300">{String(v)}</div>
+              <div className="w-6 bg-gradient-to-b from-purple-500 to-blue-500 rounded" style={{ height: h }} />
+              <div className="w-10 text-[10px] text-center text-gray-700 dark:text-gray-300 truncate" title={String(data.labels[i])}>
+                {String(data.labels[i])}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const AIAssistant = ({ 
   isOpen, 
   onClose, 
@@ -265,27 +371,29 @@ What would you like to know about your health today?`;
   };
 
   const formatMessage = (message) => {
+    // Render structured tables or charts
+    if (message.metadata?.responseType === 'table' && message.metadata?.structuredData) {
+      return (
+        <div className="space-y-2">
+          <div className="whitespace-pre-wrap">{message.content}</div>
+          <SimpleTable data={message.metadata.structuredData} />
+        </div>
+      );
+    }
+    if (message.metadata?.responseType === 'chart' && message.metadata?.structuredData) {
+      return (
+        <div className="space-y-2">
+          <div className="whitespace-pre-wrap">{message.content}</div>
+          <SimpleBarChart data={message.metadata.structuredData} title={message.metadata.structuredData.title} />
+        </div>
+      );
+    }
+    // If LLM sent structuredData but no explicit type, show as table
     if (message.metadata?.structuredData) {
       return (
         <div className="space-y-2">
           <div className="whitespace-pre-wrap">{message.content}</div>
-          {message.metadata.data && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                {message.metadata.title || 'Related Information'}
-              </h4>
-              <div className="space-y-2">
-                {message.metadata.data.slice(0, 3).map((item, index) => (
-                  <div key={index} className="text-sm text-blue-800 dark:text-blue-200">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-blue-600 dark:text-blue-300 ml-2">
-                      {new Date(item.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <SimpleTable data={message.metadata.structuredData} />
         </div>
       );
     }

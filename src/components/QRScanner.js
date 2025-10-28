@@ -681,9 +681,9 @@ const QRScanner = () => {
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto w-full flex-grow p-4">
+      <div className="max-w-4xl mx-auto w-full flex-grow px-4 pt-1 sm:pt-1 pb-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-2">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             QR Code Scanner
           </h1>
