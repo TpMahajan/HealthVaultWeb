@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
