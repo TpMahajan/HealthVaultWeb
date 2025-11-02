@@ -5,6 +5,8 @@ import './App.css';
 // Pages / Components
 import WelcomePage from './components/WelcomePage';
 import LoginPage from './components/LoginPage';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import SignupPage from './components/SignUpPage';
 import Dashboard from './components/Dashboard';
 import QRScanner from './components/QRScanner';
@@ -93,6 +95,8 @@ const AppContent = () => {
         <Route path="/" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected Routes */}
         {/* Dashboard keeps its existing navbar */}
