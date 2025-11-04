@@ -422,6 +422,22 @@ const QRScanner = () => {
 
       console.log('🔍 QR Scanner - Extracting patient ID from token:', patientToken);
 
+      // Optional validation: ask backend if this QR token is still active (i.e., latest)
+      // If the endpoint does not exist, we ignore errors and continue with normal flow.
+      try {
+        const validateResp = await fetch(`${API_BASE}/qr/validate?token=${encodeURIComponent(patientToken)}`);
+        if (validateResp.ok) {
+          const validateData = await validateResp.json();
+          if (validateData && validateData.valid === false) {
+            setLoading(false);
+            setError('This QR code has expired. Please request a new QR from the patient.');
+            return;
+          }
+        }
+      } catch (e) {
+        // Non-fatal: proceed if validation endpoint is unavailable
+      }
+
       // Decode the token to get patient ID directly (for anonymous tokens)
       let patientId = null;
       let user = null;

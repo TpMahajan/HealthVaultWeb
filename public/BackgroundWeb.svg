@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bgLavender" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3e9ff"></stop>
+      <stop offset="1" stop-color="#e3d4ff"></stop>
+    </linearGradient>
+    <linearGradient id="waveLav" x1="0" x2="1">
+      <stop offset="0" stop-color="#c5a9ff"></stop>
+      <stop offset="1" stop-color="#a785ff"></stop>
+    </linearGradient>
+  </defs>
+
+  
+
+  <path d="M0,640 C420,540 650,740 1080,640 C1480,540 1920,640 1920,640 L1920,1080 L0,1080 Z" fill="url(#waveLav)" opacity="0.08">
+    <animate attributeName="d" dur="9s" repeatCount="indefinite" values="M0,640 C420,540 650,740 1080,640 C1480,540 1920,640 1920,640 L1920,1080 L0,1080 Z;
+              M0,660 C420,600 650,700 1080,660 C1480,620 1920,660 1920,660 L1920,1080 L0,1080 Z;
+              M0,640 C420,540 650,740 1080,640 C1480,540 1920,640 1920,640 L1920,1080 L0,1080 Z"></animate>
+  </path>
+
+  <path d="M0,520 C420,420 780,600 1200,520 C1520,460 1920,520 1920,520 L1920,1080 L0,1080 Z" fill="#3c155a" opacity="0.06"></path>
+
+  <g transform="translate(160,180)" opacity="0.1">
+    <rect x="0" y="0" width="100" height="70" rx="8" fill="#e9dbff"></rect>
+    <rect x="12" y="10" width="70" height="10" rx="4" fill="#e6dbff" opacity="0.7"></rect>
+  </g>
+
+  <g transform="translate(1640,240)" opacity="0.9">
+    <rect width="120" height="86" rx="12" fill="#2b0a46" stroke="#d2aaff" stroke-opacity="0.15"></rect>
+    <path d="M36 10 C36 -12 84 -12 84 10" fill="none" stroke="#d2aaff" stroke-width="6" stroke-opacity="0.8" transform="translate(0,8)"></path>
+    <circle cx="60" cy="52" r="10" fill="#b884ff" opacity="0.95"></circle>
+  </g>
+</svg>

@@ -83,12 +83,12 @@ const LoginPage = () => {
   }, [loginWithGoogle, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col justify-between p-4">
+    <div className="min-h-screen relative flex flex-col justify-between p-4" style={{ backgroundImage: "url('/BackgroundWeb.svg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
       <div className="max-w-md w-full mx-auto space-y-8 flex-grow flex items-center">
         <div className="w-full">
           {/* Logo and Header */}
           <div className="text-center">
-            <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+            <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden bg-transparent">
               <img 
                 src="/app_icon.png?v=2" 
                 alt="Medical Vault" 
