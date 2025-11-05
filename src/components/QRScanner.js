@@ -1088,7 +1088,7 @@ const QRScanner = () => {
           </div>
         </div>
       </div>
-      <Footer />
+      <Footer whiteText />
     </div>
   );
 };

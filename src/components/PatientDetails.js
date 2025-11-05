@@ -1257,7 +1257,7 @@ const PatientDetails = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <Footer whiteText />
 
       {/* AI Assistant Animated Button */}
       <AnimatedChatButton onClick={() => setShowAIAssistant(true)} />

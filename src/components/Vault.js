@@ -180,7 +180,7 @@ const Vault = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <Footer whiteText />
     </div>
   );
 };

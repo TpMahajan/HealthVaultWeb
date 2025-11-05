@@ -890,7 +890,7 @@ function Settings() {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <Footer whiteText />
     </div>
   );
 }

@@ -745,7 +745,7 @@ const Profile = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <Footer whiteText />
     </div>
   );
 };

@@ -472,7 +472,7 @@ const Dashboard = () => {
           )}
         </main>
         {/* Footer */}
-        <Footer />
+        <Footer whiteText />
       </div>
 
       {/* AI Assistant Animated Button */}

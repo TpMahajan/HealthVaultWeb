@@ -146,7 +146,7 @@ const Patients = () => {
             <p className="text-gray-600 dark:text-gray-300">Please wait while we load your active patient sessions...</p>
           </div>
         </div>
-        <Footer />
+        <Footer whiteText />
       </div>
     );
   }
@@ -170,7 +170,7 @@ const Patients = () => {
             </button>
           </div>
         </div>
-        <Footer />
+        <Footer whiteText />
       </div>
     );
   }
