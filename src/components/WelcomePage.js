@@ -1,6 +1,5 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import Footer from "./Footer";
 
@@ -8,76 +7,162 @@ const WelcomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
 
-  return (
-    <div
-      className="min-h-screen relative flex flex-col justify-center items-center p-4"
-      style={{ backgroundImage: "url('/BackgroundWeb.svg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
-    >
-      
-      <div className="relative z-10 text-center max-w-lg">
-        {/* Logo */}
-        <div className="mx-auto h-20 w-20 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden bg-transparent">
-          <img 
-            src="/app_icon.png?v=2" 
-            alt="Medical Vault" 
-            className="h-16 w-16 object-cover rounded-xl"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'block';
-            }}
-          />
-          <Shield className="h-10 w-10 text-white" style={{ display: 'none' }} />
-        </div>
-        <h1 className="mt-6 text-4xl font-bold text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Welcome to Medical Vault
-        </h1>
-        <p className="mt-3 text-gray-600 dark:text-gray-300 text-sm">
-          Secure platform for doctors to manage patient health records safely.
-        </p>
+  const quotes = useMemo(() => [
+    "Your health is your wealth.",
+    "Secure. Simple. Smart.",
+    "Care that keeps you informed.",
+    "Your records, your control.",
+    "Privacy-first medical management."
+  ], []);
+  // Build extended slides for seamless loop: [last, ...quotes, first]
+  const extendedQuotes = useMemo(() => {
+    if (quotes.length === 0) return [];
+    return [quotes[quotes.length - 1], ...quotes, quotes[0]];
+  }, [quotes]);
 
-        {isAuthenticated ? (
-          /* Logged in state */
-          <div className="mt-10">
-            <p className="text-lg text-gray-700 dark:text-gray-300 mb-6">
-              Welcome back, <span className="font-semibold text-blue-600 dark:text-blue-400">{user?.name}</span>!
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="px-6 py-3 text-white text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all"
-              >
-                Go to Dashboard
-              </button>
-              <button
-                onClick={() => navigate("/scan")}
-                className="px-6 py-3 text-blue-600 text-sm font-medium rounded-xl border border-blue-600 bg-white hover:bg-blue-50 shadow transition-all"
-              >
-                Scan QR Code
-              </button>
+  const [currentIndex, setCurrentIndex] = useState(1); // start at first real slide
+  const [withTransition, setWithTransition] = useState(true);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setWithTransition(true);
+      setCurrentIndex((prev) => prev + 1);
+    }, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  // After jumping to clones, immediately snap to the real slide without transition
+  useEffect(() => {
+    if (extendedQuotes.length <= 1) return;
+    if (currentIndex === extendedQuotes.length - 1) {
+      // moved onto last clone; snap to first real slide
+      const snap = () => {
+        setWithTransition(false);
+        setCurrentIndex(1);
+      };
+      // allow current transition to finish, then snap
+      const timeout = setTimeout(snap, 20);
+      return () => clearTimeout(timeout);
+    }
+    if (currentIndex === 0) {
+      // moved onto first clone; snap to last real slide
+      const snap = () => {
+        setWithTransition(false);
+        setCurrentIndex(extendedQuotes.length - 2);
+      };
+      const timeout = setTimeout(snap, 20);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentIndex, extendedQuotes.length]);
+
+  // Re-enable transition after snapping
+  useEffect(() => {
+    if (!withTransition) {
+      const id = setTimeout(() => setWithTransition(true), 20);
+      return () => clearTimeout(id);
+    }
+  }, [withTransition]);
+
+  return (
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden" style={{ backgroundImage: "url('/BGMast.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+      <div className="flex h-full grow flex-col">
+        {/* Header */}
+        <header className="flex items-center justify-between whitespace-nowrap px-4 md:px-10 py-4">
+          <div className="flex items-center gap-4 text-\[\#263238\]">
+            <div className="h-6 w-6">
+              <img src="/app_icon.png" alt="Medical Vault" className="h-full w-full object-contain" />
+            </div>
+            <h2 className="text-\[\#263238\] text-xl font-bold leading-tight tracking-\[-0.015em\]">Medical Vault</h2>
+          </div>
+        </header>
+
+        {/* Main */}
+        <main className="flex-grow flex items-center">
+          <div className="w-full">
+            <div className="flex flex-col gap-10 px-4 py-10 md:flex-row md:items-center md:gap-16 md:px-10 lg:px-20 xl:px-40">
+              {/* Left content */}
+              <div className="flex flex-col gap-6 w-full md:w-1/2">
+                <div className="flex flex-col gap-3 text-left">
+                  <h1 className="text-\[\#263238\] text-4xl font-black leading-tight tracking-\[-0.033em\] md:text-5xl">
+                    Welcome to Medical Vault
+                  </h1>
+                  <p className="text-\[\#263238\] text-base font-normal leading-normal md:text-lg">
+                    Secure platform for doctors to manage patient health records safely.
+                  </p>
+                </div>
+
+                {isAuthenticated ? (
+                  <div className="flex flex-col items-start gap-4">
+                    <p className="text-lg text-\[\#263238\]">
+                      Welcome back, <span className="font-semibold text-\[\#00796B\]">{user?.name}</span>!
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      <button
+                        onClick={() => navigate("/dashboard")}
+                        className="flex min-w-\[84px\] items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-\[\#00796B\] text-white text-base font-bold leading-normal tracking-\[0.015em\] hover:bg-\[\#00796B\]/90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-\[\#00796B\]"
+                      >
+                        Go to Dashboard
+                      </button>
+                      <button
+                        onClick={() => navigate("/scan")}
+                        className="flex min-w-\[84px\] items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-white text-\[\#00796B\] border-2 border-\[\#00796B\] text-base font-bold leading-normal tracking-\[0.015em\] hover:bg-\[\#00796B\]/10"
+                      >
+                        Scan QR Code
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-start gap-4">
+                    <div className="flex flex-wrap gap-4">
+                      <button
+                        onClick={() => navigate("/login")}
+                        className="flex min-w-\[84px\] items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-pink-600 text-white text-base font-bold leading-normal tracking-\[0.015em\] hover:bg-pink-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-600"
+                      >
+                        Login
+                      </button>
+                      <button
+                        onClick={() => navigate("/signup")}
+                        className="flex min-w-\[84px\] items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-white text-\[\#00796B\] border-2 border-\[\#00796B\] text-base font-bold leading-normal tracking-\[0.015em\] hover:bg-\[\#00796B\]/10"
+                      >
+                        Signup
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => navigate('/admin/login')}
+                      className="flex min-w-\[84px\] items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white text-sm font-bold leading-normal tracking-\[0.015em\] hover:from-blue-700 hover:to-blue-900 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
+                    >
+                      Login as an Admin
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Quotes slider */
+              /* Slides move from right to left with seamless looping */}
+              <div className="w-full md:w-1/2 flex items-center justify-center">
+                <div className="w-full aspect-square max-w-md overflow-hidden rounded-2xl">
+                  <div
+                    className={`h-full w-full flex ${withTransition ? "transition-transform duration-700 ease-in-out" : ""}`}
+                    style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+                  >
+                    {extendedQuotes.map((quote, index) => (
+                      <div key={index} className="w-full shrink-0 h-full p-6">
+                        <div className="h-full w-full rounded-2xl bg-white shadow-xl flex items-center justify-center p-6 text-center">
+                          <p className="text-lg md:text-xl font-semibold text-\[\#263238\]">{quote}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        ) : (
-          /* Not logged in state */
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => navigate("/login")}
-              className="px-6 py-3 text-white text-sm font-medium rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => navigate("/signup")}
-              className="px-6 py-3 text-blue-600 text-sm font-medium rounded-xl border border-blue-600 bg-white hover:bg-blue-50 shadow transition-all"
-            >
-              Signup
-            </button>
-          </div>
-        )}
-      </div>
+        </main>
 
-      {/* Footer */}
-      <div className="relative z-10 w-full">
-        <Footer />
+        {/* Footer */}
+        <div className="mt-auto w-full text-white">
+          <Footer noBorder />
+        </div>
       </div>
     </div>
   );

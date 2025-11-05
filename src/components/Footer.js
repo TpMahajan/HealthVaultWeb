@@ -1,8 +1,8 @@
 import React from 'react';
 
-const Footer = () => (
-  <footer className="w-full py-6 border-t border-gray-200 dark:border-gray-800 flex items-center justify-center mt-12">
-    <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Powered by</span>
+const Footer = ({ noBorder = false }) => (
+  <footer className={`w-full py-6 flex items-center justify-center mt-12 ${noBorder ? '' : 'border-t border-gray-200 dark:border-gray-800'}`}>
+    <span className="text-sm text-White-500 dark:text-White-400 mr-2">Powered by</span>
     <a
       href="https://aially.in/"
       target="_blank"

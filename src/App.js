@@ -16,6 +16,10 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Vault from './components/Vault';
 import MainLayout from './components/MainLayout';
+import AdminLoginPage from './components/AdminLoginPage';
+import AdminSignupPage from './components/AdminSignupPage';
+import SOSListPage from './components/SOSListPage';
+import AdminDashboard from './components/AdminDashboard';
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -97,6 +101,11 @@ const AppContent = () => {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Admin (temporary using doctor auth) */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/signup" element={<AdminSignupPage />} />
+        <Route path="/admin/sos" element={<SOSListPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* Protected Routes */}
         {/* Dashboard keeps its existing navbar */}

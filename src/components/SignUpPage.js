@@ -101,7 +101,7 @@ const SignUpPage = () => {
   }, [loginWithGoogle, navigate]);
 
   return (
-    <div className="min-h-screen relative flex flex-col justify-between p-4" style={{ backgroundImage: "url('/BackgroundWeb.svg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+    <div className="min-h-screen relative flex flex-col justify-between p-4" style={{ backgroundImage: "url('/BGMast.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
       <div className="max-w-md w-full mx-auto space-y-8 flex-grow flex items-center">
         <div className="w-full">
           {/* Logo and Header */}
@@ -118,25 +118,25 @@ const SignUpPage = () => {
               />
               <Shield className="h-8 w-8 text-white" style={{ display: 'none' }} />
             </div>
-            <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              HealthVault
+            <h2 className="mt-6 text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Medical Vault
             </h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm text-gray-600">
               Create your doctor account
             </p>
           </div>
 
           {/* Signup Form */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700 mt-8">
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl p-8 border border-white/30 mt-8">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Name */}
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                   Full Name
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <User className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="name"
@@ -146,7 +146,7 @@ const SignUpPage = () => {
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-500"
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -154,12 +154,12 @@ const SignUpPage = () => {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <Mail className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="email"
@@ -169,7 +169,7 @@ const SignUpPage = () => {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-500"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -177,12 +177,12 @@ const SignUpPage = () => {
 
               {/* Mobile Number */}
               <div>
-                <label htmlFor="mobile" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="mobile" className="block text-sm font-medium text-gray-700 mb-2">
                   Mobile Number
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <Phone className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="mobile"
@@ -192,7 +192,7 @@ const SignUpPage = () => {
                     required
                     value={formData.mobile}
                     onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 placeholder-gray-500"
                     placeholder="Enter your mobile number"
                   />
                 </div>
@@ -200,12 +200,12 @@ const SignUpPage = () => {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Shield className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <Shield className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="password"
@@ -234,12 +234,12 @@ const SignUpPage = () => {
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Shield className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                    <Shield className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
                     id="confirmPassword"
@@ -268,8 +268,8 @@ const SignUpPage = () => {
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
 
@@ -288,12 +288,12 @@ const SignUpPage = () => {
 
               {/* Login Link */}
               <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-300">
+                <p className="text-sm text-gray-600">
                   Already have an account?{' '}
                   <button
                     type="button"
                     onClick={() => navigate('/login')}
-                    className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors"
+                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Sign in
                   </button>
@@ -309,7 +309,9 @@ const SignUpPage = () => {
       </div>
 
       {/* Footer */}
-      <Footer />
+      <div className="text-white">
+        <Footer noBorder />
+      </div>
     </div>
   );
 };
