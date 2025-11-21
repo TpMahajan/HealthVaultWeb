@@ -78,6 +78,8 @@ const SOSListPage = () => {
                 <th className="py-2 pr-4 font-semibold">Age</th>
                 <th className="py-2 pr-4 font-semibold">Mobile</th>
                 <th className="py-2 pr-4 font-semibold">Location</th>
+                <th className="py-2 pr-4 font-semibold">Allergies</th>
+                <th className="py-2 pr-4 font-semibold">Notes</th>
                 <th className="py-2 pr-4 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -88,7 +90,9 @@ const SOSListPage = () => {
                   <td className="py-2 pr-4">{it.name || ''}</td>
                   <td className="py-2 pr-4">{it.age || ''}</td>
                   <td className="py-2 pr-4">{it.mobile || ''}</td>
-                  <td className="py-2 pr-4 truncate max-w-[16rem]">{it.location || ''}</td>
+                  <td className="py-2 pr-4 truncate max-w-[14rem]">{it.location || ''}</td>
+                  <td className="py-2 pr-4 truncate max-w-[12rem]">{it.allergiesSnapshot || '—'}</td>
+                  <td className="py-2 pr-4 truncate max-w-[16rem]">{it.notes || '—'}</td>
                   <td className="py-2 pr-4">
                     <div className="flex items-center gap-2">
                       <button

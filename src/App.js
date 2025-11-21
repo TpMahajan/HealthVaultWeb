@@ -20,6 +20,7 @@ import AdminLoginPage from './components/AdminLoginPage';
 import AdminSignupPage from './components/AdminSignupPage';
 import SOSListPage from './components/SOSListPage';
 import AdminDashboard from './components/AdminDashboard';
+import MedicalCard from './components/MedicalCard';
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -101,6 +102,7 @@ const AppContent = () => {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/medical-card/:userId" element={<MedicalCard />} />
         {/* Admin (temporary using doctor auth) */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/signup" element={<AdminSignupPage />} />

@@ -147,10 +147,25 @@ const PatientDetails = () => {
           }
 
           if (user) {
+            // Debug logging for anonymous access
+            if (isAnonymous) {
+              console.log('👻 Frontend - Raw user data from API:', user);
+              console.log('👻 Frontend - Medications:', user.medications);
+              console.log('👻 Frontend - Medical History:', user.medicalHistory);
+              console.log('👻 Frontend - Allergies:', user.allergies);
+              console.log('👻 Frontend - Emergency Contact:', user.emergencyContact);
+            }
+
+            // Explicitly extract allergies first - this is critical for anonymous access
+            const userAllergies = user.allergies;
+            console.log('🔍 Extracting allergies - user.allergies:', userAllergies, 'type:', typeof userAllergies, 'exists:', 'allergies' in user);
+            
+            // Build patientData object
             const patientData = {
               id: user._id || user.id,
               name: user.name || 'Unknown',
               age: user.age || null,
+              allergies: userAllergies || null,
               gender: user.gender || null,
               dateOfBirth: user.dateOfBirth || null,
               bloodType: user.bloodType || null,
@@ -165,13 +180,47 @@ const PatientDetails = () => {
                 relationship: null,
                 phone: null
               },
-              medicalHistory: user.medicalHistory || [],
-              medications: user.medications || [],
+              medicalHistory: Array.isArray(user.medicalHistory) ? user.medicalHistory : [],
+              medications: Array.isArray(user.medications) ? user.medications : [],
               medicalRecords: user.medicalRecords || [],
-              profilePicture: user.profilePicture || null
+              profilePicture: user.profilePicture || null,
+              profilePictureUrl: user.profilePictureUrl || null
             };
             
+            // Explicitly set allergies AFTER creating the object to ensure it's never lost
+            if (userAllergies !== null && userAllergies !== undefined) {
+              patientData.allergies = String(userAllergies);
+            } else {
+              patientData.allergies = '';
+            }
+            
+            console.log('🔍 After creating patientData - allergies:', patientData.allergies, 'has property:', 'allergies' in patientData);
+            console.log('🔍 patientData object keys:', Object.keys(patientData));
+            
+            // Final verification
             console.log('✅ PatientDetails - Processed patient data:', patientData);
+            console.log('✅ PatientDetails - Allergies in patientData:', patientData.allergies, 'type:', typeof patientData.allergies);
+            console.log('✅ PatientDetails - Has allergies property:', 'allergies' in patientData);
+            
+            if (isAnonymous) {
+              console.log('👻 Frontend - Raw user.allergies:', user.allergies, 'type:', typeof user.allergies);
+              console.log('👻 Frontend - Processed patientData.allergies:', patientData.allergies, 'type:', typeof patientData.allergies);
+              console.log('👻 Frontend - Processed medications:', patientData.medications);
+              console.log('👻 Frontend - Processed medical history:', patientData.medicalHistory);
+              console.log('👻 Frontend - Processed emergency contact:', patientData.emergencyContact);
+              console.log('👻 Frontend - Allergies will display?', patientData.allergies && typeof patientData.allergies === 'string' && patientData.allergies.trim() !== '');
+            }
+            
+            // Final check before setting state - ensure allergies is present
+            if (!('allergies' in patientData)) {
+              console.error('❌ CRITICAL: allergies missing from patientData! Adding it now.');
+              patientData.allergies = userAllergies ? String(userAllergies) : '';
+            }
+            
+            // Log final state before setting
+            console.log('🎯 Final patientData before setState - allergies:', patientData.allergies, 'has property:', 'allergies' in patientData);
+            console.log('🎯 Final patientData keys:', Object.keys(patientData));
+            
             setPatient(patientData);
             setIsCachedData(false);
           } else {
@@ -300,6 +349,18 @@ const PatientDetails = () => {
     // Avoid duplicate fetches when route re-renders quickly
     // by not depending on isCachedData changes here
   }, [patient]);
+
+  // Debug: Log allergies for anonymous view
+  useEffect(() => {
+    if (isAnonymousView && patient) {
+      console.log('👻 Allergies Debug - patient object:', patient);
+      console.log('👻 Allergies Debug - patient.allergies:', patient.allergies);
+      console.log('👻 Allergies Debug - type:', typeof patient.allergies);
+      console.log('👻 Allergies Debug - is string:', typeof patient.allergies === 'string');
+      console.log('👻 Allergies Debug - trimmed length:', patient.allergies ? patient.allergies.trim().length : 0);
+      console.log('👻 Allergies Debug - should display:', patient.allergies && typeof patient.allergies === 'string' && patient.allergies.trim() !== '');
+    }
+  }, [patient, isAnonymousView]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -932,6 +993,22 @@ const PatientDetails = () => {
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 lg:sticky lg:top-24">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Patient Information</h2>
+               {(patient.profilePictureUrl || patient.profilePicture) && (
+              <div className="flex justify-center mb-4">
+                <img
+                     src={patient.profilePictureUrl || patient.profilePicture}
+                  alt={`${patient.name} avatar`}
+                  className="h-24 w-24 rounded-full object-cover border-4 border-blue-100 dark:border-gray-700 shadow-sm"
+                  onError={(e) => {
+                    console.error('❌ Failed to load profile picture:', patient.profilePictureUrl || patient.profilePicture);
+                    e.target.style.display = 'none';
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Profile picture loaded successfully');
+                  }}
+                />
+              </div>
+            )}
             
             <div className="space-y-4">
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
@@ -958,20 +1035,34 @@ const PatientDetails = () => {
 
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Emergency Contact</h3>
-              <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{patient.emergencyContact.name}</p>
-                <p>{patient.emergencyContact.relationship}</p>
-                <p>{patient.emergencyContact.phone}</p>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                {patient.emergencyContact?.name ? (
+                  <>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{patient.emergencyContact.name}</p>
+                    {patient.emergencyContact.relationship && <p>{patient.emergencyContact.relationship}</p>}
+                    {patient.emergencyContact.phone && <p>{patient.emergencyContact.phone}</p>}
+                  </>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">No emergency contact information available</p>
+                )}
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Next Appointment</h3>
-              <div className="text-sm text-gray-600">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{patient.nextAppointment}</p>
-                <p>2:00 PM - Cardiology</p>
+            {!isAnonymousView && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Next Appointment</h3>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  {patient.nextAppointment ? (
+                    <>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{patient.nextAppointment}</p>
+                      <p>2:00 PM - Cardiology</p>
+                    </>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No upcoming appointments</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -1013,10 +1104,10 @@ const PatientDetails = () => {
               {activeTab === 'overview' && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-blue-50 rounded-xl p-4">
-                      <h3 className="text-sm font-medium text-blue-900 mb-2">Recent Activity</h3>
-                      <p className="text-sm text-blue-700">Last visit: {patient.lastVisit}</p>
-                      <p className="text-sm text-blue-700">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+                      <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Recent Activity</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">Last visit: {patient.lastVisit || 'N/A'}</p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
                         {(() => {
                           const now = new Date();
                           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1028,13 +1119,37 @@ const PatientDetails = () => {
                         })()}
                       </p>
                     </div>
-                    <div className="bg-green-50 rounded-xl p-4">
-                      <h3 className="text-sm font-medium text-green-900 mb-2">Health Status</h3>
-                      <p className="text-sm text-green-700">Overall: Stable</p>
-                      <p className="text-sm text-green-700">Risk Level: Low</p>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+                      <h3 className="text-sm font-medium text-green-900 dark:text-green-100 mb-2">Health Status</h3>
+                      <p className="text-sm text-green-700 dark:text-green-300">Overall: Stable</p>
+                      <p className="text-sm text-green-700 dark:text-green-300">Risk Level: Low</p>
                     </div>
-                    
                   </div>
+                  
+                  {/* Allergies Section - Always show if allergies exist */}
+                  {(() => {
+                    const allergies = patient?.allergies;
+                    const shouldShow = allergies && 
+                                     (typeof allergies === 'string' || typeof allergies === 'object') && 
+                                     String(allergies).trim() !== '';
+                    
+                    // Debug log for anonymous view
+                    if (isAnonymousView) {
+                      console.log('👻 Allergies Render - allergies:', allergies);
+                      console.log('👻 Allergies Render - shouldShow:', shouldShow);
+                      console.log('👻 Allergies Render - patient exists:', !!patient);
+                    }
+                    
+                    return shouldShow ? (
+                      <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                        <h3 className="text-sm font-medium text-red-900 dark:text-red-100 mb-2 flex items-center">
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Allergies
+                        </h3>
+                        <p className="text-sm text-red-700 dark:text-red-300">{String(allergies)}</p>
+                      </div>
+                    ) : null;
+                  })()}
                   
                   {/* Quick Actions removed as requested */}
                 </div>
@@ -1214,41 +1329,63 @@ const PatientDetails = () => {
               {/* Medications Tab */}
               {activeTab === 'medications' && (
                 <div className="space-y-4">
-                  {patient.medications.map((med, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                    >
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{med.name}</h4>
-                        <p className="text-sm text-gray-600">{med.dosage} • {med.frequency}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">Prescribed: {med.prescribed}</p>
+                  {patient.medications && patient.medications.length > 0 ? (
+                    patient.medications.map((med, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                      >
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">{med.name}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{med.dosage} • {med.frequency}</p>
+                          {med.prescribed && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Prescribed: {med.prescribed}</p>
+                          )}
+                        </div>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor('active')}`}>
+                          Active
+                        </span>
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor('active')}`}>
-                        Active
-                      </span>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <FileText className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No medications found</h3>
+                      <p className="text-gray-600 dark:text-gray-300">This patient doesn't have any medications recorded yet.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
 
               {/* Medical History Tab */}
               {activeTab === 'history' && (
                 <div className="space-y-4">
-                  {patient.medicalHistory.map((condition, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                    >
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{condition.condition}</h4>
-                        <p className="text-sm text-gray-600">Diagnosed: {condition.diagnosed}</p>
+                  {patient.medicalHistory && patient.medicalHistory.length > 0 ? (
+                    patient.medicalHistory.map((condition, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl"
+                      >
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">{condition.condition}</h4>
+                          {condition.diagnosed && (
+                            <p className="text-sm text-gray-600 dark:text-gray-300">Diagnosed: {condition.diagnosed}</p>
+                          )}
+                        </div>
+                        {condition.status && (
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(condition.status.toLowerCase())}`}>
+                            {condition.status}
+                          </span>
+                        )}
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(condition.status.toLowerCase())}`}>
-                        {condition.status}
-                      </span>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <FileText className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No medical history found</h3>
+                      <p className="text-gray-600 dark:text-gray-300">This patient doesn't have any medical history recorded yet.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
