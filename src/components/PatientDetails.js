@@ -818,7 +818,7 @@ const PatientDetails = () => {
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mb-6">
             <Loader className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Loading Patient Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Loading Patient Details</h3>
           <p className="text-gray-600 dark:text-gray-300">Please wait while we fetch patient information...</p>
         </div>
       </div>
@@ -832,7 +832,7 @@ const PatientDetails = () => {
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/30 rounded-2xl flex items-center justify-center mb-6">
             <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Patient</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Error Loading Patient</h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
           <div className="flex justify-center space-x-3">
             <button
@@ -862,7 +862,7 @@ const PatientDetails = () => {
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-6">
             <User className="h-8 w-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Patient Not Found</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Patient Not Found</h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">The patient you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/scan')}
@@ -876,9 +876,9 @@ const PatientDetails = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="max-w-7xl mx-auto min-h-screen">
       {/* Header */}
-      <div className="mb-2 sm:mb-3 md:mb-4 px-3 sm:px-4 pt-1">
+      <div className="mb-6">
         <button
           onClick={() => navigate('/patients')}
           className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 transition-colors duration-200 text-sm sm:text-base"
@@ -920,8 +920,8 @@ const PatientDetails = () => {
         <div className="flex flex-col gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 truncate">{patient.name}</h1>
-              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate">Patient ID: {patient.id}</p>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-white truncate" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>{patient.name}</h1>
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-300 truncate" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>Patient ID: {patient.id}</p>
           </div>
             
             {/* Desktop: All buttons in a row */}
@@ -991,8 +991,8 @@ const PatientDetails = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 px-2 sm:px-4">
         {/* Patient Info Sidebar */}
         <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 lg:sticky lg:top-24">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">Patient Information</h2>
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-4 sm:p-6 lg:sticky lg:top-24">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Patient Information</h2>
                {(patient.profilePictureUrl || patient.profilePicture) && (
               <div className="flex justify-center mb-4">
                 <img
@@ -1069,7 +1069,7 @@ const PatientDetails = () => {
         {/* Main Content */}
         <div className="lg:col-span-2">
           {/* Tabs */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mb-4 sm:mb-6">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 mb-4 sm:mb-6">
             <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
               <nav className="flex space-x-4 sm:space-x-6 md:space-x-8 px-3 sm:px-4 md:px-6 min-w-max">
                 {[

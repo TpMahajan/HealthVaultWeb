@@ -696,35 +696,36 @@ const QRScanner = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto w-full flex-grow px-4 pt-1 sm:pt-1 pb-6">
+    <div className="min-h-screen flex flex-col justify-between">
+      <div className="max-w-4xl mx-auto w-full flex-grow">
         {/* Header */}
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>
             QR Code Scanner
           </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
+          <p className="mt-2 text-gray-600 dark:text-gray-300" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>
             Scan a patient's QR code to access their info
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Scanner Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-6">
             {!isScanning && !scanResult && (
               <div className="text-center">
                 <div className="mx-auto h-24 w-24 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mb-6">
                   <QrCode className="h-12 w-12 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>
                   Ready to Scan
                 </h3>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 dark:text-gray-300 mb-6" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>
                   Click below to start scanning a patient's QR
                 </p>
                 <button
                   onClick={startScan}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-medium"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                  style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 500 }}
                 >
                   <Camera className="h-5 w-5 inline mr-2" />
                   Start Scanning
@@ -836,11 +837,11 @@ const QRScanner = () => {
           </div>
 
           {/* Manual QR Input & Instructions */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border p-6">
-            <h3 className="text-lg font-semibold mb-4">Manual QR Code Entry</h3>
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-6">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Manual QR Code Entry</h3>
             <form onSubmit={handleManualQRSubmit} className="mb-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 500 }}>
                   Enter QR Code URL or Token:
                 </label>
                 <input
@@ -848,7 +849,8 @@ const QRScanner = () => {
                   value={manualQRCode}
                   onChange={(e) => setManualQRCode(e.target.value)}
                   placeholder="https://healthvault-backend-c6xl.onrender.com/portal/access?token=demoToken123"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}
                 />
               </div>
               <button

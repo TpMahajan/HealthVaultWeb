@@ -27,13 +27,27 @@ const Profile = () => {
     totalPatients: 0,
     yearsOfExperience: 0
   });
+  // Separate state for raw input values to allow typing commas freely
+  const [certificationsInput, setCertificationsInput] = useState('');
+  const [languagesInput, setLanguagesInput] = useState('');
 
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      // Process certifications and languages from input strings before saving
+      const certifications = certificationsInput.trim() 
+        ? certificationsInput.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0)
+        : [];
+      const languages = languagesInput.trim() 
+        ? languagesInput.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0)
+        : [];
+      
       console.log('🔧 Profile Update - Token:', token ? 'Present' : 'Missing');
       console.log('📝 Profile data being sent:', profileData);
       console.log('🌐 API Base URL:', DOCTOR_API_BASE);
+      console.log('📋 Processed certifications:', certifications);
+      console.log('📋 Processed languages:', languages);
       
       const updatePayload = {
         name: profileData.name,
@@ -45,8 +59,8 @@ const Profile = () => {
         location: profileData.location,
         education: profileData.education,
         bio: profileData.bio,
-        certifications: profileData.certifications,
-        languages: profileData.languages,
+        certifications: certifications,
+        languages: languages,
         totalPatients: profileData.totalPatients,
         yearsOfExperience: profileData.yearsOfExperience,
       };
@@ -72,6 +86,13 @@ const Profile = () => {
       if (data.success) {
         console.log('✅ Profile updated successfully:', data.doctor);
         setDoctorData(data.doctor);
+        
+        // Update profileData with the processed arrays
+        setProfileData(prev => ({
+          ...prev,
+          certifications: certifications,
+          languages: languages
+        }));
         
         // Update the user data in AuthContext to reflect the changes
         const updatedUser = { ...user, ...data.doctor };
@@ -101,6 +122,17 @@ const Profile = () => {
 
   const handleCancel = () => {
     if (doctorData) {
+      const certs = Array.isArray(doctorData.certifications) 
+        ? doctorData.certifications 
+        : (typeof doctorData.certifications === 'string' && doctorData.certifications.trim() 
+            ? doctorData.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
+            : []);
+      const langs = Array.isArray(doctorData.languages) 
+        ? doctorData.languages 
+        : (typeof doctorData.languages === 'string' && doctorData.languages.trim() 
+            ? doctorData.languages.split(',').map(l => l.trim()).filter(l => l.length > 0)
+            : []);
+      
       setProfileData(prev => ({
         ...prev,
         name: doctorData.name || '',
@@ -113,11 +145,13 @@ const Profile = () => {
         location: doctorData.location || '',
         education: doctorData.education || '',
         bio: doctorData.bio || '',
-        certifications: doctorData.certifications || [],
-        languages: doctorData.languages || [],
+        certifications: certs,
+        languages: langs,
         totalPatients: doctorData.totalPatients || 0,
         yearsOfExperience: doctorData.yearsOfExperience || 0,
       }));
+      setCertificationsInput(Array.isArray(certs) ? certs.join(', ') : '');
+      setLanguagesInput(Array.isArray(langs) ? langs.join(', ') : '');
       setHasPhoto(!!doctorData.avatar);
     }
     setIsEditing(false);
@@ -253,14 +287,36 @@ const Profile = () => {
             location: data.doctor.location || '',
             education: data.doctor.education || '',
             bio: data.doctor.bio || '',
-            certifications: data.doctor.certifications || [],
-            languages: data.doctor.languages || [],
+            certifications: Array.isArray(data.doctor.certifications) 
+              ? data.doctor.certifications 
+              : (typeof data.doctor.certifications === 'string' && data.doctor.certifications.trim() 
+                  ? data.doctor.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
+                  : []),
+            languages: Array.isArray(data.doctor.languages) 
+              ? data.doctor.languages 
+              : (typeof data.doctor.languages === 'string' && data.doctor.languages.trim() 
+                  ? data.doctor.languages.split(',').map(l => l.trim()).filter(l => l.length > 0)
+                  : []),
             totalPatients: data.doctor.totalPatients || 0,
             yearsOfExperience: data.doctor.yearsOfExperience || 0,
           }));
           
           // Set hasPhoto based on avatar
           setHasPhoto(!!displayAvatar);
+          
+          // Initialize input states for certifications and languages
+          const certs = Array.isArray(data.doctor.certifications) 
+            ? data.doctor.certifications 
+            : (typeof data.doctor.certifications === 'string' && data.doctor.certifications.trim() 
+                ? data.doctor.certifications.split(',').map(c => c.trim()).filter(c => c.length > 0)
+                : []);
+          const langs = Array.isArray(data.doctor.languages) 
+            ? data.doctor.languages 
+            : (typeof data.doctor.languages === 'string' && data.doctor.languages.trim() 
+                ? data.doctor.languages.split(',').map(l => l.trim()).filter(l => l.length > 0)
+                : []);
+          setCertificationsInput(Array.isArray(certs) ? certs.join(', ') : '');
+          setLanguagesInput(Array.isArray(langs) ? langs.join(', ') : '');
         } else {
           console.error('Failed to fetch profile:', data.message);
           // Fallback to user data from context
@@ -308,18 +364,18 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto w-full flex-grow px-4 pt-1 sm:pt-1 pb-6">
+    <div className="min-h-screen flex flex-col justify-between">
+      <div className="max-w-4xl mx-auto w-full flex-grow">
         {/* Header */}
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Profile</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">Manage your professional profile and information</p>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>Profile</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>Manage your professional profile and information</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Profile Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-6">
               <div className="text-center mb-6">
                 {hasPhoto && profileData.avatar ? (
                   <div className="relative">
@@ -424,12 +480,17 @@ const Profile = () => {
 
           {/* Profile Details */}
           <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Profile Information</h2>
                 {!isEditing ? (
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setIsEditing(true);
+                      // Initialize input states when entering edit mode
+                      setCertificationsInput(Array.isArray(profileData.certifications) ? profileData.certifications.join(', ') : '');
+                      setLanguagesInput(Array.isArray(profileData.languages) ? profileData.languages.join(', ') : '');
+                    }}
                     className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
                   >
                     <Edit className="h-4 w-4 mr-2" />
@@ -632,29 +693,56 @@ const Profile = () => {
                     <div>
                       <input
                         type="text"
-                        value={profileData.certifications ? profileData.certifications.join(', ') : ''}
+                        value={certificationsInput}
                         onChange={(e) => {
-                          const value = e.target.value;
-                          console.log('Certifications input value:', value);
-                          const certifications = value ? value.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0) : [];
-                          console.log('Processed certifications:', certifications);
-                          handleInputChange('certifications', certifications);
+                          // Allow free typing including commas
+                          setCertificationsInput(e.target.value);
+                        }}
+                        onBlur={(e) => {
+                          // Process into array on blur for preview
+                          const value = e.target.value.trim();
+                          if (value) {
+                            const certifications = value.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0);
+                            handleInputChange('certifications', certifications);
+                          } else {
+                            handleInputChange('certifications', []);
+                          }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         placeholder="Enter certifications separated by commas (e.g., Board Certified Cardiologist, ACLS Certified)"
                       />
-                      <p className="text-sm text-gray-500 mt-1">Separate multiple certifications with commas</p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Separate multiple certifications with commas</p>
+                        {certificationsInput.trim() && (
+                          <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {certificationsInput.split(',').filter(c => c.trim().length > 0).length} {certificationsInput.split(',').filter(c => c.trim().length > 0).length === 1 ? 'certification' : 'certifications'}
+                          </p>
+                        )}
+                      </div>
+                      {/* Preview of items while editing */}
+                      {certificationsInput.trim() && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {certificationsInput.split(',').map((cert, index) => {
+                            const trimmed = cert.trim();
+                            return trimmed ? (
+                              <span key={index} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
+                                {trimmed}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {profileData.certifications && Array.isArray(profileData.certifications) && profileData.certifications.length > 0 ? (
                         profileData.certifications.map((cert, index) => (
-                          <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                          <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
                             {cert}
                           </span>
                         ))
                       ) : (
-                        <p className="text-gray-500 py-2">No certifications added</p>
+                        <p className="text-gray-500 dark:text-gray-400 py-2">No certifications added</p>
                       )}
                     </div>
                   )}
@@ -669,29 +757,56 @@ const Profile = () => {
                     <div>
                       <input
                         type="text"
-                        value={profileData.languages ? profileData.languages.join(', ') : ''}
+                        value={languagesInput}
                         onChange={(e) => {
-                          const value = e.target.value;
-                          console.log('Languages input value:', value);
-                          const languages = value ? value.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0) : [];
-                          console.log('Processed languages:', languages);
-                          handleInputChange('languages', languages);
+                          // Allow free typing including commas
+                          setLanguagesInput(e.target.value);
+                        }}
+                        onBlur={(e) => {
+                          // Process into array on blur for preview
+                          const value = e.target.value.trim();
+                          if (value) {
+                            const languages = value.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0);
+                            handleInputChange('languages', languages);
+                          } else {
+                            handleInputChange('languages', []);
+                          }
                         }}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         placeholder="Enter languages separated by commas (e.g., English, Spanish, French)"
                       />
-                      <p className="text-sm text-gray-500 mt-1">Separate multiple languages with commas</p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Separate multiple languages with commas</p>
+                        {languagesInput.trim() && (
+                          <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                            {languagesInput.split(',').filter(l => l.trim().length > 0).length} {languagesInput.split(',').filter(l => l.trim().length > 0).length === 1 ? 'language' : 'languages'}
+                          </p>
+                        )}
+                      </div>
+                      {/* Preview of items while editing */}
+                      {languagesInput.trim() && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {languagesInput.split(',').map((lang, index) => {
+                            const trimmed = lang.trim();
+                            return trimmed ? (
+                              <span key={index} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
+                                {trimmed}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {profileData.languages && Array.isArray(profileData.languages) && profileData.languages.length > 0 ? (
                         profileData.languages.map((lang, index) => (
-                          <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                          <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200">
                             {lang}
                           </span>
                         ))
                       ) : (
-                        <p className="text-gray-500 py-2">No languages added</p>
+                        <p className="text-gray-500 dark:text-gray-400 py-2">No languages added</p>
                       )}
                     </div>
                   )}

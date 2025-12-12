@@ -12,6 +12,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useTheme } from "../context/ThemeContext";
+import { DOCTOR_API_BASE, API_BASE } from '../constants/api';
 import Footer from './Footer';
 
 function Settings() {
@@ -68,33 +69,20 @@ function Settings() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      // Try hosted backend first, then fallback to localhost
-      const baseUrls = [
-        'https://healthvault-backend-c6xl.onrender.com',
-        'http://localhost:5000'
-      ];
-      
-      let response;
-      
-      for (const baseUrl of baseUrls) {
-        try {
-          response = await fetch(`${baseUrl}/api/doctors/security-settings`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          // If we get a response, break the loop
-          if (response) break;
-        } catch (err) {
-          console.log(`Failed to connect to ${baseUrl}:`, err.message);
-          continue;
+      const response = await fetch(`${DOCTOR_API_BASE}/security-settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
+      });
+
+      // Silently handle 404 - endpoint may not exist
+      if (response.status === 404) {
+        return;
       }
 
-      if (!response) {
-        console.error('Unable to connect to any backend server');
+      if (!response.ok) {
+        // Silently fail for other errors
         return;
       }
 
@@ -102,105 +90,133 @@ function Settings() {
       if (data.success) {
         setSettings(prev => ({
           ...prev,
-          security: data.securitySettings
+          security: data.securitySettings || prev.security
         }));
         setPasswordInfo(data.passwordInfo);
-      } else {
-        console.error('Failed to load security settings:', data.message);
       }
     } catch (err) {
-      console.error('Failed to load security settings:', err);
+      // Silently handle errors - settings will use defaults
+      // Don't log expected network errors
     }
   };
 
-  // Test backend connection
+  // Test backend connection (silent - no console errors)
   const testBackendConnection = async () => {
-    const baseUrls = [
-      'https://healthvault-backend-c6xl.onrender.com',
-      'http://localhost:5000'
-    ];
-    
-    for (const baseUrl of baseUrls) {
-      try {
-        const response = await fetch(`${baseUrl}/api/doctors/profile`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          console.log(`✅ Backend connected: ${baseUrl}`);
-          return baseUrl;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      
+      const response = await fetch(`${DOCTOR_API_BASE}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (err) {
-        console.log(`❌ Backend failed: ${baseUrl} - ${err.message}`);
-      }
+      });
+      
+      return response.ok;
+    } catch (err) {
+      // Silently return false on error
+      return false;
     }
-    
-    console.log('❌ No backend servers are accessible');
-    return null;
   };
 
   // Load settings on component mount
   useEffect(() => {
-    const loadDoctorPreferences = async (baseUrl) => {
+    const loadDoctorPreferences = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
-        const res = await fetch(`${baseUrl}/api/doctors/profile`, {
+        
+        const res = await fetch(`${DOCTOR_API_BASE}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
+        
+        if (!res.ok) {
+          // Silently fail if profile endpoint is not accessible
+          return;
+        }
+        
         const data = await res.json();
-        if (res.ok && data.success && data.doctor) {
+        if (data.success && data.doctor) {
           const prefs = data.doctor.preferences || {};
+          
+          // Update all settings from backend preferences
           setSettings(prev => ({
             ...prev,
             language: prefs.language || prev.language,
             timezone: prefs.timezone || prev.timezone,
-            appearance: { ...prev.appearance, theme: prefs.theme || prev.appearance.theme }
+            appearance: {
+              ...prev.appearance,
+              theme: prefs.appearance?.theme || prefs.theme || prev.appearance.theme,
+              compactMode: prefs.appearance?.compactMode !== undefined ? prefs.appearance.compactMode : prev.appearance.compactMode,
+              showAvatars: prefs.appearance?.showAvatars !== undefined ? prefs.appearance.showAvatars : prev.appearance.showAvatars,
+              animations: prefs.appearance?.animations !== undefined ? prefs.appearance.animations : prev.appearance.animations,
+            },
+            notifications: prefs.notifications ? {
+              ...prev.notifications,
+              ...prefs.notifications
+            } : prev.notifications,
+            privacy: prefs.privacy ? {
+              ...prev.privacy,
+              ...prefs.privacy
+            } : prev.privacy,
           }));
-          if (prefs.theme) setTheme(prefs.theme);
+          
+          if (prefs.theme || prefs.appearance?.theme) {
+            setTheme(prefs.appearance?.theme || prefs.theme);
+          }
+          
           try {
             localStorage.setItem('doctorPreferences', JSON.stringify({
               language: prefs.language || settings.language,
               timezone: prefs.timezone || settings.timezone,
-              theme: prefs.theme || settings.appearance.theme,
+              theme: prefs.appearance?.theme || prefs.theme || settings.appearance.theme,
             }));
           } catch {}
         }
-      } catch {}
+      } catch (err) {
+        // Silently handle errors - use cached preferences
+        console.warn('Could not load doctor preferences from backend');
+      }
     };
 
     const initializeSettings = async () => {
       // Load cached preferences immediately for better UX
       try {
         const cached = JSON.parse(localStorage.getItem('doctorPreferences') || '{}');
+        const cachedAll = JSON.parse(localStorage.getItem('doctorAllSettings') || '{}');
+        
         if (cached && (cached.language || cached.timezone || cached.theme)) {
           setSettings(prev => ({
             ...prev,
             language: cached.language || prev.language,
             timezone: cached.timezone || prev.timezone,
-            appearance: { ...prev.appearance, theme: cached.theme || prev.appearance.theme }
+            appearance: { 
+              ...prev.appearance, 
+              theme: cached.theme || prev.appearance.theme,
+              ...(cachedAll.appearance || {})
+            },
+            notifications: cachedAll.notifications ? { ...prev.notifications, ...cachedAll.notifications } : prev.notifications,
+            privacy: cachedAll.privacy ? { ...prev.privacy, ...cachedAll.privacy } : prev.privacy,
           }));
           if (cached.theme) setTheme(cached.theme);
         }
       } catch {}
 
-      const workingBackend = await testBackendConnection();
-      if (workingBackend) {
+      // Try to load from backend (silently fail if unavailable)
+      const isBackendAvailable = await testBackendConnection();
+      if (isBackendAvailable) {
         await loadSecuritySettings();
-        await loadDoctorPreferences(workingBackend);
-      } else {
-        setError('Unable to connect to backend server. Please ensure the server is running.');
+        await loadDoctorPreferences();
       }
+      // Don't show error if backend is unavailable - use cached/default settings
     };
     
     initializeSettings();
-  }, [setTheme, settings.language, settings.timezone, settings.appearance.theme]);
+  }, [setTheme]);
 
   const handleSettingChange = (category, setting, value) => {
     setSettings(prev => ({
@@ -231,70 +247,79 @@ function Settings() {
         return;
       }
 
-      // Try hosted backend first, then fallback to localhost
-      const baseUrls = [
-        'https://healthvault-backend-c6xl.onrender.com',
-        'http://localhost:5000'
-      ];
+      // Save security settings to backend
+      const response = await fetch(`${DOCTOR_API_BASE}/security-settings`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings.security)
+      });
       
-      let response;
-      let lastError;
-      
-      for (const baseUrl of baseUrls) {
-        try {
-          response = await fetch(`${baseUrl}/api/doctors/security-settings`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(settings.security)
-          });
-          
-          // If we get a response (even if error), break the loop
-          break;
-        } catch (err) {
-          lastError = err;
-          console.log(`Failed to connect to ${baseUrl}:`, err.message);
-          continue;
+      if (!response.ok) {
+        // If endpoint doesn't exist, skip security settings save
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 404) {
+          // Endpoint not available, continue with preferences save
+        } else {
+          setError(errorData.message || `Server error: ${response.status}`);
+          setLoading(false);
+          return;
         }
       }
-      
-      if (!response) {
-        throw lastError || new Error('Unable to connect to backend server');
-      }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        setError(errorData.message || `Server error: ${response.status} ${response.statusText}`);
-        return;
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        setSuccess('Security settings saved successfully!');
-        setPasswordInfo(data.passwordInfo);
-      } else {
-        setError(data.message || 'Failed to save security settings');
+      // Only process response if endpoint exists
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setPasswordInfo(data.passwordInfo);
+        }
       }
 
       // Save Preferences (language, timezone, theme)
       const saved = await saveDoctorPreferences();
+      
+      // Always cache locally for offline support
+      try {
+        localStorage.setItem('doctorPreferences', JSON.stringify({
+          language: settings.language,
+          timezone: settings.timezone,
+          theme: settings.appearance.theme,
+        }));
+        // Also cache all settings
+        localStorage.setItem('doctorAllSettings', JSON.stringify({
+          notifications: settings.notifications,
+          privacy: settings.privacy,
+          appearance: settings.appearance,
+        }));
+      } catch {}
+      
       if (saved) {
-        // also cache locally to survive offline
-        try {
-          localStorage.setItem('doctorPreferences', JSON.stringify({
-            language: settings.language,
-            timezone: settings.timezone,
-            theme: settings.appearance.theme,
-          }));
-        } catch {}
         setSuccess('Settings saved successfully!');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        // Settings saved locally even if backend is unavailable
+        setSuccess('Settings saved locally. Will sync with server when available.');
         setTimeout(() => setSuccess(null), 3000);
       }
     } catch (err) {
-      console.error('Save settings error:', err);
-      setError('Unable to save settings. Please try again.');
+      console.warn('Save settings error:', err);
+      // Still save locally
+      try {
+        localStorage.setItem('doctorPreferences', JSON.stringify({
+          language: settings.language,
+          timezone: settings.timezone,
+          theme: settings.appearance.theme,
+        }));
+        localStorage.setItem('doctorAllSettings', JSON.stringify({
+          notifications: settings.notifications,
+          privacy: settings.privacy,
+          appearance: settings.appearance,
+        }));
+        setSuccess('Settings saved locally. Will sync with server when available.');
+        setTimeout(() => setSuccess(null), 3000);
+      } catch {}
     } finally {
       setLoading(false);
     }
@@ -307,33 +332,29 @@ function Settings() {
     try {
       const token = localStorage.getItem('token');
       if (!token) return false;
-      const baseUrls = [
-        'https://healthvault-backend-c6xl.onrender.com',
-        'http://localhost:5000'
-      ];
-      let response;
-      for (const base of baseUrls) {
-        try {
-          response = await fetch(`${base}/api/doctors/profile`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              preferences: {
-                language: settings.language,
-                timezone: settings.timezone,
-                theme: settings.appearance.theme
-              }
-            })
-          });
-          if (response) break;
-        } catch (e) {
-          continue;
-        }
+      
+      const response = await fetch(`${DOCTOR_API_BASE}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          preferences: {
+            language: settings.language,
+            timezone: settings.timezone,
+            theme: settings.appearance.theme,
+            notifications: settings.notifications,
+            privacy: settings.privacy,
+            appearance: settings.appearance
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        // Silently fail if profile update fails
+        return false;
       }
-      if (!response) return false;
       const data = await response.json();
       return response.ok && data.success;
     } catch (e) {
@@ -453,17 +474,17 @@ function Settings() {
   }, [settings.language]);
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto w-full flex-grow px-4 pt-3 pb-6">
+    <div className="min-h-screen flex flex-col justify-between">
+      <div className="max-w-4xl mx-auto w-full flex-grow">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>Settings</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>
             Customize your application preferences and account settings
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50">
           {/* Tabs */}
           <div className="border-b border-gray-200 dark:border-gray-800">
             <nav className="flex space-x-8 px-6">

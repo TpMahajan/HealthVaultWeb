@@ -42,15 +42,15 @@ const GlobalNavbar = () => {
             <div className="flex items-center space-x-2">
               <img 
                 src="/app_icon.png?v=2" 
-                alt="HealthVault" 
-                className="h-6 w-6 object-cover rounded"
+                alt="Medical Vault" 
+                className="h-8 w-8 object-cover rounded-lg"
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.nextSibling.style.display = 'block';
                 }}
               />
-              <Heart className="h-6 w-6 text-blue-600" style={{ display: 'none' }} />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">HealthVault</h2>
+              <Heart className="h-8 w-8 text-blue-600" style={{ display: 'none' }} />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>Medical Vault</h2>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -91,7 +91,7 @@ const GlobalNavbar = () => {
       </div>
 
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left side - Logo and Mobile menu */}
@@ -109,16 +109,16 @@ const GlobalNavbar = () => {
               <Link to="/dashboard" className="flex items-center space-x-2">
                 <img 
                   src="/app_icon.png?v=2" 
-                  alt="HealthVault" 
-                  className="h-8 w-8 object-cover rounded"
+                  alt="Medical Vault" 
+                  className="h-10 w-10 object-cover rounded-lg"
                   onError={(e) => {
                     e.target.style.display = 'none';
                     e.target.nextSibling.style.display = 'block';
                   }}
                 />
-                <Heart className="h-8 w-8 text-blue-600" style={{ display: 'none' }} />
-                <span className="text-xl font-bold text-gray-900 dark:text-gray-100 hidden sm:block">
-                  HealthVault
+                <Heart className="h-10 w-10 text-blue-600" style={{ display: 'none' }} />
+                <span className="text-xl font-bold text-gray-900 dark:text-gray-100 hidden sm:block" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>
+                  Medical Vault
                 </span>
               </Link>
             </div>
@@ -239,24 +239,54 @@ const GlobalNavbar = () => {
                   className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors duration-200"
                 >
                   {(() => {
-                    const avatarSrc = user?.avatar || user?.avatarUrl;
-                    return avatarSrc ? (
-                      <img
-                        src={avatarSrc}
-                        alt={user.name}
-                        className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
-                        onError={(e) => {
-                          console.error('❌ GlobalNavbar: Failed to load avatar image:', avatarSrc);
-                          console.error('❌ GlobalNavbar: Image error:', e);
-                          e.currentTarget.style.display = 'none';
-                        }}
-                        onLoad={() => {
-                          console.log('✅ GlobalNavbar: Avatar image loaded successfully:', avatarSrc);
-                        }}
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                        <Stethoscope className="h-4 w-4 text-white" />
+                    // Get avatar URL - prefer avatarUrl (full URL) over avatar (might be relative path)
+                    let avatarSrc = user?.avatarUrl || user?.avatar;
+                    
+                    // If avatar is a relative path (doesn't start with http:// or https://), construct full URL
+                    if (avatarSrc && !avatarSrc.startsWith('http://') && !avatarSrc.startsWith('https://') && !avatarSrc.startsWith('data:') && !avatarSrc.startsWith('/')) {
+                      // Check if it's an S3 key path
+                      if (avatarSrc.startsWith('doctor-avatars/')) {
+                        // Try backend file serving endpoint
+                        const API_BASE = process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
+                        const baseUrl = API_BASE.replace('/api', '');
+                        
+                        // Try backend file serving endpoint
+                        avatarSrc = `${baseUrl}/api/files/${avatarSrc}`;
+                      } else {
+                        // If it's a relative path, try to construct full URL
+                        const API_BASE = process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
+                        avatarSrc = `${API_BASE.replace('/api', '')}/${avatarSrc}`;
+                      }
+                    }
+                    
+                    // If no avatar, show fallback
+                    if (!avatarSrc) {
+                      return (
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                          <Stethoscope className="h-4 w-4 text-white" />
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="relative">
+                        <img
+                          src={avatarSrc}
+                          alt={user?.name || 'User'}
+                          className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                          onError={(e) => {
+                            // Silently handle error - hide broken image and show fallback
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling;
+                            if (fallback) {
+                              fallback.style.display = 'flex';
+                            }
+                          }}
+                        />
+                        {/* Fallback avatar - hidden by default, shown on image error */}
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center" style={{ display: 'none', position: 'absolute', top: 0, left: 0 }}>
+                          <Stethoscope className="h-4 w-4 text-white" />
+                        </div>
                       </div>
                     );
                   })()}

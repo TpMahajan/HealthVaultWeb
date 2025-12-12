@@ -84,29 +84,31 @@ const Vault = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col justify-between">
       <div className="p-6 flex-grow max-w-5xl mx-auto w-full">
-        <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 700 }}>
           My Vault
         </h1>
 
         {/* Upload Form */}
         <form 
           onSubmit={handleUpload} 
-          className="bg-white dark:bg-gray-900 shadow-md rounded-xl p-6 mb-8"
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md shadow-sm border border-white/50 dark:border-gray-700/50 rounded-xl p-6 mb-8"
         >
           <input
             type="text"
             placeholder="Document Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="border border-gray-300 dark:border-gray-700 p-2 rounded w-full mb-4 bg-transparent"
+            className="border border-gray-300 dark:border-gray-600 p-2.5 rounded-lg w-full mb-4 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}
             required
           />
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="border border-gray-300 dark:border-gray-700 p-2 rounded w-full mb-4 bg-transparent"
+            className="border border-gray-300 dark:border-gray-600 p-2.5 rounded-lg w-full mb-4 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}
           >
             <option value="Lab Report">Lab Report</option>
             <option value="Imaging">Imaging</option>
@@ -133,20 +135,20 @@ const Vault = () => {
         <div className="space-y-6">
           {Object.entries(groupedDocs).map(([category, docs]) => (
             docs.length > 0 && (
-              <div key={category} className="bg-white dark:bg-gray-900 rounded-xl shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 capitalize">
+              <div key={category} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-gray-700/50 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 capitalize" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>
                   {category} ({docs.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {docs.map((doc) => (
                     <div
                       key={doc._id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      className="border border-gray-200/50 dark:border-gray-700/50 rounded-lg p-4 hover:shadow-md transition-shadow bg-white/50 dark:bg-gray-700/50"
                     >
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>
                         {doc.title}
                       </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}>
                         Type: {doc.type}
                       </p>
                       <div className="flex space-x-2">
