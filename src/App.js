@@ -20,7 +20,9 @@ import AdminLoginPage from './components/AdminLoginPage';
 import AdminSignupPage from './components/AdminSignupPage';
 import SOSListPage from './components/SOSListPage';
 import AdminDashboard from './components/AdminDashboard';
+import AdminLostReportsPage from './components/AdminLostReportsPage';
 import MedicalCard from './components/MedicalCard';
+import AppointmentsPage from './components/AppointmentsPage';
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -106,12 +108,14 @@ const AppContent = () => {
         {/* Admin (temporary using doctor auth) */}
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin/signup" element={<AdminSignupPage />} />
-        <Route path="/admin/sos" element={<SOSListPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/sos" element={<SOSListPage />} />
+        <Route path="/admin/lost-reports" element={<AdminLostReportsPage />} />
 
         {/* Protected Routes */}
         {/* Dashboard keeps its existing navbar */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/appointments" element={<ProtectedRoute><MainLayout><AppointmentsPage /></MainLayout></ProtectedRoute>} />
         
         {/* Other routes use MainLayout with GlobalNavbar */}
         <Route path="/scan" element={<ProtectedRoute><MainLayout><QRScanner /></MainLayout></ProtectedRoute>} />

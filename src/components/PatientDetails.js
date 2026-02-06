@@ -50,11 +50,14 @@ const PatientDetails = () => {
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [recordsSearchTerm, setRecordsSearchTerm] = useState('');
   const [showAIAssistant, setShowAIAssistant] = useState(false);
-  
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
-  // Fetch patient data from API
+  // Fetch patient data from API (with retry for session-race after QR accept)
   useEffect(() => {
-    const fetchPatientData = async () => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [500, 1000, 2000]; // ms
+
+    const fetchPatientData = async (retryCount = 0) => {
       try {
         setLoading(true);
         setError(null);
@@ -114,7 +117,7 @@ const PatientDetails = () => {
           return;
         }
 
-        console.log(`📡 PatientDetails - Calling API: ${apiUrl}`);
+        console.log(`📡 PatientDetails - Calling API: ${apiUrl} (attempt ${retryCount + 1}/${MAX_RETRIES})`);
         console.log(`📡 PatientDetails - Headers:`, headers);
 
         const response = await fetch(apiUrl, { headers });
@@ -127,8 +130,17 @@ const PatientDetails = () => {
         });
 
         if (!response.ok) {
+          const msg = data.message || data.msg || '';
+          const isSessionRace = response.status === 403 &&
+            (msg.includes('Session validation') || data.code === 'NO_ACTIVE_SESSION');
+          if (isSessionRace && retryCount < MAX_RETRIES) {
+            const delay = RETRY_DELAYS[retryCount] || 2000;
+            console.log(`🔄 PatientDetails - Session race, retrying in ${delay}ms (${retryCount + 1}/${MAX_RETRIES})`);
+            setTimeout(() => fetchPatientData(retryCount + 1), delay);
+            return;
+          }
           console.error('❌ PatientDetails - API error:', data);
-          setError(data.message || `Failed to fetch patient data: ${response.status}`);
+          setError(msg || `Failed to fetch patient data: ${response.status}`);
           setLoading(false);
           return;
         }
@@ -244,7 +256,7 @@ const PatientDetails = () => {
     return () => {
       setLoading(false);
     };
-  }, [id, searchParams.get('token')]);
+  }, [id, searchParams.get('token'), retryTrigger]);
 
   // Fetch medical records from the new endpoint
   const fetchMedicalRecords = async (patientId) => {
@@ -826,6 +838,10 @@ const PatientDetails = () => {
   }
 
   if (error) {
+    const handleRetry = () => {
+      setError(null);
+      setRetryTrigger((prev) => prev + 1);
+    };
     return (
       <div className="max-w-7xl mx-auto bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -834,7 +850,13 @@ const PatientDetails = () => {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2" style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 600 }}>Error Loading Patient</h3>
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
-          <div className="flex justify-center space-x-3">
+          <div className="flex justify-center space-x-3 flex-wrap gap-2">
+            <button
+              onClick={handleRetry}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
             <button
               onClick={() => navigate('/scan')}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"

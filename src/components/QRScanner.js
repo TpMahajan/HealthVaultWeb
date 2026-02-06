@@ -175,17 +175,16 @@ const QRScanner = () => {
             console.log('🔍 Patient ID for navigation:', patientId);
             console.log('🔍 Current location:', window.location.href);
             
-            // Navigate to patient details just once
-            if (!hasNavigatedRef.current) {
-              hasNavigatedRef.current = true;
-              navigate(navigationPath, { replace: true });
-            }
-            
-            // Additional debug after navigation attempt
+            // Brief delay before navigation to allow backend session commit to propagate
+            // Fixes "error fetching patient profile" race when patient just accepted
+            const delayMs = 600;
             setTimeout(() => {
-              console.log('🔍 Navigation completed, new location:', window.location.href);
+              if (!hasNavigatedRef.current) {
+                hasNavigatedRef.current = true;
+                navigate(navigationPath, { replace: true });
+              }
               setIsNavigating(false);
-            }, 100);
+            }, delayMs);
             
             return;
             

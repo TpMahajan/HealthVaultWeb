@@ -9,7 +9,8 @@ import {
   Settings, 
   LogOut,
   X,
-  Shield
+  Shield,
+  Calendar
 } from 'lucide-react';
 
 const Sidebar = ({ open, setOpen }) => {
@@ -17,7 +18,8 @@ const Sidebar = ({ open, setOpen }) => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Appointments', href: '/appointments', icon: Calendar },
     { name: 'Scan QR', href: '/scan', icon: QrCode },
     { name: 'Patients', href: '/patients', icon: Users },
     { name: 'Profile', href: '/profile', icon: User },

@@ -17,7 +17,10 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
     duration: 30,
     reason: '',
     appointmentType: 'consultation',
-    notes: ''
+    notes: '',
+    mode: 'in-person',
+    hospitalClinicName: '',
+    videoCallUrl: '',
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -84,7 +87,10 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
         duration: parseInt(formData.duration),
         reason: formData.reason,
         appointmentType: formData.appointmentType,
-        notes: formData.notes
+        notes: formData.notes,
+        mode: formData.mode || 'in-person',
+        hospitalClinicName: formData.hospitalClinicName || '',
+        videoCallUrl: formData.videoCallUrl || '',
       };
 
       // Debug logging
@@ -157,7 +163,10 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
           duration: 30,
           reason: '',
           appointmentType: 'consultation',
-          notes: ''
+          notes: '',
+          mode: 'in-person',
+          hospitalClinicName: '',
+          videoCallUrl: '',
         });
         
         // Call success callback
@@ -304,6 +313,53 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
               <option value="specialist">Specialist Visit</option>
             </select>
           </div>
+
+          {/* Mode */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+              Mode
+            </label>
+            <select
+              name="mode"
+              value={formData.mode}
+              onChange={handleInputChange}
+              className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="in-person">In-person</option>
+              <option value="online">Online</option>
+            </select>
+          </div>
+
+          {/* Hospital/Clinic Name */}
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+              Hospital / Clinic Name (Optional)
+            </label>
+            <input
+              type="text"
+              name="hospitalClinicName"
+              value={formData.hospitalClinicName}
+              onChange={handleInputChange}
+              placeholder="e.g. City General Hospital"
+              className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {formData.mode === 'online' && (
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+                Video Call URL (Optional)
+              </label>
+              <input
+                type="url"
+                name="videoCallUrl"
+                value={formData.videoCallUrl}
+                onChange={handleInputChange}
+                placeholder="https://meet.example.com/..."
+                className="w-full px-2.5 sm:px-3 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
 
           {/* Reason */}
           <div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE } from '../constants/api';
+import AdminLayout from './AdminLayout';
 
 const SOSListPage = () => {
   const navigate = useNavigate();
@@ -36,8 +37,25 @@ const SOSListPage = () => {
     run();
   }, [navigate]);
 
-  if (loading) return <div className="p-6 text-gray-800 dark:text-gray-200">Loading...</div>;
-  if (error) return <div className="p-6 text-red-600 dark:text-red-400">{error}</div>;
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="p-8 flex items-center justify-center">
+          <div className="text-gray-600">Loading...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+  
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="p-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">{error}</div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const handleClear = async (id) => {
     try {
@@ -63,65 +81,76 @@ const SOSListPage = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">SOS Messages (FIFO)</h1>
-          <button onClick={() => { localStorage.removeItem('adminToken'); window.location.reload(); }} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">Clear Admin Session</button>
+    <AdminLayout>
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#263238] mb-2">SOS Messages (FIFO)</h1>
+          <p className="text-gray-600">Emergency messages from patients requiring immediate attention</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900/40">
-              <tr className="text-left border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300">
-                <th className="py-2 pr-4 font-semibold">Time</th>
-                <th className="py-2 pr-4 font-semibold">Name</th>
-                <th className="py-2 pr-4 font-semibold">Age</th>
-                <th className="py-2 pr-4 font-semibold">Mobile</th>
-                <th className="py-2 pr-4 font-semibold">Location</th>
-                <th className="py-2 pr-4 font-semibold">Allergies</th>
-                <th className="py-2 pr-4 font-semibold">Notes</th>
-                <th className="py-2 pr-4 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="text-gray-800 dark:text-gray-200">
-              {items.map((it) => (
-                <tr key={it._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="py-2 pr-4 whitespace-nowrap">{new Date(it.createdAt).toLocaleString()}</td>
-                  <td className="py-2 pr-4">{it.name || ''}</td>
-                  <td className="py-2 pr-4">{it.age || ''}</td>
-                  <td className="py-2 pr-4">{it.mobile || ''}</td>
-                  <td className="py-2 pr-4 truncate max-w-[14rem]">{it.location || ''}</td>
-                  <td className="py-2 pr-4 truncate max-w-[12rem]">{it.allergiesSnapshot || '—'}</td>
-                  <td className="py-2 pr-4 truncate max-w-[16rem]">{it.notes || '—'}</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleForward(it._id)}
-                        className="px-3 py-1 rounded-md text-sm bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50 inline-flex items-center gap-1"
-                        title="Send forward"
-                      >
-                        <span>Send forward</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                          <path d="M13.5 4.5a.75.75 0 0 1 1.06 0l6 6a.75.75 0 0 1 0 1.06l-6 6a.75.75 0 0 1-1.06-1.06L18.44 12l-4.94-4.94a.75.75 0 0 1 0-1.06Z" />
-                          <path d="M3.75 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 3.75 12Z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleClear(it._id)}
-                        className="px-3 py-1 rounded-md text-sm bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
-                        title="Clear from queue"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </td>
+        
+        <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allergies</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
+                      No SOS messages found
+                    </td>
+                  </tr>
+                ) : (
+                  items.map((it) => (
+                    <tr key={it._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(it.createdAt).toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{it.name || '—'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{it.age || '—'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{it.mobile || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-[14rem] truncate">{it.location || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-[12rem] truncate">{it.allergiesSnapshot || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-[16rem] truncate">{it.notes || '—'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleForward(it._id)}
+                            className="px-3 py-1 rounded-md text-sm bg-green-100 text-green-700 hover:bg-green-200 inline-flex items-center gap-1 transition-colors"
+                            title="Send forward"
+                          >
+                            <span>Forward</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                              <path d="M13.5 4.5a.75.75 0 0 1 1.06 0l6 6a.75.75 0 0 1 0 1.06l-6 6a.75.75 0 0 1-1.06-1.06L18.44 12l-4.94-4.94a.75.75 0 0 1 0-1.06Z" />
+                              <path d="M3.75 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 3.75 12Z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleClear(it._id)}
+                            className="px-3 py-1 rounded-md text-sm bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                            title="Clear from queue"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 };
 
