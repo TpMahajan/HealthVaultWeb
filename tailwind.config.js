@@ -8,17 +8,29 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          base: 'var(--bg-base)',
+          surface: 'var(--surface-card)',
+          border: 'var(--surface-border)',
+          title: 'var(--text-primary)',
+          muted: 'var(--text-muted)',
+          teal: 'var(--primary-teal)',
+          tealDark: 'var(--primary-teal-dark)',
+          cyan: 'var(--accent-cyan)',
+        },
         primary: {
-          50: '#eff6ff',
+          50: 'var(--primary-light)',
           100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#60a5fa',
           500: '#3b82f6',
-          600: '#2563eb',
+          DEFAULT: 'var(--primary-color)',
+          600: 'var(--primary-color)',
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
+          gradient: 'var(--primary-gradient)',
         },
         secondary: {
           50: '#faf5ff',
@@ -55,6 +67,7 @@ module.exports = {
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
         'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        'main': 'var(--shadow-main)',
       },
       borderRadius: {
         '2xl': '1rem',

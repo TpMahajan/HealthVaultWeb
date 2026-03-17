@@ -1,6 +1,10 @@
-// API Configuration
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
 export const API_BASE =
-  process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
+  process.env.REACT_APP_API_BASE ||
+  (isLocalhost
+    ? "http://localhost:5000/api"
+    : "https://backend-medicalvault.onrender.com/api");
 
 // ✅ Use this one because your backend exposes /api/auth/doctor/*
 export const DOCTOR_API_BASE = `${API_BASE}/doctors`;

@@ -1,0 +1,57 @@
+<svg viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dnaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14B8A6" stop-opacity="0.15" />
+      <stop offset="50%" stop-color="#06B6D4" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#14B8A6" stop-opacity="0.15" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(450, -250) rotate(32)" fill="none" stroke="url(#dnaGrad)">
+    <!-- Static Geometric DNA Lattice -->
+    <g opacity="0.4">
+      <!-- Main Helix Rails -->
+      <path d="M0,0 L200,100 L0,200 L200,300 L0,400 L200,500 L0,600 L200,700 L0,800 L200,900 L0,1000 L200,1100 L0,1200" stroke-width="2" />
+      <path d="M300,0 L100,100 L300,200 L100,300 L300,400 L100,500 L300,600 L100,700 L300,800 L100,900 L300,1000 L100,1100 L300,1200" stroke-width="2" />
+
+      <!-- Horizontal Rungs -->
+      <line x1="0" y1="0" x2="300" y2="0" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="100" x2="100" y2="100" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="200" x2="300" y2="200" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="300" x2="100" y2="300" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="400" x2="300" y2="400" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="500" x2="100" y2="500" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="600" x2="300" y2="600" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="700" x2="100" y2="700" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="800" x2="300" y2="800" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="900" x2="100" y2="900" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="1000" x2="300" y2="1000" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="200" y1="1100" x2="100" y2="1100" opacity="0.3" stroke-dasharray="2,2" />
+      <line x1="0" y1="1200" x2="300" y2="1200" opacity="0.3" stroke-dasharray="2,2" />
+
+      <!-- Lattice Cross Connections -->
+      <path d="M0,0 L100,100 M200,100 L0,200 M0,200 L100,300 M200,300 L0,400 M0,400 L100,500 M200,500 L0,600" opacity="0.2" />
+      <path d="M300,0 L200,100 M100,100 L300,200 M300,200 L200,300 M100,300 L300,400 M300,400 L200,500 M100,500 L300,600" opacity="0.2" />
+    </g>
+
+    <!-- Nodes (Connection Points) -->
+    <g fill="#06B6D4" opacity="0.6" stroke="none">
+      <circle cx="0" cy="0" r="3" />
+      <circle cx="200" cy="100" r="3" />
+      <circle cx="0" cy="200" r="3" />
+      <circle cx="200" cy="300" r="3" />
+      <circle cx="0" cy="400" r="3" />
+      <circle cx="200" cy="500" r="3" />
+      <circle cx="0" cy="600" r="3" />
+      <circle cx="200" cy="700" r="3" />
+      <circle cx="300" cy="0" r="3" />
+      <circle cx="100" cy="100" r="3" />
+      <circle cx="300" cy="200" r="3" />
+      <circle cx="100" cy="300" r="3" />
+      <circle cx="300" cy="400" r="3" />
+      <circle cx="100" cy="500" r="3" />
+      <circle cx="300" cy="600" r="3" />
+      <circle cx="100" cy="700" r="3" />
+    </g>
+  </g>
+</svg>
