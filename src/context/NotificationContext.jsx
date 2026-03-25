@@ -3,12 +3,31 @@ import { API_BASE } from '../constants/api';
 
 const NotificationContext = createContext();
 
+const normalizeNotification = (notification) => {
+  if (!notification || typeof notification !== "object") return null;
+  const id = String(
+    notification.id ||
+      notification._id ||
+      notification.notificationId ||
+      ""
+  ).trim();
+  if (!id) return null;
+  return {
+    ...notification,
+    id,
+    read: notification.read === true,
+  };
+};
+
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [eventSource, setEventSource] = useState(null);
   const [toastNotification, setToastNotification] = useState(null);
+  const [highlightedNotificationIds, setHighlightedNotificationIds] = useState(
+    []
+  );
 
 
   // Handle different types of SSE messages
@@ -20,11 +39,27 @@ export const NotificationProvider = ({ children }) => {
 
       case 'new_notification':
         console.log('🔔 New notification received:', data.notification);
-        setNotifications(prev => [data.notification, ...prev]);
-        // Show toast preview
-        setToastNotification(data.notification);
-        // Auto-hide toast after 5 seconds
-        setTimeout(() => setToastNotification(null), 5000);
+        {
+          const normalized = normalizeNotification(data.notification);
+          if (!normalized) break;
+          setNotifications((prev) => [
+            normalized,
+            ...prev.filter((entry) => entry.id !== normalized.id),
+          ]);
+          setHighlightedNotificationIds((prev) => [
+            normalized.id,
+            ...prev.filter((id) => id !== normalized.id),
+          ]);
+          setTimeout(() => {
+            setHighlightedNotificationIds((prev) =>
+              prev.filter((id) => id !== normalized.id)
+            );
+          }, 10000);
+          // Show toast preview
+          setToastNotification(normalized);
+          // Auto-hide toast after 5 seconds
+          setTimeout(() => setToastNotification(null), 5000);
+        }
         break;
 
       case 'unread_count':
@@ -44,19 +79,24 @@ export const NotificationProvider = ({ children }) => {
   // Load initial notifications
   const loadNotifications = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
 
     try {
       const response = await fetch(`${API_BASE}/notifications`, {
+        credentials: "include",
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         }
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setNotifications(data.data.notifications);
+          const normalized = Array.isArray(data?.data?.notifications)
+            ? data.data.notifications
+                .map((entry) => normalizeNotification(entry))
+                .filter(Boolean)
+            : [];
+          setNotifications(normalized);
           setUnreadCount(data.data.unreadCount);
         }
       }
@@ -68,13 +108,13 @@ export const NotificationProvider = ({ children }) => {
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId) => {
     const token = localStorage.getItem('token');
-    if (!token) return;
 
     try {
       const response = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
         method: 'PUT',
+        credentials: "include",
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         }
       });
 
@@ -96,13 +136,13 @@ export const NotificationProvider = ({ children }) => {
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
 
     try {
       const response = await fetch(`${API_BASE}/notifications/read-all`, {
         method: 'PUT',
+        credentials: "include",
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         }
       });
 
@@ -120,13 +160,13 @@ export const NotificationProvider = ({ children }) => {
   // Clear all notifications
   const clearAllNotifications = useCallback(async () => {
     const token = localStorage.getItem('token');
-    if (!token) return;
 
     try {
       const response = await fetch(`${API_BASE}/notifications`, {
         method: 'DELETE',
+        credentials: "include",
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         }
       });
 
@@ -143,13 +183,14 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     loadNotifications();
 
-    // For SSE, we need to pass the token as a query parameter
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) return;
 
     let es = null;
     try {
-      es = new EventSource(`${API_BASE}/notifications/stream?token=${encodeURIComponent(token)}`);
+      es = new EventSource(`${API_BASE}/notifications/stream`, {
+        withCredentials: true,
+      });
 
       es.onopen = () => {
         console.log('📡 Connected to notification stream');
@@ -185,12 +226,13 @@ export const NotificationProvider = ({ children }) => {
   }, [loadNotifications, handleStreamMessage]);
 
   const value = {
-    notifications,
-    unreadCount,
-    isConnected,
-    markAsRead,
-    markAllAsRead,
-    clearAllNotifications,
+      notifications,
+      unreadCount,
+      isConnected,
+      highlightedNotificationIds,
+      markAsRead,
+      markAllAsRead,
+      clearAllNotifications,
     refreshNotifications: loadNotifications,
     toastNotification,
     setToastNotification

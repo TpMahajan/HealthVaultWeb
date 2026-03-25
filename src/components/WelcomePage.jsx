@@ -1,16 +1,18 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   QrCode, Shield, Clock, ArrowRight, UserCheck, Stethoscope,
   ChevronRight, ChevronLeft, Upload, ScanLine, CheckCircle2, Lock,
   Folder, Calendar, AlertTriangle, Wand2, Heart, MessageSquare,
-  Activity, Zap, Database, Users
+  Activity, Database, Users
 } from "lucide-react";
 import GlassLayout from "./GlassLayout";
 import { GlassCard, PrimaryButton, SecondaryButton, Badge } from "./ui/Glass";
 import { ScrollReveal } from "./ui/ScrollReveal";
 import dnaBg from "../assets/dna-bg.svg";
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { fetchTrackedAdUrl, fetchWebLandingAds } from "../superadmin/api";
+import { usePublicConfigRealtime } from "../hooks/usePublicConfigRealtime";
 
 const WelcomePage = () => {
   const navigate = useNavigate();
@@ -18,6 +20,7 @@ const WelcomePage = () => {
   const heroRef = useRef(null);
   const statsRef = useRef(null);
   const coreRef = useRef(null);
+  const isMountedRef = useRef(true);
   const statsInView = useInView(statsRef, { once: true, margin: "-20%" });
   const coreInView = useInView(coreRef, { once: true, margin: "-10%" });
 
@@ -96,80 +99,117 @@ const WelcomePage = () => {
 
   // KPI Card State Management
   const [activeKpiIndex, setActiveKpiIndex] = useState(0);
+  const [landingAds, setLandingAds] = useState([]);
 
-  const showcaseSlides = [
+  const adThemePresets = [
     {
-      id: 0,
-      badge: "Emergency",
-      title: "Instant SOS",
-      subtitle: "Found Person Alert",
-      desc: "Emergency responders can scan your QR to instantly notify family and provide life-saving medical data without unlocking your phone.",
-      metric: "<30s",
-      metricLabel: "Family Notification",
-      ring1: "from-red-500 to-orange-500",
-      ring2: "from-red-500/15 to-orange-500/10",
-      dotColor: "bg-red-500",
-      iconEl: <AlertTriangle className="w-7 h-7 text-white" strokeWidth={2} />,
-      gradient: "from-red-500 to-orange-500",
-    },
-    {
-      id: 1,
-      badge: "Cross-Platform",
-      title: "iOS Support",
-      subtitle: "Native Experience",
-      desc: "Experience Medical Vault on the go with our fully optimized iPhone and iPad apps, featuring Apple Health integration.",
-      metric: "4.9/5",
-      metricLabel: "App Store Rating",
-      ring1: "from-[#0EA5A4] to-[#22D3EE]",
-      ring2: "from-[#0EA5A4]/15 to-[#22D3EE]/10",
-      dotColor: "bg-[#0EA5A4]",
-      iconEl: <Zap className="w-7 h-7 text-white" strokeWidth={2} />,
-      gradient: "from-[#0EA5A4] to-[#22D3EE]",
-    },
-    {
-      id: 2,
-      badge: "Security",
-      title: "AES-256",
-      subtitle: "Medical Data Vault",
-      desc: "Military-grade encryption protects every record at rest and in transit with zero-knowledge architecture.",
-      metric: "256-bit",
-      metricLabel: "Encryption Level",
-      ring1: "from-[#0F172A] to-[#0EA5A4]",
-      ring2: "from-[#0EA5A4]/15 to-[#0F172A]/5",
-      dotColor: "bg-[#0EA5A4]",
-      iconEl: <Shield className="w-7 h-7 text-white" strokeWidth={2} />,
-      gradient: "from-[#0F172A] to-[#0EA5A4]",
-    },
-    {
-      id: 3,
-      badge: "Identity",
-      title: "Instant Patient",
-      subtitle: "QR Verification",
-      desc: "Scan a patient's encrypted QR to verify identity and access records with cryptographic precision in seconds.",
-      metric: "<1s",
-      metricLabel: "Identity Verification",
       ring1: "from-[#0D9488] to-[#22D3EE]",
       ring2: "from-[#0D9488]/15 to-[#22D3EE]/10",
       dotColor: "bg-[#0EA5A4]",
-      iconEl: <QrCode className="w-7 h-7 text-white" strokeWidth={2} />,
       gradient: "from-[#0D9488] to-[#22D3EE]",
-    }
+    },
+    {
+      ring1: "from-[#0EA5A4] to-[#0891B2]",
+      ring2: "from-[#0EA5A4]/15 to-[#0891B2]/10",
+      dotColor: "bg-[#0EA5A4]",
+      gradient: "from-[#0EA5A4] to-[#0891B2]",
+    },
+    {
+      ring1: "from-[#0F172A] to-[#0EA5A4]",
+      ring2: "from-[#0F172A]/10 to-[#0EA5A4]/12",
+      dotColor: "bg-[#22D3EE]",
+      gradient: "from-[#0F172A] to-[#0EA5A4]",
+    },
+    {
+      ring1: "from-[#0369A1] to-[#0EA5A4]",
+      ring2: "from-[#0369A1]/12 to-[#0EA5A4]/10",
+      dotColor: "bg-[#38BDF8]",
+      gradient: "from-[#0369A1] to-[#0EA5A4]",
+    },
   ];
+
+  const showcaseSlides = landingAds
+    .filter((ad) => ad?.isActive !== false)
+    .map((ad, index, source) => {
+      const theme = adThemePresets[index % adThemePresets.length];
+      const placement = String(ad?.placement || "WEB_LANDING")
+        .replace(/_/g, " ")
+        .toUpperCase();
+
+      return {
+        id: ad?._id || `ad-${index}`,
+        badge: placement,
+        title: String(ad?.title || "Medical Vault Advertisement"),
+        subtitle: "",
+        desc: ad?.redirectUrl
+          ? "Tap to open partner offer"
+          : "Sponsored update from Medical Vault",
+        metric: `${index + 1}/${source.length}`,
+        metricLabel: "Ad Slot",
+        imageUrl: String(ad?.imageUrl || ""),
+        redirectUrl: String(ad?.redirectUrl || ""),
+        iconEl: <Shield className="w-7 h-7 text-white" strokeWidth={2} />,
+        ...theme,
+      };
+    });
 
 
   // Auto-rotate showcase every 4 seconds — resets when user manually changes slide
   useEffect(() => {
+    if (showcaseSlides.length <= 1) return;
     const timer = setInterval(() => {
       setActiveKpiIndex((prev) => (prev + 1) % showcaseSlides.length);
     }, 4000);
     return () => clearInterval(timer);
+  }, [showcaseSlides.length]);
+
+  const loadLandingAds = useCallback(async () => {
+    try {
+      const ads = await fetchWebLandingAds();
+      if (!isMountedRef.current) return;
+      setLandingAds(Array.isArray(ads) ? ads : []);
+    } catch {
+      if (!isMountedRef.current) return;
+      setLandingAds([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLandingAds();
+  }, [loadLandingAds]);
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+  }, []);
+
+  usePublicConfigRealtime({
+    platform: "WEB",
+    surface: "WEB_LANDING",
+    onEvent: (event) => {
+      if (event.type === "ads.updated" || event.type === "ui-config.updated") {
+        loadLandingAds();
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (showcaseSlides.length === 0) {
+      if (activeKpiIndex !== 0) setActiveKpiIndex(0);
+      return;
+    }
+
+    if (activeKpiIndex >= showcaseSlides.length) {
+      setActiveKpiIndex(0);
+    }
   }, [activeKpiIndex, showcaseSlides.length]);
 
   const handleKpiNext = () => {
+    if (showcaseSlides.length === 0) return;
     setActiveKpiIndex((prev) => (prev + 1) % showcaseSlides.length);
   };
 
   const handleKpiPrev = () => {
+    if (showcaseSlides.length === 0) return;
     setActiveKpiIndex((prev) => (prev - 1 + showcaseSlides.length) % showcaseSlides.length);
   };
 
@@ -177,6 +217,61 @@ const WelcomePage = () => {
     if (activeKpiIndex === index) return;
     setActiveKpiIndex(index);
   };
+
+  const getTrackingPayload = () => {
+    let userId = "";
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        userId = String(parsed?.id || parsed?._id || "").trim();
+      }
+    } catch {
+      userId = "";
+    }
+    const userType = String(localStorage.getItem("role") || "anonymous");
+    return { userId, userType };
+  };
+
+  const handleAdRedirect = async (slide) => {
+    const fallbackUrl = String(slide?.redirectUrl || "").trim();
+    if (!fallbackUrl) return;
+
+    let targetUrl = fallbackUrl;
+    const adId = String(slide?.id || "").trim();
+    if (adId && adId !== "empty") {
+      const tracking = getTrackingPayload();
+      const trackedUrl = await fetchTrackedAdUrl({
+        adId,
+        platform: "web",
+        surface: "WEB_LANDING",
+        userId: tracking.userId,
+        userType: tracking.userType,
+        sourceApp: "healthvault_web",
+      });
+      if (trackedUrl) targetUrl = trackedUrl;
+    }
+
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const activeSlide = showcaseSlides[activeKpiIndex] || {
+    id: "empty",
+    badge: "WEB LANDING",
+    title: "No Active Advertisements",
+    subtitle: "",
+    desc: "Create active WEB_LANDING advertisements from SuperAdmin.",
+    metric: "0/0",
+    metricLabel: "Ad Slot",
+    imageUrl: "",
+    redirectUrl: "",
+    ring1: "from-[#0D9488] to-[#22D3EE]",
+    ring2: "from-[#0D9488]/15 to-[#22D3EE]/10",
+    dotColor: "bg-[#0EA5A4]",
+    gradient: "from-[#0D9488] to-[#22D3EE]",
+    iconEl: <Shield className="w-7 h-7 text-white" strokeWidth={2} />,
+  };
+  const hasLandingAds = showcaseSlides.length > 0;
 
   return (
     <GlassLayout>
@@ -249,7 +344,10 @@ const WelcomePage = () => {
       </div>
 
       {/* --- HERO SECTION --- */}
-      <div className="w-full grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center pt-[120px] pb-[120px] mb-8 relative z-10 px-4 max-w-[1280px] mx-auto" ref={heroRef}>
+      <div
+        className={`w-full grid ${hasLandingAds ? "lg:grid-cols-[1.1fr_0.9fr]" : "lg:grid-cols-1"} gap-12 lg:gap-16 items-center pt-[120px] pb-[120px] mb-8 relative z-10 px-4 max-w-[1280px] mx-auto`}
+        ref={heroRef}
+      >
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-8 text-left relative z-10 pr-4">
 
@@ -335,12 +433,13 @@ const WelcomePage = () => {
         </div>
 
         {/* RIGHT COLUMN - ANIMATED SHOWCASE CARD */}
-        <motion.div
-          initial={{ opacity: 0, x: 60 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-          className="relative z-10 w-full flex justify-center lg:justify-end"
-        >
+        {hasLandingAds ? (
+          <motion.div
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            className="relative z-10 w-full flex justify-center lg:justify-end"
+          >
           {/* Use framer-motion for float — avoids CSS transform conflict with motion.div parent */}
           <motion.div
             animate={{ y: [0, -15, 0] }}
@@ -353,7 +452,7 @@ const WelcomePage = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className={`absolute inset-[-20px] rounded-[44px] bg-gradient-to-br ${showcaseSlides[activeKpiIndex].ring2} blur-[40px] pointer-events-none`}
+              className={`absolute inset-[-20px] rounded-[44px] bg-gradient-to-br ${activeSlide.ring2} blur-[40px] pointer-events-none`}
             />
 
             <div className="relative bg-white rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.12)] border border-white/80 overflow-hidden">
@@ -364,7 +463,7 @@ const WelcomePage = () => {
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
-                className={`h-1 w-full bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1} origin-left`}
+                className={`h-1 w-full bg-gradient-to-r ${activeSlide.ring1} origin-left`}
               />
 
               <div className="p-7 flex flex-col gap-6">
@@ -374,15 +473,15 @@ const WelcomePage = () => {
                   <div className="flex items-center gap-3">
                     {/* Live indicator */}
                     <div className="relative flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${showcaseSlides[activeKpiIndex].dotColor} relative`}>
-                        <span className={`absolute inset-0 rounded-full ${showcaseSlides[activeKpiIndex].dotColor} animate-ping opacity-60`} />
+                      <span className={`w-2 h-2 rounded-full ${activeSlide.dotColor} relative`}>
+                        <span className={`absolute inset-0 rounded-full ${activeSlide.dotColor} animate-ping opacity-60`} />
                       </span>
                       <span className="text-[12px] font-[700] text-[#64748B] uppercase tracking-[0.1em]">Live</span>
                     </div>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F1F5F9] border border-[#E2E8F0]">
-                    <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1}`} />
-                    <span className="text-[11px] font-[800] text-[#0F172A] uppercase tracking-[0.1em]">{showcaseSlides[activeKpiIndex].badge}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${activeSlide.ring1}`} />
+                    <span className="text-[11px] font-[800] text-[#0F172A] uppercase tracking-[0.1em]">{activeSlide.badge}</span>
                   </div>
                 </div>
 
@@ -395,34 +494,45 @@ const WelcomePage = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -15 }}
                       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                      className="absolute inset-0 flex flex-col gap-5"
+                      className="absolute inset-0"
                     >
-                      {/* Icon + Metric Row */}
-                      <div className="flex items-center justify-between">
-                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${showcaseSlides[activeKpiIndex].gradient} flex items-center justify-center shadow-lg`}>
-                          {showcaseSlides[activeKpiIndex].iconEl}
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-[36px] font-[900] bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1} bg-clip-text text-transparent leading-none tracking-tight`}>
-                            {showcaseSlides[activeKpiIndex].metric}
+                      {activeSlide.imageUrl ? (
+                        <img
+                          src={activeSlide.imageUrl}
+                          alt={activeSlide.title}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div
+                          className={`h-full w-full bg-gradient-to-br ${activeSlide.gradient} flex items-center justify-center`}
+                        >
+                          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shadow-lg">
+                            {activeSlide.iconEl}
                           </div>
-                          <div className="text-[11px] font-[700] text-[#94A3B8] uppercase tracking-[0.1em] mt-1">
-                            {showcaseSlides[activeKpiIndex].metricLabel}
-                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Title */}
-                      <div>
-                        <h3 className="text-[#0F172A] text-[22px] font-[900] leading-tight tracking-tight">
-                          {showcaseSlides[activeKpiIndex].title}<br />
-                          <span className={`bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1} bg-clip-text text-transparent`}>
-                            {showcaseSlides[activeKpiIndex].subtitle}
-                          </span>
-                        </h3>
-                        <p className="text-[#64748B] text-[13.5px] leading-[1.6] font-medium mt-2">
-                          {showcaseSlides[activeKpiIndex].desc}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/5" />
+                      <div className="absolute inset-x-0 bottom-0 p-4">
+                        <p className="text-[11px] font-[700] uppercase tracking-[0.12em] text-white/85">
+                          {activeSlide.metricLabel} {activeSlide.metric}
                         </p>
+                        <h3 className="mt-1 text-[18px] font-[900] leading-tight text-white">
+                          {activeSlide.title}
+                        </h3>
+                        <p className="mt-1 text-[12px] font-medium text-white/85">
+                          {activeSlide.desc}
+                        </p>
+                        {activeSlide.redirectUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => handleAdRedirect(activeSlide)}
+                            className="mt-2 inline-flex items-center gap-1 text-[12px] font-[700] text-cyan-100 hover:text-white"
+                          >
+                            Open offer <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : null}
                       </div>
                     </motion.div>
                   </AnimatePresence>
@@ -436,7 +546,7 @@ const WelcomePage = () => {
                         key={i}
                         onClick={() => setActiveKpiIndex(i)}
                         className={`rounded-full transition-all duration-300 ${i === activeKpiIndex
-                          ? `w-6 h-2 bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1}`
+                          ? `w-6 h-2 bg-gradient-to-r ${activeSlide.ring1}`
                           : 'w-2 h-2 bg-[#E2E8F0] hover:bg-[#CBD5E1]'
                           }`}
                       />
@@ -451,7 +561,7 @@ const WelcomePage = () => {
                     </button>
                     <button
                       onClick={handleKpiNext}
-                      className={`w-9 h-9 rounded-full bg-gradient-to-r ${showcaseSlides[activeKpiIndex].ring1} flex items-center justify-center text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all`}
+                      className={`w-9 h-9 rounded-full bg-gradient-to-r ${activeSlide.ring1} flex items-center justify-center text-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all`}
                     >
                       <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
                     </button>
@@ -462,6 +572,7 @@ const WelcomePage = () => {
             </div>
           </motion.div>
         </motion.div>
+        ) : null}
       </div>
 
 

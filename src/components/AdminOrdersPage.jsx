@@ -49,10 +49,16 @@ export default function AdminOrdersPage() {
     const [search, setSearch] = useState("");
     const [filterStatus, setFilterStatus] = useState("All");
     const [stats, setStats] = useState({ total: 0, revenue: 0, pending: 0, delivered: 0 });
+    const [page, setPage] = useState(1);
+    const perPage = 10;
 
     useEffect(() => {
         loadOrders();
     }, []);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, filterStatus]);
 
     function loadOrders() {
         try {
@@ -104,6 +110,8 @@ export default function AdminOrdersPage() {
         const matchStatus = filterStatus === "All" || o.status === filterStatus;
         return matchSearch && matchStatus;
     });
+    const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+    const pagedOrders = filtered.slice((page - 1) * perPage, page * perPage);
 
     return (
         <div style={{ minHeight: "100vh", background: "#F8FAFC", fontFamily: "Inter, sans-serif" }}>
@@ -202,7 +210,7 @@ export default function AdminOrdersPage() {
                             </div>
                         </div>
                     ) : (
-                        filtered.map((order, idx) => {
+                        pagedOrders.map((order, idx) => {
                             const sc = STATUS_COLOR[order.status] || STATUS_COLOR.Confirmed;
                             return (
                                 <div
@@ -257,11 +265,31 @@ export default function AdminOrdersPage() {
                     {/* Footer summary */}
                     {filtered.length > 0 && (
                         <div style={{ padding: "12px 20px", background: "#F8FAFC", borderTop: "1.5px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>{filtered.length} order{filtered.length !== 1 ? "s" : ""} shown</span>
+                            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>{filtered.length} order{filtered.length !== 1 ? "s" : ""} total • Page {page}/{totalPages}</span>
                             <span style={{ fontSize: 13, fontWeight: 800, color: "#0F172A" }}>
                                 Subtotal: ₹{filtered.reduce((s, o) => s + Number(o.total || 0), 0).toLocaleString()}
                             </span>
                         </div>
+                    )}
+                    {filtered.length > 0 && (
+                      <div style={{ padding: "10px 20px", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button
+                          className="aop-btn"
+                          disabled={page <= 1}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "#fff", color: "#334155", fontSize: 12, opacity: page <= 1 ? 0.5 : 1 }}
+                        >
+                          Prev
+                        </button>
+                        <button
+                          className="aop-btn"
+                          disabled={page >= totalPages}
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          style={{ height: 32, padding: "0 12px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "#fff", color: "#334155", fontSize: 12, opacity: page >= totalPages ? 0.5 : 1 }}
+                        >
+                          Next
+                        </button>
+                      </div>
                     )}
                 </div>
             </main>

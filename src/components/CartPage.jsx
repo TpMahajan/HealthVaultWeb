@@ -7,11 +7,6 @@ import { ArrowLeft, Stethoscope, ShoppingBag, Trash2 } from "lucide-react";
 /* ─── Icons ─── */
 const TrashIcon = () => <Trash2 className="w-[15px] h-[15px]" />;
 
-const DEFAULT_CART = [
-    { id: "band-1", name: "NFC HealthBand", category: "Wearable", unitPrice: 600, qty: 1, imageUrl: "/nfc_band_main.png" },
-    { id: "kit-1", name: "Smart Medical Kit", category: "Equipment", unitPrice: 1000, qty: 1, imageUrl: "/medical_kit_main.png" },
-];
-
 export default function CartPage() {
     const navigate = useNavigate();
     const [cart, setCart] = useState([]);
@@ -30,9 +25,9 @@ export default function CartPage() {
     useEffect(() => {
         try {
             const saved = localStorage.getItem("mv_cart");
-            setCart(saved ? JSON.parse(saved) : DEFAULT_CART);
-            if (!saved) localStorage.setItem("mv_cart", JSON.stringify(DEFAULT_CART));
-        } catch (e) { setCart(DEFAULT_CART); }
+            setCart(saved ? JSON.parse(saved) : []);
+            if (!saved) localStorage.setItem("mv_cart", JSON.stringify([]));
+        } catch (e) { setCart([]); }
         setIsLoaded(true);
     }, []);
 

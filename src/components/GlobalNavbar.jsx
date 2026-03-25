@@ -11,7 +11,16 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSidebarCollapsed }) => {
   const { user, logout } = useAuth();
   const { toggleTheme, isDark } = useTheme();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAllNotifications, toastNotification, setToastNotification } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    highlightedNotificationIds,
+    markAsRead,
+    markAllAsRead,
+    clearAllNotifications,
+    toastNotification,
+    setToastNotification
+  } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -58,6 +67,7 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
     if (path === '/dashboard') return 'Dashboard';
     if (path === '/patients') return 'Active Session';
     if (path === '/all-patients') return 'Patient Manager';
+    if (path === '/messages') return 'Messages';
     if (path === '/scan') return 'QR Scanner';
     if (path === '/vault') return 'Medical Vault';
     if (path === '/profile') return 'My Profile';
@@ -65,6 +75,88 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
     if (path === '/history') return 'Session History';
     if (path.startsWith('/patient-details')) return 'Patient Details';
     return 'Medical Vault';
+  };
+
+  const resolveNotificationTarget = (notification) => {
+    const data =
+      notification?.data && typeof notification.data === "object"
+        ? notification.data
+        : {};
+    const deepLink = String(
+      data.deepLink || notification?.deepLink || ""
+    ).trim();
+    if (deepLink) {
+      if (/^https?:\/\//i.test(deepLink)) {
+        return { externalUrl: deepLink, path: "" };
+      }
+      if (deepLink.startsWith("healthvault://")) {
+        const normalized = deepLink.replace("healthvault://", "/");
+        return { path: normalized.startsWith("/") ? normalized : "/dashboard" };
+      }
+      if (deepLink.startsWith("/")) {
+        return { path: deepLink };
+      }
+    }
+
+    const type = String(data.type || notification?.type || "").toLowerCase();
+    const currentRole = String(
+      user?.role || localStorage.getItem("role") || ""
+    )
+      .trim()
+      .toLowerCase();
+    if (type === "direct_message" || type === "patient_message" || type === "doctor_message") {
+      const currentUserId = String(
+        user?.id || user?._id || ""
+      ).trim();
+      let counterpartId = String(data.counterpartId || "").trim();
+
+      if (!counterpartId || (currentUserId && counterpartId === currentUserId)) {
+        counterpartId = String(
+          (currentRole === "doctor" ? data.patientId : data.doctorId) ||
+            data.senderId ||
+            ""
+        ).trim();
+      }
+
+      return {
+        path: counterpartId
+          ? `/messages?counterpart=${encodeURIComponent(counterpartId)}`
+          : "/messages",
+      };
+    }
+
+    if (type === "session_extension_request" || type === "session_extension_response") {
+      return { path: currentRole === "doctor" ? "/patients" : "/dashboard" };
+    }
+
+    const hasAppointment = Boolean(data.appointmentId);
+    if (hasAppointment || type.includes("appointment")) {
+      return { path: "/dashboard" };
+    }
+    if (type.includes("session")) {
+      return { path: "/patients" };
+    }
+    if (type.includes("document") || type.includes("file")) {
+      return { path: "/vault" };
+    }
+    return { path: "/dashboard" };
+  };
+
+  const handleNotificationClick = async (notification) => {
+    const notificationId = String(notification?.id || "").trim();
+    if (!notificationId) return;
+    if (!notification.read) {
+      await markAsRead(notificationId);
+    }
+    const target = resolveNotificationTarget(notification);
+    setNotificationsOpen(false);
+    if (target.externalUrl) {
+      window.open(target.externalUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (target.path) {
+      navigate(target.path);
+    }
   };
 
   return (
@@ -117,6 +209,9 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
               ? 'text-[#2E2E2E] animate-pulse'
               : 'text-[#1F2937] dark:text-[#E4E8EE]'
               }`} />
+            {highlightedNotificationIds.length > 0 && (
+              <span className="absolute inset-0 rounded-[12px] ring-2 ring-rose-400/60 animate-pulse pointer-events-none" />
+            )}
 
             {/* Unread Count Badge */}
             {unreadCount > 0 && (
@@ -156,6 +251,12 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                   )}
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-[10px] font-bold text-[#1F2937] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wider"
+                  >
+                    Mark Read
+                  </button>
                   <button
                     onClick={clearAllNotifications}
                     className="text-[10px] font-bold text-[#1F2937] hover:text-rose-500 dark:hover:text-rose-400 transition-colors uppercase tracking-wider"
@@ -204,11 +305,16 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                       return `${Math.floor(diffHours / 24)}d`;
                     };
 
+                    const isHighlighted = highlightedNotificationIds.includes(
+                      String(n.id || "")
+                    );
+
                     return (
                       <div
                         key={n.id}
-                        onClick={() => !n.read && markAsRead(n.id)}
-                        className={`px-5 py-4 border-b border-gray-50 dark:border-white/5 last:border-0 hover:bg-[#EEF3F7] dark:hover:bg-white/[0.04] cursor-pointer transition-all relative group ${!n.read ? 'bg-[#EEF3F7]/40 dark:bg-[#EEF3F7]0/5' : ''
+                        onClick={() => handleNotificationClick(n)}
+                        className={`px-5 py-4 border-b border-gray-50 dark:border-white/5 last:border-0 hover:bg-[#EEF3F7] dark:hover:bg-white/[0.04] cursor-pointer transition-all relative group ${!n.read ? 'bg-[#EEF3F7]/40 dark:bg-[#EEF3F7]/5' : ''
+                          } ${isHighlighted ? 'ring-1 ring-amber-300/80 bg-amber-50/70 dark:bg-amber-900/20' : ''
                           }`}
                       >
                         <div className="flex items-start gap-4">
@@ -217,16 +323,21 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-start mb-0.5">
-                              <p className={`text-[13px] font-bold leading-tight truncate ${!n.read ? 'text-[#1F2937] dark:text-[#1F2937]' : 'text-[#1F2937] dark:text-[#1F2937]'}`}>
+                              <p className={`text-[13px] font-bold leading-tight truncate ${!n.read ? 'text-[#1F2937] dark:text-white' : 'text-[#1F2937] dark:text-[#E4E8EE]'}`}>
                                 {n.title}
                               </p>
                               <span className="text-[10px] font-bold text-[#1F2937] dark:text-[#1F2937] uppercase ml-2 shrink-0">
                                 {formatTime(n.createdAt)}
                               </span>
                             </div>
-                            <p className={`text-[11px] leading-relaxed line-clamp-2 ${!n.read ? 'text-[#1F2937] dark:text-[#E4E8EE]' : 'text-[#1F2937] dark:text-[#1F2937]'}`}>
+                            <p className={`text-[11px] leading-relaxed line-clamp-2 ${!n.read ? 'text-[#1F2937] dark:text-[#E4E8EE]' : 'text-[#334155] dark:text-[#CBD5E1]'}`}>
                               {n.body || n.message}
                             </p>
+                            {(n.data?.deepLink || n.deepLink) && (
+                              <p className="mt-1 text-[10px] font-semibold text-cyan-700 dark:text-cyan-400">
+                                Tap to open
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -357,12 +468,15 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                   </p>
                   <button
                     onClick={() => {
+                      const target = toastNotification;
                       setToastNotification(null);
-                      setNotificationsOpen(true);
+                      if (target) {
+                        handleNotificationClick(target);
+                      }
                     }}
                     className="mt-3 text-[11px] font-bold text-[#2E2E2E] hover:text-[#2F9E6F] dark:hover:text-[#A8E6A3] transition-colors uppercase tracking-wider"
                   >
-                    View All Notifications →
+                    Open Notification →
                   </button>
                 </div>
               </div>

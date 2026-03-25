@@ -2,69 +2,49 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Shield, Mail, Lock } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../constants/api';
-import { useRef, useEffect } from 'react';
+import { clearSuperAdminSession, setSuperAdminSession } from '../superadmin/api';
+import { setAdminSession } from '../context/AdminAuthContext';
 
 
 const AdminLoginPage = () => {
-  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const googleBtnRef = useRef(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Initialize Google Identity Services
-  useEffect(() => {
-    if (!window.google) return;
-    try {
-      const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || window.__GOOGLE_CLIENT_ID__;
-      if (!clientId) return;
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response) => {
-          const idToken = response.credential;
-          const result = await loginWithGoogle(idToken);
-          if (result.success) {
-            navigate('/admin/dashboard');
-          } else {
-            alert(result.error || 'Google login failed');
-          }
-        },
-        auto_select: false,
-        cancel_on_tap_outside: true,
-        context: 'signin'
-      });
-      if (googleBtnRef.current) {
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'outline',
-          size: 'large',
-          type: 'standard',
-          shape: 'pill',
-          text: 'signin_with',
-          logo_alignment: 'left'
-        });
-      }
-    } catch (e) {
-      console.warn('Google init failed', e);
-    }
-  }, [loginWithGoogle, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
+      // 1) Try SuperAdmin login from the same Admin login page.
+      const superAdminRes = await fetch(`${API_BASE}/superadmin/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const superAdminData = await superAdminRes.json();
+      if (superAdminRes.ok && superAdminData?.success && superAdminData?.token) {
+        setSuperAdminSession(superAdminData.token, superAdminData.user || {});
+        localStorage.removeItem('adminToken');
+        navigate('/superadmin');
+        return;
+      }
+
+      // 2) Fallback to existing Admin login.
+      clearSuperAdminSession();
       const res = await fetch(`${API_BASE}/admin/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (data.success && data.token) {
-        localStorage.setItem('adminToken', data.token);
+        setAdminSession({ token: data.token, admin: data.admin || null });
         navigate('/admin/dashboard');
       } else {
         setError(data.message || 'Login failed');
@@ -140,7 +120,7 @@ const AdminLoginPage = () => {
             Admin <span className="bg-gradient-to-r from-[#0D9488] to-[#0EA5E9] bg-clip-text text-transparent">Login</span>
           </h2>
           <p className="text-[15px] text-[#475569] font-medium">
-            Enter credentials to access the admin panel.
+            Enter Admin or SuperAdmin credentials to continue.
           </p>
         </motion.div>
 
@@ -235,32 +215,6 @@ const AdminLoginPage = () => {
               )}
             </motion.button>
           </form>
-
-          {/* Divider */}
-          <div className="mt-7 flex items-center">
-            <div className="flex-1 border-t border-[#E2E8F0]"></div>
-            <span className="px-3 text-[12px] font-medium text-[#94A3B8] uppercase tracking-wider">Or</span>
-            <div className="flex-1 border-t border-[#E2E8F0]"></div>
-          </div>
-
-          {/* Google Login container */}
-          <div className="mt-6 flex justify-center">
-            <div ref={googleBtnRef} />
-          </div>
-
-          {/* Signup Link */}
-          <div className="mt-8 text-center border-t border-[#E2E8F0] pt-6">
-            <p className="text-[14px] text-[#64748B] font-medium">
-              Don't have an admin account?{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/admin/signup')}
-                className="font-[700] text-[#0D9488] hover:text-[#0F766E] transition-colors ml-1"
-              >
-                Sign up
-              </button>
-            </p>
-          </div>
         </motion.div>
       </div>
     </motion.div>

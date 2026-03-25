@@ -8,6 +8,8 @@ const SOSListPage = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const perPage = 10;
 
   useEffect(() => {
     const run = async () => {
@@ -21,9 +23,10 @@ const SOSListPage = () => {
           // Mark as read
           const ids = list.filter(x => !x.isRead).map(x => x._id);
           if (ids.length) {
+            const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
             await fetch(`${API_BASE}/sos/mark-read`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...authHeader },
               body: JSON.stringify({ ids })
             });
           }
@@ -63,6 +66,9 @@ const SOSListPage = () => {
     alert('Sent forward');
   };
 
+  const totalPages = Math.max(1, Math.ceil(items.length / perPage));
+  const pageItems = items.slice((page - 1) * perPage, page * perPage);
+
   return (
     <div className="min-h-screen p-4 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
@@ -85,7 +91,7 @@ const SOSListPage = () => {
               </tr>
             </thead>
             <tbody className="text-gray-800 dark:text-gray-200">
-              {items.map((it) => (
+              {pageItems.map((it) => (
                 <tr key={it._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="py-2 pr-4 whitespace-nowrap">{new Date(it.createdAt).toLocaleString()}</td>
                   <td className="py-2 pr-4">{it.name || ''}</td>
@@ -120,6 +126,27 @@ const SOSListPage = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-gray-600 dark:text-gray-300">Page {page} of {totalPages}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1 rounded-md border border-gray-300 text-xs disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="px-3 py-1 rounded-md border border-gray-300 text-xs disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
       <Footer />

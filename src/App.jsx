@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import './App.css';
 
 // Pages / Components
@@ -18,31 +18,47 @@ import Settings from './components/Settings';
 import Vault from './components/Vault';
 import MainLayout from './components/MainLayout';
 import AdminLoginPage from './components/AdminLoginPage';
-import AdminSignupPage from './components/AdminSignupPage';
 import SOSListPage from './components/SOSListPage';
 import AdminDashboard from './components/AdminDashboard';
-import AdminInventoyPage from './components/AdminInventoyPage';
+import AdminInventoyPage from './components/AdminInventoyPage.jsx';
 import AdminOrdersPage from './components/AdminOrdersPage';
+import AdminShell from './components/AdminShell';
+import AdminLostFoundPage from './components/AdminLostFoundPage';
+import AdminSupportPage from './components/AdminSupportPage';
+import AdminSecurityPanel from './components/AdminSecurityPanel';
 import MedicalCard from './components/MedicalCard';
 import SessionHistory from './components/SessionHistory';
+import Messages from './components/Messages';
 import FeaturesPage from './components/FeaturesPage';
 import ProductPage from './components/ProductPage';
 import CartPage from './components/CartPage';
 import OrdersPage from './components/OrdersPage';
+import SuperAdminLoginPage from './superadmin/SuperAdminLoginPage';
+import SuperAdminProtectedRoute from './superadmin/SuperAdminProtectedRoute';
+import SuperAdminLayout from './superadmin/SuperAdminLayout';
+import SuperAdminDashboardPage from './superadmin/SuperAdminDashboardPage';
+import SuperAdminAnalyticsPage from './superadmin/SuperAdminAnalyticsPage';
+import SuperAdminUsersPage from './superadmin/SuperAdminUsersPage';
+import SuperAdminAdminsPage from './superadmin/SuperAdminAdminsPage';
+import SuperAdminAdvertisementsPage from './superadmin/SuperAdminAdvertisementsPage';
+import SuperAdminProductsPage from './superadmin/SuperAdminProductsPage';
+import SuperAdminUiConfigPage from './superadmin/SuperAdminUiConfigPage';
+import SuperAdminAlertsPage from './superadmin/SuperAdminAlertsPage';
+import SuperAdminNotificationsPage from './superadmin/SuperAdminNotificationsPage';
 
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
+import { ADMIN_PERMISSIONS, hasPermission } from './admin/rbac';
 
 // ✅ Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, isLoading } = useAuth();
-  console.log("🔒 ProtectedRoute: Checking authentication, user:", user, "isLoading:", isLoading);
 
   // Show loading spinner while checking authentication
   if (isLoading) {
-    console.log("⏳ ProtectedRoute: Loading authentication state...");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -57,25 +73,41 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (user) {
-    console.log("✅ ProtectedRoute: User authenticated, allowing access");
     return children;
   } else {
-    console.log("❌ ProtectedRoute: No user, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 };
 
+const AdminProtectedRoute = ({ children }) => {
+  const { admin, isLoading } = useAdminAuth();
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 rounded-full border-2 border-slate-300 border-t-teal-500 animate-spin" />
+      </div>
+    );
+  }
+  if (!admin) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  return children;
+};
+
+const AdminPermissionRoute = ({ permission, children }) => {
+  const { admin } = useAdminAuth();
+  if (!admin || !hasPermission(admin, permission)) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return children;
+};
+
 // ✅ Patient Details Route Component (allows both authenticated and anonymous access)
 const PatientDetailsRoute = ({ children }) => {
-  const { user, isLoading, anonAuth } = useAuth();
-  const location = useLocation();
-  const hasToken = new URLSearchParams(location.search).get('token');
-
-  console.log("🔒 PatientDetailsRoute: Checking access, user:", user, "anonAuth:", anonAuth, "hasToken:", !!hasToken, "isLoading:", isLoading);
+  const { user, isLoading } = useAuth();
 
   // Show loading spinner while checking authentication
   if (isLoading) {
-    console.log("⏳ PatientDetailsRoute: Loading authentication state...");
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -89,12 +121,10 @@ const PatientDetailsRoute = ({ children }) => {
     );
   }
 
-  // Allow access if user is logged in OR if there's an anonymous token
-  if (user || anonAuth || hasToken) {
-    console.log("✅ PatientDetailsRoute: Access granted");
+  // Zero-trust model: PHI view routes always require authenticated user context.
+  if (user) {
     return children;
   } else {
-    console.log("❌ PatientDetailsRoute: No access, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 };
@@ -116,12 +146,93 @@ const AppContent = () => {
       <Route path="/medical-card/:userId" element={<MedicalCard />} />
       {/* Admin (temporary using doctor auth) */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route path="/admin/signup" element={<AdminSignupPage />} />
-      <Route path="/admin/sos" element={<SOSListPage />} />
-      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/inventoy" element={<AdminInventoyPage />} />
-      <Route path="/admin/inventory" element={<AdminInventoyPage />} />
-      <Route path="/admin/orders" element={<AdminOrdersPage />} />
+      <Route
+        path="/admin"
+        element={(
+          <AdminProtectedRoute>
+            <AdminShell />
+          </AdminProtectedRoute>
+        )}
+      >
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route
+          path="sos"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.VIEW_SOS}>
+              <SOSListPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="lost-found"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.VIEW_SOS}>
+              <AdminLostFoundPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="inventoy"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.MANAGE_PRODUCTS}>
+              <AdminInventoyPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="inventory"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.MANAGE_PRODUCTS}>
+              <AdminInventoyPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="orders"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.MANAGE_ORDERS}>
+              <AdminOrdersPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="support"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.VIEW_TICKETS}>
+              <AdminSupportPage />
+            </AdminPermissionRoute>
+          )}
+        />
+        <Route
+          path="security"
+          element={(
+            <AdminPermissionRoute permission={ADMIN_PERMISSIONS.VIEW_AUDIT_LOGS}>
+              <AdminSecurityPanel />
+            </AdminPermissionRoute>
+          )}
+        />
+      </Route>
+      <Route path="/superadmin/login" element={<SuperAdminLoginPage />} />
+
+      <Route
+        path="/superadmin"
+        element={(
+          <SuperAdminProtectedRoute>
+            <SuperAdminLayout />
+          </SuperAdminProtectedRoute>
+        )}
+      >
+        <Route index element={<SuperAdminDashboardPage />} />
+        <Route path="analytics" element={<SuperAdminAnalyticsPage />} />
+        <Route path="users" element={<SuperAdminUsersPage />} />
+        <Route path="admins" element={<SuperAdminAdminsPage />} />
+        <Route path="ads" element={<SuperAdminAdvertisementsPage />} />
+        <Route path="products" element={<SuperAdminProductsPage />} />
+        <Route path="ui-config" element={<SuperAdminUiConfigPage />} />
+        <Route path="alerts" element={<SuperAdminAlertsPage />} />
+        <Route path="notifications" element={<SuperAdminNotificationsPage />} />
+      </Route>
 
       {/* Protected Routes sharing the same Layout for state persistence */}
       <Route element={<ProtectedRoute><MainLayout><Outlet /></MainLayout></ProtectedRoute>}>
@@ -133,6 +244,7 @@ const AppContent = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/vault" element={<Vault />} />
         <Route path="/history" element={<SessionHistory />} />
+        <Route path="/messages" element={<Messages />} />
       </Route>
 
       {/* Specialized Patient Details Route */}
@@ -147,9 +259,11 @@ const App = () => {
     <ThemeProvider>
       <AuthProvider>
         <NotificationProvider>
-          <Router>
-            <AppContent />
-          </Router>
+          <AdminAuthProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </AdminAuthProvider>
         </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>

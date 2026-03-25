@@ -9,6 +9,10 @@ import {
   Loader
 } from 'lucide-react';
 import { API_BASE } from '../constants/api';
+import {
+  getCurrentDateInSelectedTimeZone,
+  getSelectedTimeZone,
+} from '../utils/timezone';
 
 const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) => {
   const [formData, setFormData] = useState({
@@ -57,11 +61,22 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
     
     console.log('✅ Validation passed, proceeding with submission');
 
-    // Check if appointment date is in the past
-    const appointmentDateTime = new Date(`${formData.appointmentDate}T${formData.appointmentTime}`);
-    if (appointmentDateTime < new Date()) {
+    const todayInSelectedTimeZone = getCurrentDateInSelectedTimeZone();
+    if (formData.appointmentDate < todayInSelectedTimeZone) {
       setError('Appointment date and time must be in the future');
       return;
+    }
+    if (formData.appointmentDate === todayInSelectedTimeZone) {
+      const nowTimeInSelectedZone = new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: getSelectedTimeZone(),
+      }).format(new Date());
+      if (formData.appointmentTime <= nowTimeInSelectedZone) {
+        setError('Appointment date and time must be in the future');
+        return;
+      }
     }
 
     setCreating(true);
@@ -241,7 +256,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
               name="appointmentDate"
               value={formData.appointmentDate}
               onChange={handleInputChange}
-              min={new Date().toISOString().split('T')[0]}
+              min={getCurrentDateInSelectedTimeZone()}
               className="w-full px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring"
               required
             />

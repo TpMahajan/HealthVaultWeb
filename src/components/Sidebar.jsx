@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Users, History, UserCircle, Settings,
-  Shield, LogOut, X, User, Activity, Menu, Clock
+  Shield, LogOut, X, User, Activity, Menu, Clock, MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +15,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
     ? [
       { name: 'Dashboard', href: '/dashboard', icon: Home },
       { name: 'My medical Vault', href: '/vault', icon: History },
+      { name: 'Messages', href: '/messages', icon: MessageCircle },
       { name: 'Profile', href: '/profile', icon: UserCircle },
       { name: 'Settings', href: '/settings', icon: Settings },
     ]
@@ -23,6 +24,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
       { name: 'Active Session', href: '/patients', icon: Activity },
       { name: 'Patient Manager', href: '/all-patients', icon: Users },
       { name: 'Session History', href: '/history', icon: History },
+      { name: 'Messages', href: '/messages', icon: MessageCircle },
       { name: 'Profile', href: '/profile', icon: UserCircle },
       { name: 'Settings', href: '/settings', icon: Settings },
     ];

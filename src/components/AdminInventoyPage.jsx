@@ -98,7 +98,7 @@ export default function AdminInventoyPage() {
   const fetchLedger = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const params = new URLSearchParams({ page: ledgerPage, limit: 20 });
+      const params = new URLSearchParams({ page: ledgerPage, limit: 10 });
       if (historyProduct || filterProduct !== "ALL") params.set("productKey", historyProduct || filterProduct);
       if (filterFrom) params.set("from", filterFrom);
       if (filterTo) params.set("to", filterTo);
@@ -401,6 +401,10 @@ function DashboardTab({ data, onRestock, onAdjust, onViewHistory }) {
 
 /* ══ TABLE TAB ══ */
 function TableTab({ rows, onRestock, onAdjust, onReorder, onHistory }) {
+  const [page, setPage] = useState(1);
+  const perPage = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  const pageRows = rows.slice((page - 1) * perPage, page * perPage);
   if (!rows.length) return <EmptyState icon={<ClipboardList size={48} color="#94A3B8" strokeWidth={1} />} title="No inventory data" sub="Stock will appear once products are tracked." />;
   return (
     <div style={{ background: "white", borderRadius: 18, border: "1.5px solid #E2E8F0", overflow: "hidden", boxShadow: "0 2px 16px rgba(0,0,0,.04)" }}>
@@ -410,7 +414,7 @@ function TableTab({ rows, onRestock, onAdjust, onReorder, onHistory }) {
           <div key={i} style={{ fontSize: 10, fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: ".06em" }}>{h}</div>
         ))}
       </div>
-      {rows.map((row, idx) => {
+      {pageRows.map((row, idx) => {
         const meta = PRODUCTS.find(p => p.key === row.productKey) || PRODUCTS[0];
         return (
           <div key={row.productKey} className="ai-row" style={{ display: "grid", gridTemplateColumns: "1fr 110px 100px 100px 100px 110px 130px 150px", gap: 0, padding: "16px 20px", borderBottom: idx < rows.length - 1 ? "1px solid #F1F5F9" : "none", alignItems: "center" }}>
@@ -451,6 +455,15 @@ function TableTab({ rows, onRestock, onAdjust, onReorder, onHistory }) {
           </div>
         );
       })}
+      <div style={{ padding: "10px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #F1F5F9" }}>
+        <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Page {page} of {totalPages}</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="ai-btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+            style={{ height: 30, padding: "0 10px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "#fff", fontSize: 12, opacity: page <= 1 ? 0.5 : 1 }}>Prev</button>
+          <button className="ai-btn" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            style={{ height: 30, padding: "0 10px", borderRadius: 8, border: "1.5px solid #E2E8F0", background: "#fff", fontSize: 12, opacity: page >= totalPages ? 0.5 : 1 }}>Next</button>
+        </div>
+      </div>
     </div>
   );
 }

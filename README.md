@@ -2,6 +2,14 @@
 
 A modern, stylish React web application for doctors to access patient health vaults with a professional and futuristic design.
 
+## SuperAdmin Module (New)
+
+- Login route: `/superadmin/login`
+- Protected routes: `/superadmin`, `/superadmin/users`, `/superadmin/admins`, `/superadmin/ads`, `/superadmin/products`, `/superadmin/ui-config`
+- Backend auth/API: `/api/superadmin/*` with JWT
+- Public dynamic data API: `/api/public/ads`, `/api/public/products`, `/api/public/ui-config`
+- Includes centralized management for users, admins, advertisements, products, and Flutter UI config
+
 ## 🚀 Features
 
 ### **Doctor Dashboard**
@@ -50,7 +58,7 @@ A modern, stylish React web application for doctors to access patient health vau
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
 - **State Management**: React Context API
-- **Build Tool**: Create React App
+- **Build Tool**: Vite
 
 ## 📱 Responsive Features
 
@@ -84,7 +92,7 @@ A modern, stylish React web application for doctors to access patient health vau
    ```
 
 4. **Open your browser**
-   Navigate to `http://localhost:3000`
+   Navigate to `http://localhost:5173`
 
 ### Demo Credentials
 - **Email**: `doctor@medivault.com`
@@ -105,8 +113,8 @@ src/
 │   └── Settings.js      # Application settings
 ├── context/             # React context
 │   └── AuthContext.js   # Authentication context
-├── App.js               # Main application component
-├── index.js             # Application entry point
+├── App.jsx              # Main application component
+├── main.jsx             # Application entry point
 └── index.css            # Global styles and Tailwind
 ```
 

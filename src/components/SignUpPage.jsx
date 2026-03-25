@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Shield, User, Phone, Mail, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { GOOGLE_CLIENT_ID } from '../constants/api';
 
 
 const SignUpPage = () => {
@@ -63,7 +64,7 @@ const SignUpPage = () => {
   useEffect(() => {
     if (!window.google) return;
     try {
-      const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || window.__GOOGLE_CLIENT_ID__;
+      const clientId = GOOGLE_CLIENT_ID;
       if (!clientId) return;
       window.google.accounts.id.initialize({
         client_id: clientId,

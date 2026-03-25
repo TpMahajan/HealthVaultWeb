@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "./Footer";
-
-const API_BASE = process.env.REACT_APP_API_BASE || "https://backend-medicalvault.onrender.com/api";
+import { API_BASE } from "../constants/api";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();

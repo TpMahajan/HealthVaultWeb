@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -34,10 +34,13 @@ import { generatePatientSummaryPDF } from '../utils/pdfGenerator';
 import { API_BASE } from '../constants/api';
 
 const PatientDetails = () => {
+  const isDev = import.meta.env.DEV;
+  const debugLog = (...args) => {
+    if (isDev) console.log(...args);
+  };
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { anonAuth, user } = useAuth();
+  const { user } = useAuth();
   const [patient, setPatient] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
@@ -78,17 +81,16 @@ const PatientDetails = () => {
         setError(null);
 
         // Role detection with proper priority
-        const urlToken = searchParams.get("token");
+        const urlToken = null;
         const storedToken = localStorage.getItem("token");
         const storedRole = localStorage.getItem("role");
 
-        // PRIORITY: URL token takes precedence over anything in localStorage
         const hasUrlAnonToken = !!urlToken;
         const isDoctor = !hasUrlAnonToken && storedToken && storedRole === "doctor";
         const isPatient = !hasUrlAnonToken && storedToken && storedRole === "patient";
-        const isAnonymous = hasUrlAnonToken; // treat as anonymous whenever token is present in URL
+        const isAnonymous = false;
 
-        console.log('🔍 PatientDetails - Role detection:', {
+        debugLog('PatientDetails role detection', {
           isDoctor,
           isPatient,
           isAnonymous,
@@ -121,24 +123,18 @@ const PatientDetails = () => {
           console.log('👤 PatientDetails - Patient self-access flow');
           apiUrl = `${API_BASE}/auth/me`;
           headers['Authorization'] = `Bearer ${storedToken}`;
-        } else if (isAnonymous) {
-          console.log('👻 PatientDetails - Anonymous access flow');
-          apiUrl = `${API_BASE}/users/${id}`;
-          // Prefer sending token via Authorization header (optionalAuth also supports query)
-          headers['Authorization'] = `Bearer ${urlToken}`;
         } else {
-          setError('No valid access method found. Please log in or scan a QR code.');
+          setError('No valid access method found. Please log in.');
           setLoading(false);
           return;
         }
 
-        console.log(`📡 PatientDetails - Calling API: ${apiUrl}`);
-        console.log(`📡 PatientDetails - Headers:`, headers);
+        debugLog("Calling patient API", apiUrl);
 
         const response = await fetch(apiUrl, { headers });
         const data = await response.json();
 
-        console.log('📡 PatientDetails - Full API response:', {
+        debugLog('PatientDetails API response', {
           status: response.status,
           ok: response.ok,
           data: data
@@ -250,7 +246,7 @@ const PatientDetails = () => {
           setError(data.message || "Failed to fetch patient data");
         }
       } catch (err) {
-        console.error('💥 PatientDetails - Error fetching patient data:', err);
+      if (isDev) console.error('PatientDetails fetch error:', err);
         setError("Failed to fetch patient data. Please try again.");
       } finally {
         setLoading(false);
@@ -262,7 +258,7 @@ const PatientDetails = () => {
     return () => {
       setLoading(false);
     };
-  }, [id, searchParams.get('token')]);
+  }, [id]);
 
   // Fetch medical records from the new endpoint
   const fetchMedicalRecords = async (patientId) => {
@@ -276,15 +272,14 @@ const PatientDetails = () => {
       setRecordsLoading(true);
 
       // Use same role detection logic as fetchPatientData
-      const urlToken = searchParams.get("token");
+      const urlToken = null;
       const storedToken = localStorage.getItem("token");
       const storedRole = localStorage.getItem("role");
 
-      // PRIORITY: URL token takes precedence over anything in localStorage
       const hasUrlAnonToken = !!urlToken;
       const isDoctor = !hasUrlAnonToken && storedToken && storedRole === "doctor";
       const isPatient = !hasUrlAnonToken && storedToken && storedRole === "patient";
-      const isAnonymous = hasUrlAnonToken; // treat as anonymous whenever token is present in URL
+      const isAnonymous = false;
 
       console.log('🔍 Fetching medical records for patient:', patientId);
       console.log('🔍 Role detection for records:', { isDoctor, isPatient, isAnonymous });
@@ -300,10 +295,6 @@ const PatientDetails = () => {
         // Patient: own files listing
         endpoint = `${API_BASE}/files/user/${patientId}`;
         headers['Authorization'] = `Bearer ${storedToken}`;
-      } else if (isAnonymous) {
-        // Anonymous: allowlisted records endpoint with Authorization header
-        endpoint = `${API_BASE}/users/${patientId}/records`;
-        headers['Authorization'] = `Bearer ${urlToken}`;
       } else {
         console.log('No auth context available for fetching medical records');
         setMedicalRecords([]);
@@ -399,7 +390,7 @@ const PatientDetails = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE}/sessions/debug/${patientId}`, {
+      const response = await fetch(`${API_BASE}/sessions/patient/${patientId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -407,9 +398,9 @@ const PatientDetails = () => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.debug?.activeSession) {
-          setActiveSession(data.debug.activeSession);
-          console.log('✅ Found active session:', data.debug.activeSession);
+        if (data.success && Array.isArray(data.history) && data.history.length > 0) {
+          const latest = data.history.find((entry) => entry.status === "accepted") || null;
+          setActiveSession(latest);
         } else {
           setActiveSession(null);
         }
@@ -502,8 +493,7 @@ const PatientDetails = () => {
   const getSignedPreviewUrl = async (docId, token) => {
     let res;
     try {
-      const anonToken = searchParams.get('token');
-      const url = `${API_BASE}/files/${docId}/preview${anonToken ? `?token=${encodeURIComponent(anonToken)}` : ''}`;
+      const url = `${API_BASE}/files/${docId}/preview`;
       const options = { method: 'GET', mode: 'cors', redirect: 'follow' };
       if (token) {
         options.headers = { 'Authorization': `Bearer ${token}` };
@@ -529,8 +519,7 @@ const PatientDetails = () => {
   const getSignedDownloadUrl = async (docId, token) => {
     let res;
     try {
-      const anonToken = searchParams.get('token');
-      const url = `${API_BASE}/files/${docId}/download?json=true${anonToken ? `&token=${encodeURIComponent(anonToken)}` : ''}`;
+      const url = `${API_BASE}/files/${docId}/download?json=true`;
       const options = { method: 'GET', mode: 'cors', redirect: 'follow' };
       if (token) {
         options.headers = { 'Authorization': `Bearer ${token}` };
@@ -566,8 +555,7 @@ const PatientDetails = () => {
 
       const storedToken = localStorage.getItem('token');
       const storedRole = localStorage.getItem('role');
-      const anonToken = searchParams.get('token');
-      const isAnonymous = !storedToken && !!anonToken;
+      const isAnonymous = false;
 
       // Determine file type with better detection
       const mimeType = doc.mimeType || doc.fileType || '';
@@ -632,8 +620,7 @@ const PatientDetails = () => {
       }
 
       const storedToken = localStorage.getItem('token');
-      const anonToken = searchParams.get('token');
-      const isAnonymous = !storedToken && !!anonToken;
+      const isAnonymous = false;
 
       // Always use backend download endpoint to get signed URL, then trigger download
       const downloadUrl = await getSignedDownloadUrl(doc._id, isAnonymous ? null : storedToken);
@@ -689,8 +676,7 @@ const PatientDetails = () => {
 
     try {
       const storedToken = localStorage.getItem('token');
-      const anonToken = searchParams.get('token');
-      const isAnonymous = !storedToken && !!anonToken;
+      const isAnonymous = false;
 
       console.log(`🔽 Starting bulk download for ${docs.length} files`);
 
@@ -822,9 +808,8 @@ const PatientDetails = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Session extended successfully');
-        setActiveSession(prev => ({ ...prev, expiresAt: data.data.expiresAt }));
-        alert('Session extended by 20 minutes!');
+        console.log('✅ Session extension request sent');
+        alert(data.message || 'Extension request sent to patient for approval.');
         setShowActionsDropdown(false);
       } else {
         const errorData = await response.json();
@@ -880,7 +865,7 @@ const PatientDetails = () => {
 
   // Test function for debugging appointment creation
   // Call this in browser console: window.testAppointmentCreation()
-  window.testAppointmentCreation = async () => {
+  if (isDev) window.testAppointmentCreation = async () => {
     console.log('🧪 Testing appointment creation...');
     console.log('👤 Current patient:', patient);
     console.log('🔑 Token present:', localStorage.getItem('token') ? 'Yes' : 'No');
@@ -1257,6 +1242,24 @@ const PatientDetails = () => {
                           <div className="text-left">
                             <p className="text-sm font-bold">Book Appointment</p>
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Schedule next visit</p>
+                          </div>
+                        </button>
+                      )}
+
+                      {!isAnonymousView && (
+                        <button
+                          onClick={() => {
+                            navigate(`/messages?counterpart=${encodeURIComponent(patient.id)}`);
+                            setShowActionsDropdown(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 text-slate-600 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 rounded-2xl transition-all group"
+                        >
+                          <div className="p-2 bg-cyan-100/50 dark:bg-cyan-900/30 rounded-xl group-hover:bg-cyan-100 dark:group-hover:bg-cyan-900/50 transition-colors">
+                            <MessageCircle className="h-4 w-4" />
+                          </div>
+                          <div className="text-left">
+                            <p className="text-sm font-bold">Open Chat</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Message patient directly</p>
                           </div>
                         </button>
                       )}

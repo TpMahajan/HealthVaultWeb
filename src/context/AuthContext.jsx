@@ -1,13 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE, DOCTOR_API_BASE, googleWebAuth } from "../constants/api";
 import { getFCMToken, onMessageListener } from "../firebase";
+import { clearSecureAuthSession } from "../utils/secureAuthStorage";
+import { setSelectedTimeZone } from "../utils/timezone";
 
 const AuthContext = createContext();
+const isDev = import.meta.env.DEV;
+const debugLog = (...args) => {
+  if (isDev) console.log(...args);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [anonAuth, setAnonAuth] = useState(null); // { role: 'anonymous', userId }
 
   // Register FCM token with backend
   const registerFCMToken = async (userId) => {
@@ -18,6 +23,7 @@ export const AuthProvider = ({ children }) => {
       if (token && authToken) {
         await fetch(`${DOCTOR_API_BASE}/../notifications/save-token`, {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${authToken}`,
@@ -28,7 +34,7 @@ export const AuthProvider = ({ children }) => {
             role: "doctor",
           }),
         });
-        console.log("✅ FCM token registered successfully");
+        debugLog("FCM token registered");
       }
     } catch (error) {
       console.error("❌ Failed to register FCM token:", error);
@@ -40,13 +46,14 @@ export const AuthProvider = ({ children }) => {
 
     fetch(`${API_BASE}/sessions/end-all-active`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Authorization": `Bearer ${authToken}`,
         "Content-Type": "application/json",
       },
       keepalive: true,
     }).catch((error) => {
-      console.warn(`AuthContext - Failed to flush sessions on ${reason}:`, error?.message || error);
+      if (isDev) console.warn(`AuthContext - Failed to flush sessions on ${reason}:`, error?.message || error);
     });
   };
 
@@ -54,7 +61,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       onMessageListener().then((payload) => {
-        console.log("📱 Received foreground message:", payload);
+        debugLog("Received foreground message");
 
         // Show browser notification
         if (Notification.permission === 'granted') {
@@ -68,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         // Handle different notification types
         if (payload.data?.type === 'SESSION_RESPONSE') {
           // Handle session response notification
-          console.log("Patient responded to session request");
+        debugLog("Session response notification received");
         }
       });
     }
@@ -82,75 +89,41 @@ export const AuthProvider = ({ children }) => {
         const storedToken = localStorage.getItem("token");
         const storedRole = localStorage.getItem("role");
 
-        console.log("🔍 AuthContext - Restoring auth state...");
-        console.log("🔍 AuthContext - Stored user:", storedUser ? "Present" : "Not found");
-        console.log("🔍 AuthContext - Stored token:", storedToken ? "Present" : "Not found");
-        console.log("🔍 AuthContext - Stored role:", storedRole || "Not found");
-
-        // Only detect anonymous token if no stored auth data exists
-        if (!storedUser && !storedToken) {
-          try {
-            const params = new URLSearchParams(window.location.search);
-            const urlToken = params.get('token');
-            console.log('🔍 AuthContext - Checking for URL token:', !!urlToken);
-            if (urlToken) {
-              console.log('🔍 AuthContext - URL token found, attempting to decode...');
-              const payload = JSON.parse(atob(urlToken.split('.')[1] || ''));
-              console.log('🔍 AuthContext - Decoded token payload:', payload);
-              if (payload?.role === 'anonymous' && payload?.userId) {
-                setAnonAuth({ role: 'anonymous', userId: payload.userId });
-                console.log('🔐 AuthContext - Anonymous token detected, userId:', payload.userId);
-              } else {
-                console.log('⚠️ AuthContext - Token found but not anonymous or missing userId');
-              }
-            } else {
-              console.log('📭 AuthContext - No URL token found');
-            }
-          } catch (e) {
-            console.warn('AuthContext - Failed to parse URL token:', e);
-          }
-        } else {
-          console.log('🔍 AuthContext - Stored auth data exists, skipping anonymous token detection');
-        }
+        debugLog("Restoring auth state");
 
         if (storedUser && storedToken && storedRole) {
           const userData = JSON.parse(storedUser);
 
-          // Validate token by checking if it's expired
+          // Validate token with safe decode before restoring
           try {
-            const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
+            const tokenParts = String(storedToken).split(".");
+            if (tokenParts.length < 2) throw new Error("Malformed token");
+            const tokenPayload = JSON.parse(atob(tokenParts[1]));
             const isExpired = tokenPayload.exp * 1000 < Date.now();
 
             if (isExpired) {
               if (storedRole === "doctor") {
                 flushDoctorSessions(storedToken, "token expiry");
               }
-              console.log("⏰ AuthContext - Token expired, clearing auth data");
-              localStorage.removeItem("user");
-              localStorage.removeItem("token");
-              localStorage.removeItem("role");
+              debugLog("Token expired; clearing auth data");
+              clearSecureAuthSession();
             } else {
               setUser({ ...userData, role: storedRole });
-              console.log("✅ AuthContext - User restored from localStorage:", userData, "Role:", storedRole);
+              setSelectedTimeZone(userData?.preferences?.timezone);
+              debugLog("User restored from cache");
             }
           } catch (tokenError) {
-            console.error("❌ AuthContext - Invalid token format, clearing auth data:", tokenError);
-            localStorage.removeItem("user");
-            localStorage.removeItem("token");
-            localStorage.removeItem("role");
+            if (isDev) console.error("Invalid token format; clearing auth data");
+            clearSecureAuthSession();
           }
-        } else {
-          console.log("📭 AuthContext - No stored auth data found");
         }
       } catch (error) {
-        console.error("❌ AuthContext - Error restoring auth state:", error);
+        if (isDev) console.error("Error restoring auth state", error);
         // Clear corrupted data
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
+        clearSecureAuthSession();
       } finally {
         setIsLoading(false);
-        console.log("🏁 AuthContext - Auth state restoration complete");
+        debugLog("Auth restoration complete");
       }
     };
 
@@ -160,15 +133,14 @@ export const AuthProvider = ({ children }) => {
   // Doctor login
   const login = async (email, password) => {
     try {
-      console.log("🔐 Attempting login for:", email);
       const res = await fetch(`${DOCTOR_API_BASE}/login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
-      console.log("📡 Login response:", data);
 
       if (!res.ok) throw new Error(data?.message || "Login failed");
 
@@ -176,15 +148,16 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(data.doctor));
       localStorage.setItem("role", "doctor");
       setUser(data.doctor);
+      setSelectedTimeZone(data?.doctor?.preferences?.timezone);
 
       // Register FCM token after successful login
       await registerFCMToken(data.doctor.id);
 
-      console.log("✅ Login successful, user set:", data.doctor);
+      debugLog("Login successful");
 
       return { success: true, user: data.doctor };
     } catch (err) {
-      console.error("❌ Login failed:", err.message);
+      if (isDev) console.error("Login failed:", err.message);
       return { success: false, error: err.message || "Login failed" };
     }
   };
@@ -194,6 +167,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await fetch(`${DOCTOR_API_BASE}/signup`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, mobile, password }),
       });
@@ -207,6 +181,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("role", "doctor");
         localStorage.setItem("user", JSON.stringify(data.doctor));
         setUser({ ...data.doctor, role: "doctor" });
+        setSelectedTimeZone(data?.doctor?.preferences?.timezone);
       }
 
       return { success: true, data };
@@ -222,22 +197,28 @@ export const AuthProvider = ({ children }) => {
       flushDoctorSessions(authToken, "logout");
     }
 
+    fetch(`${API_BASE}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        "Content-Type": "application/json",
+      },
+    }).catch(() => {});
+
     setUser(null);
-    setAnonAuth(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
+    clearSecureAuthSession();
   };
 
   const updateUser = (updatedUserData) => {
-    console.log('🔄 AuthContext - Updating user data:', updatedUserData);
     // Preserve the role which is stored separately in localStorage or was already in the user state
     const currentRole = user?.role || localStorage.getItem("role");
     const userWithRole = { ...updatedUserData, role: currentRole };
 
     setUser(userWithRole);
     localStorage.setItem("user", JSON.stringify(updatedUserData));
-    console.log('✅ AuthContext - User data updated successfully with role:', currentRole);
+    setSelectedTimeZone(updatedUserData?.preferences?.timezone);
+    debugLog("User data updated");
   };
 
   // Google web login/signup for patients
@@ -249,11 +230,12 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("role", "patient");
     localStorage.setItem("user", JSON.stringify(user));
     setUser(user);
+    setSelectedTimeZone(user?.preferences?.timezone);
     return { success: true };
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading, anonAuth, loginWithGoogle }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, updateUser, isLoading, loginWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

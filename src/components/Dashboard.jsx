@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -11,6 +11,12 @@ import AIAssistant from './AIAssistant';
 import AnimatedChatButton from './AnimatedChatButton';
 import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X, Home, Settings, LogOut, Info, Search, User, Sun, Moon, Menu, ChevronLeft, ChevronDown, Bell, UserCircle, Stethoscope, Zap, History } from 'lucide-react';
 import PatientDashboard from './PatientDashboard';
+import { fetchTrackedAdUrl } from '../superadmin/api';
+import { usePublicConfigRealtime } from '../hooks/usePublicConfigRealtime';
+import {
+  formatDateInputValueInSelectedTimeZone,
+  getCurrentDateInSelectedTimeZone,
+} from '../utils/timezone';
 
 const Dashboard = () => {
   const [showAppointments, setShowAppointments] = useState(false);
@@ -25,6 +31,9 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [publicAds, setPublicAds] = useState([]);
+  const [publicAlerts, setPublicAlerts] = useState([]);
+  const [publicAdIndex, setPublicAdIndex] = useState(0);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -44,6 +53,28 @@ const Dashboard = () => {
       { name: 'Settings', href: '/settings', icon: Settings },
     ];
 
+  const normalizeAlertPlatforms = (alert) => {
+    if (Array.isArray(alert?.platforms) && alert.platforms.length > 0) {
+      return alert.platforms.map((entry) => String(entry).trim().toUpperCase());
+    }
+    const legacy = String(alert?.platform || "ALL").trim().toUpperCase();
+    if (!legacy || legacy === "ALL") return ["APP", "WEB"];
+    return legacy.split(",").map((entry) => entry.trim()).filter(Boolean);
+  };
+
+  const isAlertActive = (alert) => {
+    if (!alert || typeof alert !== "object") return false;
+    if (alert.isActive === false) return false;
+    const now = Date.now();
+    const startAt = new Date(alert.startAt || 0).getTime();
+    if (Number.isFinite(startAt) && startAt > 0 && startAt > now) return false;
+    const endAt = new Date(alert.endAt || 0).getTime();
+    if (Number.isFinite(endAt) && endAt > 0 && endAt < now) return false;
+    const platforms = normalizeAlertPlatforms(alert);
+    if (platforms.length > 0 && !platforms.includes("WEB")) return false;
+    return Boolean(String(alert.message || "").trim());
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/');
@@ -53,12 +84,13 @@ const Dashboard = () => {
   const getTodayAppointmentsCount = (appointments) => {
     if (!appointments || appointments.length === 0) return 0;
 
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const todayString = getCurrentDateInSelectedTimeZone();
 
     const todayAppointments = appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.appointmentDate);
-      const appointmentDateString = appointmentDate.toISOString().split('T')[0];
+      const appointmentDateString = formatDateInputValueInSelectedTimeZone(
+        appointment.appointmentDate,
+        { fallback: '' }
+      );
       return appointmentDateString === todayString;
     });
 
@@ -93,6 +125,77 @@ const Dashboard = () => {
     } catch (error) {
       console.error('❌ Failed to update today\'s appointments count:', error);
     }
+  };
+
+  const loadPublicDashboardContent = useCallback(async () => {
+    try {
+      const [adsResponse, configResponse] = await Promise.all([
+        fetch(`${API_BASE}/public/ads?placement=${encodeURIComponent("WEB_LANDING")}`, {
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch(`${API_BASE}/public/ui-config`, {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      ]);
+
+      if (adsResponse.ok) {
+        const adsData = await adsResponse.json();
+        const ads = Array.isArray(adsData?.ads) ? adsData.ads : [];
+        setPublicAds(ads);
+      }
+
+      if (configResponse.ok) {
+        const configData = await configResponse.json();
+        const rawAlerts = Array.isArray(configData?.config?.dashboardAlerts)
+          ? configData.config.dashboardAlerts
+          : [];
+        const filteredAlerts = rawAlerts
+          .filter(isAlertActive)
+          .sort((left, right) => {
+            const a = new Date(left?.createdAt || left?.startAt || 0).getTime();
+            const b = new Date(right?.createdAt || right?.startAt || 0).getTime();
+            return b - a;
+          });
+        setPublicAlerts(filteredAlerts);
+      }
+    } catch (error) {
+      console.error("❌ Failed to load public dashboard content:", error);
+    }
+  }, []);
+
+  const handlePublicAdClick = async (ad) => {
+    const fallbackUrl = String(ad?.redirectUrl || "").trim();
+    if (!fallbackUrl) return;
+
+    let targetUrl = fallbackUrl;
+    const adId = String(ad?._id || ad?.id || "").trim();
+    if (adId) {
+      let userId = "";
+      let userType = "";
+      try {
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          userId = String(parsed?.id || parsed?._id || "").trim();
+        }
+      } catch {
+        userId = "";
+      }
+      userType = String(localStorage.getItem("role") || "").trim();
+      const trackedUrl = await fetchTrackedAdUrl({
+        adId,
+        platform: "web",
+        surface: "WEB_LANDING",
+        userId,
+        userType,
+        sourceApp: "healthvault_web_dashboard",
+      });
+      if (trackedUrl) {
+        targetUrl = trackedUrl;
+      }
+    }
+
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   };
 
 
@@ -215,6 +318,42 @@ const Dashboard = () => {
     loadDashboardData();
   }, []);
 
+  useEffect(() => {
+    loadPublicDashboardContent();
+  }, [loadPublicDashboardContent]);
+
+  useEffect(() => {
+    if (publicAds.length <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setPublicAdIndex((prev) => (prev + 1) % publicAds.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [publicAds.length]);
+
+  useEffect(() => {
+    if (publicAds.length === 0 && publicAdIndex !== 0) {
+      setPublicAdIndex(0);
+      return;
+    }
+    if (publicAds.length > 0 && publicAdIndex >= publicAds.length) {
+      setPublicAdIndex(0);
+    }
+  }, [publicAdIndex, publicAds.length]);
+
+  usePublicConfigRealtime({
+    platform: "WEB",
+    surface: "WEB_LANDING",
+    onEvent: (event) => {
+      if (
+        event.type === "ads.updated" ||
+        event.type === "alerts.updated" ||
+        event.type === "ui-config.updated"
+      ) {
+        loadPublicDashboardContent();
+      }
+    },
+  });
+
   // Update today's appointments count periodically
   useEffect(() => {
     // Update immediately
@@ -231,10 +370,70 @@ const Dashboard = () => {
   // Refresh dashboard data
   const handleRefresh = () => {
     loadDashboardData(true);
+    loadPublicDashboardContent();
   };
+
+  const activePublicAd =
+    publicAds.length > 0 ? publicAds[publicAdIndex % publicAds.length] : null;
+  const alertTickerText = publicAlerts
+    .map((alert) => String(alert?.message || "").trim())
+    .filter(Boolean)
+    .join("   •   ");
 
   return (
     <>
+      {(publicAlerts.length > 0 || activePublicAd) && (
+        <div className="space-y-3 mb-5">
+          {publicAlerts.length > 0 && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 shadow-sm dark:border-rose-800/40 dark:bg-rose-900/20">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center dark:bg-rose-900/40 dark:text-rose-300">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-300">
+                    Live Alerts
+                  </p>
+                  <p className="text-sm font-semibold text-rose-700 dark:text-rose-100 whitespace-nowrap overflow-hidden text-ellipsis">
+                    {alertTickerText}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activePublicAd && (
+            <button
+              type="button"
+              onClick={() => handlePublicAdClick(activePublicAd)}
+              className="w-full overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition hover:opacity-95"
+            >
+              <div className="flex items-center gap-4 px-5 py-4">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
+                    Sponsored
+                  </p>
+                  <p className="truncate text-base font-bold">
+                    {String(activePublicAd.title || "Medical Vault Update")}
+                  </p>
+                  <p className="truncate text-xs text-cyan-50/90">
+                    {String(activePublicAd.redirectUrl || "Tap to open")}
+                  </p>
+                </div>
+                {publicAds.length > 1 && (
+                  <span className="ml-auto rounded-full bg-white/15 px-2 py-1 text-[10px] font-black tracking-wider">
+                    {publicAdIndex + 1}/{publicAds.length}
+                  </span>
+                )}
+              </div>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Dashboard Content */}
       {user?.role === 'patient' ? (
         <PatientDashboard />
