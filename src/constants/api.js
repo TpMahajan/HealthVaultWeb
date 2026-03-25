@@ -6,13 +6,33 @@ const isLocalhost =
 
 const env = typeof import.meta !== "undefined" ? import.meta.env : {};
 
-const configuredApiBase =
-  typeof env?.VITE_API_BASE === "string" ? env.VITE_API_BASE.trim() : "";
+const normalizeApiBase = (rawValue) => {
+  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
+  if (!trimmed) return "";
 
-const configuredGoogleClientId =
-  typeof env?.VITE_GOOGLE_CLIENT_ID === "string"
-    ? env.VITE_GOOGLE_CLIENT_ID.trim()
-    : "";
+  const normalized = trimmed.replace(/\/+$/, "");
+  if (/\/api(?:\/v\d+)?$/i.test(normalized)) {
+    return normalized;
+  }
+  return `${normalized}/api`;
+};
+
+const configuredApiBase = normalizeApiBase(env?.VITE_API_BASE);
+
+const normalizeGoogleClientId = (rawValue) => {
+  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
+  if (!trimmed) return "";
+  if (/^%VITE_[A-Z0-9_]+%$/.test(trimmed)) return "";
+  return trimmed;
+};
+
+const configuredGoogleClientId = normalizeGoogleClientId(
+  env?.VITE_GOOGLE_CLIENT_ID
+);
+
+const runtimeGoogleClientId = normalizeGoogleClientId(
+  typeof window !== "undefined" ? window.__GOOGLE_CLIENT_ID__ : ""
+);
 
 const isPlaceholderGoogleClientId =
   !configuredGoogleClientId ||
@@ -26,7 +46,7 @@ export const API_BASE =
 
 export const GOOGLE_CLIENT_ID =
   (!isPlaceholderGoogleClientId ? configuredGoogleClientId : "") ||
-  (typeof window !== "undefined" ? window.__GOOGLE_CLIENT_ID__ : "");
+  runtimeGoogleClientId;
 
 export const DOCTOR_API_BASE = `${API_BASE}/doctors`;
 

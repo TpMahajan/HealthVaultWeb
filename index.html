@@ -18,7 +18,14 @@
       }
     </script>
     <script>
-      window.__GOOGLE_CLIENT_ID__ = "17869523090-4eritfoe3a8it2nkef2a0lllofs8862n.apps.googleusercontent.com";
+      const injectedGoogleClientId = "%VITE_GOOGLE_CLIENT_ID%";
+      const looksUnreplacedViteToken =
+        injectedGoogleClientId.startsWith("%VITE_") &&
+        injectedGoogleClientId.endsWith("%");
+      window.__GOOGLE_CLIENT_ID__ =
+        injectedGoogleClientId && !looksUnreplacedViteToken
+          ? injectedGoogleClientId
+          : "";
     </script>
     <title>Medical Vault</title>
   </head>
