@@ -24,6 +24,25 @@ const MedicalCard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const isEncryptedBlob = (value) =>
+    String(value || '').trim().toLowerCase().startsWith('enc:v');
+
+  const safeDisplay = (value) => {
+    if (value == null) return '';
+    const text = String(value).trim();
+    if (!text || isEncryptedBlob(text)) return '';
+    return text;
+  };
+
+  const resolveEmergencyPhone = (record) => (
+    safeDisplay(
+      record?.emergencyContact?.phone ||
+      record?.emergencyContact?.mobile ||
+      record?.emergencyContact?.number ||
+      ''
+    )
+  );
+
   useEffect(() => {
     const fetchPatientData = async () => {
       try {
@@ -132,7 +151,7 @@ const MedicalCard = () => {
           <div className="p-6 sm:p-8">
             <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
               {/* Emergency Contact - Show first on mobile */}
-              {patient.emergencyContact && (patient.emergencyContact.name || patient.emergencyContact.phone) && (
+              {patient.emergencyContact && (patient.emergencyContact.name || resolveEmergencyPhone(patient)) && (
                 <div className="space-y-4 order-first md:order-none">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
@@ -153,16 +172,16 @@ const MedicalCard = () => {
                         {patient.emergencyContact.relationship}
                       </p>
                     )}
-                    {patient.emergencyContact.phone && (
+                    {resolveEmergencyPhone(patient) && (
                       <div className="flex items-center gap-3 mt-4">
                         <div className="p-2 bg-orange-200 dark:bg-orange-800 rounded-lg">
                           <Phone className="w-5 h-5 text-orange-700 dark:text-orange-300" />
                         </div>
                         <a
-                          href={`tel:${patient.emergencyContact.phone}`}
+                          href={`tel:${resolveEmergencyPhone(patient)}`}
                           className="text-lg font-bold text-orange-700 dark:text-orange-300 hover:text-orange-800 dark:hover:text-orange-200 hover:underline transition-colors"
                         >
-                          {patient.emergencyContact.phone}
+                          {resolveEmergencyPhone(patient)}
                         </a>
                       </div>
                     )}
@@ -278,7 +297,7 @@ const MedicalCard = () => {
                     </div>
                   )}
 
-                  {patient.mobile && (
+                  {safeDisplay(patient.mobile) && (
                     <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                         <Phone className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -288,10 +307,10 @@ const MedicalCard = () => {
                           Mobile
                         </p>
                         <a
-                          href={`tel:${patient.mobile}`}
+                          href={`tel:${safeDisplay(patient.mobile)}`}
                           className="font-bold text-gray-900 dark:text-white text-base hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                         >
-                          {patient.mobile}
+                          {safeDisplay(patient.mobile)}
                         </a>
                       </div>
                     </div>
