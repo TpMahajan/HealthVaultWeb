@@ -403,6 +403,21 @@ const QRScanner = () => {
     setSessionStatus(null);
 
     try {
+      // Route direct medical-card URLs to the medical card page.
+      // This allows scanning a "medical card QR" and opening its intended view.
+      try {
+        const parsedUrl = new URL(qrCode);
+        const medicalCardMatch = parsedUrl.pathname.match(/\/medical-card\/([^/?#]+)/i);
+        if (medicalCardMatch?.[1]) {
+          const medicalCardUserId = decodeURIComponent(medicalCardMatch[1]);
+          setLoading(false);
+          navigate(`/medical-card/${medicalCardUserId}`);
+          return;
+        }
+      } catch {
+        // Not a URL; continue with normal patient share QR flow.
+      }
+
       // Extract short-lived share code from QR code
       let patientShareCode = null;
       try {
@@ -736,7 +751,7 @@ const QRScanner = () => {
                   type="text"
                   value={manualQRCode}
                   onChange={(e) => setManualQRCode(e.target.value)}
-                  placeholder="https://health-vault-web.vercel.app/patient-details/<id>?share=<code>"
+                  placeholder="https://medicalvault-aially.vercel.app/patient-details/<id>?share=<code>"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 doctor-focus-ring"
                   style={{ fontFamily: "'Josefin Sans', system-ui, sans-serif", fontWeight: 400 }}
                 />

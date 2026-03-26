@@ -125,6 +125,18 @@ const SimpleBarChart = ({ data, title }) => {
   );
 };
 
+const detectInputLanguage = (text = '') => {
+  const value = String(text || '');
+  const devanagari = (value.match(/[\u0900-\u097F]/g) || []).length;
+  const gujarati = (value.match(/[\u0A80-\u0AFF]/g) || []).length;
+  const english = (value.match(/[a-zA-Z]/g) || []).length;
+
+  if (gujarati > english && gujarati > 0) return 'gujarati';
+  if (devanagari > english && devanagari > 0) return 'hindi';
+  if (devanagari > 0 && english > 0) return 'hinglish';
+  return 'english';
+};
+
 const AIAssistant = ({
   isOpen,
   onClose,
@@ -240,6 +252,23 @@ What would you like to know about your health today?`;
       if (!token) {
         throw new Error('No authentication token found');
       }
+      const messageText = inputMessage.trim();
+      const doctorPrefs = JSON.parse(localStorage.getItem('doctorPreferences') || '{}');
+      const preferredLanguage =
+        user?.preferences?.language ||
+        doctorPrefs.language ||
+        document?.documentElement?.lang ||
+        'en';
+
+      const contextPayload = {
+        preferredLanguage,
+        userInputLanguage: detectInputLanguage(messageText),
+        voiceMode: false,
+        activeProfile: user?.id || user?._id || null,
+        selectedPatientProfile: patientId || null,
+        authorizedSessionScope: patientId ? 'patient_session' : (userRole === 'doctor' ? 'doctor_general' : 'self_profile'),
+        ...(conversationId ? { conversationId } : {})
+      };
 
       const response = await fetch(`${API_BASE}/ai/ask`, {
         method: 'POST',
@@ -248,9 +277,10 @@ What would you like to know about your health today?`;
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          prompt: inputMessage.trim(),
+          prompt: messageText,
           userRole: userRole,
           conversationContext: conversationContext,
+          context: contextPayload,
           ...(patientId && { patientId }),
           ...(conversationId && { conversationId })
         })
@@ -284,6 +314,9 @@ What would you like to know about your health today?`;
             responseType: data.responseType,
             structuredData: data.structuredData,
             documentMetadata: data.documentMetadata,
+            sections: data.sections,
+            safety: data.safety,
+            context: data.context,
             data: data.data
           }
         };
@@ -294,7 +327,7 @@ What would you like to know about your health today?`;
         // Update conversation context with new topics and preferences
         setConversationContext(prev => ({
           ...prev,
-          topics: [...(prev.topics || []), inputMessage.trim()],
+          topics: [...(prev.topics || []), messageText],
           lastInteraction: new Date(),
           preferences: {
             ...prev.preferences,
@@ -371,12 +404,45 @@ What would you like to know about your health today?`;
   };
 
   const formatMessage = (message) => {
+    const safetyWarnings = Array.isArray(message.metadata?.safety?.warnings)
+      ? message.metadata.safety.warnings
+      : [];
+    const sectionWarnings = Array.isArray(message.metadata?.sections)
+      ? message.metadata.sections.filter((section) => Array.isArray(section?.warnings) && section.warnings.length > 0)
+      : [];
+    const warningItems = [
+      ...safetyWarnings,
+      ...sectionWarnings.flatMap((section) => section.warnings)
+    ].slice(0, 4);
+
+    const warningBlock = warningItems.length > 0 ? (
+      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+        {warningItems.map((warning, idx) => (
+          <div key={idx}>- {String(warning)}</div>
+        ))}
+      </div>
+    ) : null;
+
+    const sectionDataBlock = Array.isArray(message.metadata?.sections)
+      ? message.metadata.sections
+          .filter((section) => section?.data && section?.key !== 'summary' && section?.key !== 'clinical_summary')
+          .slice(0, 2)
+          .map((section, idx) => (
+            <div key={idx} className="mt-2 rounded-md border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+              <div className="font-semibold mb-1">{section.title || 'Details'}</div>
+              <div className="whitespace-pre-wrap">{JSON.stringify(section.data, null, 2)}</div>
+            </div>
+          ))
+      : null;
+
     // Render structured tables or charts
     if (message.metadata?.responseType === 'table' && message.metadata?.structuredData) {
       return (
         <div className="space-y-2">
           <div className="whitespace-pre-wrap">{message.content}</div>
           <SimpleTable data={message.metadata.structuredData} />
+          {warningBlock}
+          {sectionDataBlock}
         </div>
       );
     }
@@ -385,6 +451,8 @@ What would you like to know about your health today?`;
         <div className="space-y-2">
           <div className="whitespace-pre-wrap">{message.content}</div>
           <SimpleBarChart data={message.metadata.structuredData} title={message.metadata.structuredData.title} />
+          {warningBlock}
+          {sectionDataBlock}
         </div>
       );
     }
@@ -394,6 +462,8 @@ What would you like to know about your health today?`;
         <div className="space-y-2">
           <div className="whitespace-pre-wrap">{message.content}</div>
           <SimpleTable data={message.metadata.structuredData} />
+          {warningBlock}
+          {sectionDataBlock}
         </div>
       );
     }
@@ -439,10 +509,18 @@ What would you like to know about your health today?`;
               </div>
             ))}
           </div>
+          {warningBlock}
+          {sectionDataBlock}
         </div>
       );
     }
-    return <div className="whitespace-pre-wrap">{message.content}</div>;
+    return (
+      <div className="space-y-2">
+        <div className="whitespace-pre-wrap">{message.content}</div>
+        {warningBlock}
+        {sectionDataBlock}
+      </div>
+    );
   };
 
   if (!isOpen) return null;
