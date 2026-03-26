@@ -30,12 +30,21 @@ const MedicalCard = () => {
         setLoading(true);
         setError(null);
 
-        const apiUrl = `${API_BASE}/users/${userId}/medical-card`;
-        const response = await fetch(apiUrl, {
+        const publicApiUrl = `${API_BASE}/public/medical-card/${userId}`;
+        const privateApiUrl = `${API_BASE}/users/${userId}/medical-card`;
+
+        let response = await fetch(publicApiUrl, {
           headers: { 'Content-Type': 'application/json' }
         });
+        let data = await response.json();
 
-        const data = await response.json();
+        // Backward-compat fallback when public route is unavailable on older backend.
+        if (!response.ok && (response.status === 404 || response.status === 405)) {
+          response = await fetch(privateApiUrl, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+          data = await response.json();
+        }
 
         if (!response.ok) {
           setError(data.message || 'Failed to load medical card');
