@@ -1,0 +1,84 @@
+            {/* Bulk Upload Modal */}
+            {isBulkModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => !isBulkUploading && setIsBulkModalOpen(false)}></div>
+                    <div className="relative bg-white dark:bg-[#1A1A1A] rounded-2xl w-full max-w-md shadow-2xl dark:shadow-black/50 border border-gray-100 dark:border-white/10 overflow-hidden transform transition-all">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Bulk Upload Patients</h3>
+                            <button onClick={() => !isBulkUploading && setIsBulkModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-6">
+                            {/* Instructions */}
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
+                                <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-2">Upload multiple patients via Excel/CSV.</p>
+                                <ul className="text-xs text-blue-700/80 dark:text-blue-400/80 list-disc ml-4 space-y-1">
+                                    <li>Required columns: <strong className="text-gray-900 dark:text-white/80">Name, Phone</strong></li>
+                                    <li>Optional columns: <strong className="text-gray-900 dark:text-white/80">Age, Gender, Notes, Email</strong></li>
+                                </ul>
+                                <button onClick={handleDownloadTemplate} className="mt-3 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1">
+                                    <Download className="h-3 w-3" /> Download Sample Template
+                                </button>
+                            </div>
+
+                            {/* File Upload Area */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-gray-300 mb-2">Select Excel / CSV File</label>
+                                <div className="relative flex items-center justify-center w-full">
+                                    <label className={\`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer \${bulkFile ? 'border-primary bg-primary/5' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-white/5'} transition-colors\`}>
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <Upload className={\`w-8 h-8 mb-3 \${bulkFile ? 'text-primary' : 'text-gray-400'}\`} />
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                {bulkFile ? <span className="font-semibold text-primary">{bulkFile.name}</span> : <span><span className="font-semibold">Click to upload</span> or drag and drop</span>}
+                                            </p>
+                                            {!bulkFile && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">.xlsx or .csv only</p>}
+                                        </div>
+                                        <input type="file" className="hidden" accept=".xlsx, .csv" onChange={(e) => { setBulkFile(e.target.files[0]); setBulkUploadError(''); }} disabled={isBulkUploading} />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Feedback Messages */}
+                            {bulkUploadError && (
+                                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-800/50">
+                                    {bulkUploadError}
+                                </div>
+                            )}
+                            {bulkUploadResult && (
+                                <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-xl border border-green-100 dark:border-green-800/50">
+                                    {bulkUploadResult}
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button
+                                    onClick={() => !isBulkUploading && setIsBulkModalOpen(false)}
+                                    disabled={isBulkUploading}
+                                    className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-gray-300 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleBulkUpload}
+                                    disabled={!bulkFile || isBulkUploading}
+                                    className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[120px]"
+                                >
+                                    {isBulkUploading ? (
+                                        <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        'Upload Data'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

@@ -16,6 +16,8 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Cloud Messaging and get a reference to the service
 const messaging = getMessaging(app);
+const VAPID_KEY = String(import.meta?.env?.VITE_FIREBASE_VAPID_KEY || '').trim();
+let warnedMissingVapid = false;
 
 // FCM service worker registration
 export const requestPermission = async () => {
@@ -39,11 +41,19 @@ export const getFCMToken = async () => {
   try {
     const permission = await requestPermission();
     if (!permission) {
-      throw new Error('Permission not granted');
+      return null;
+    }
+
+    if (!VAPID_KEY || VAPID_KEY === 'your-vapid-key-here') {
+      if (!warnedMissingVapid) {
+        warnedMissingVapid = true;
+        console.warn('FCM VAPID key is missing or invalid. Skipping push token registration.');
+      }
+      return null;
     }
 
     const token = await getToken(messaging, {
-      vapidKey: 'your-vapid-key-here' // You'll need to get this from Firebase Console
+      vapidKey: VAPID_KEY
     });
 
     if (token) {
@@ -53,8 +63,8 @@ export const getFCMToken = async () => {
       throw new Error('No registration token available.');
     }
   } catch (error) {
-    console.error('An error occurred while retrieving token:', error);
-    throw error;
+    console.warn('Unable to retrieve FCM token:', error?.message || error);
+    return null;
   }
 };
 

@@ -12,7 +12,7 @@ const Footer = () => {
                     <span className="text-[12px] font-bold text-slate-800 dark:text-gray-200 font-inter">
                         Ai Ally
                     </span>
-                    <ArrowUpRight className="h-3 w-3 text-primary transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    <ArrowUpRight className="h-3 w-3 text-red-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>
             </div>
         </footer>

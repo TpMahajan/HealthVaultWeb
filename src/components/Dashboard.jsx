@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -37,6 +37,9 @@ const Dashboard = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const dashboardLoadInFlightRef = useRef(false);
+  const publicContentLoadInFlightRef = useRef(false);
+  const lastRealtimeRefreshRef = useRef(0);
 
   const navigationItems = user?.role === 'patient'
     ? [
@@ -75,11 +78,6 @@ const Dashboard = () => {
     return Boolean(String(alert.message || "").trim());
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
-  };
-
   // Calculate today's appointments count
   const getTodayAppointmentsCount = (appointments) => {
     if (!appointments || appointments.length === 0) return 0;
@@ -94,40 +92,21 @@ const Dashboard = () => {
       return appointmentDateString === todayString;
     });
 
-    console.log('📅 Today\'s appointments:', todayAppointments.length, 'out of', appointments.length, 'total');
     return todayAppointments.length;
   };
 
-  // Update today's appointments count
-  const updateTodayAppointmentsCount = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const response = await fetch(`${API_BASE}/appointments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.appointments) {
-          const todayCount = getTodayAppointmentsCount(data.appointments);
-          setDashboardData(prev => ({
-            ...prev,
-            todayAppointments: todayCount
-          }));
-          console.log('🔄 Updated today\'s appointments count:', todayCount);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to update today\'s appointments count:', error);
-    }
-  };
+  // Keep today's count in sync with already-loaded appointments data.
+  const updateTodayAppointmentsCount = useCallback(() => {
+    const todayCount = getTodayAppointmentsCount(appointments);
+    setDashboardData((prev) => ({
+      ...prev,
+      todayAppointments: todayCount,
+    }));
+  }, [appointments]);
 
   const loadPublicDashboardContent = useCallback(async () => {
+    if (publicContentLoadInFlightRef.current) return;
+    publicContentLoadInFlightRef.current = true;
     try {
       const [adsResponse, configResponse] = await Promise.all([
         fetch(`${API_BASE}/public/ads?placement=${encodeURIComponent("WEB_LANDING")}`, {
@@ -160,6 +139,8 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error("❌ Failed to load public dashboard content:", error);
+    } finally {
+      publicContentLoadInFlightRef.current = false;
     }
   }, []);
 
@@ -201,6 +182,8 @@ const Dashboard = () => {
 
   // Load dashboard data from doctor's active sessions and history
   const loadDashboardData = async (isRefresh = false) => {
+    if (dashboardLoadInFlightRef.current) return;
+    dashboardLoadInFlightRef.current = true;
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -208,7 +191,6 @@ const Dashboard = () => {
         setLoading(true);
       }
 
-      console.log('👨‍⚕️ Dashboard - Loading doctor\'s data');
       setAppointmentsLoading(true);
 
       const token = localStorage.getItem('token');
@@ -293,8 +275,6 @@ const Dashboard = () => {
         recentActivity
       });
 
-      console.log('✅ Dashboard - Data loaded successfully');
-
     } catch (error) {
       console.error('❌ Dashboard - Error loading data:', error);
       // Minimal fallback to avoid total blank screen
@@ -310,6 +290,7 @@ const Dashboard = () => {
       } else {
         setLoading(false);
       }
+      dashboardLoadInFlightRef.current = false;
     }
   };
 
@@ -349,23 +330,17 @@ const Dashboard = () => {
         event.type === "alerts.updated" ||
         event.type === "ui-config.updated"
       ) {
+        const now = Date.now();
+        if (now - lastRealtimeRefreshRef.current < 1000) return;
+        lastRealtimeRefreshRef.current = now;
         loadPublicDashboardContent();
       }
     },
   });
 
-  // Update today's appointments count periodically
   useEffect(() => {
-    // Update immediately
     updateTodayAppointmentsCount();
-
-    // Update every 5 minutes
-    const interval = setInterval(() => {
-      updateTodayAppointmentsCount();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [updateTodayAppointmentsCount]);
 
   // Refresh dashboard data
   const handleRefresh = () => {
@@ -391,7 +366,7 @@ const Dashboard = () => {
                   <AlertTriangle className="h-4 w-4" />
                 </div>
                 <div className="overflow-hidden">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-300">
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:text-rose-300">
                     Live Alerts
                   </p>
                   <p className="text-sm font-semibold text-rose-700 dark:text-rose-100 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -440,7 +415,7 @@ const Dashboard = () => {
       ) : (
         <div className="space-y-6">
           {/* Welcome Section */}
-          <div className="relative overflow-hidden bg-white dark:bg-[#1F1F1F] p-8 rounded-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-white/5 mb-6 group transition-all duration-500 hover:shadow-md">
+          <div className="relative overflow-hidden bg-white dark:bg-white/5 dark:backdrop-blur-md p-8 rounded-[16px] shadow-sm border border-gray-200 dark:border-white/10 mb-6 group transition-all duration-500 hover:bg-white/5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
               <div className="max-w-2xl">
                 <div className="flex items-center space-x-5 mb-2">
@@ -471,7 +446,7 @@ const Dashboard = () => {
 
           {/* Loading State */}
           {loading && (
-            <div className="flex items-center justify-center py-12 bg-white/70 dark:bg-[#1F1F1F]/70 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-white/5">
+            <div className="flex items-center justify-center py-12 bg-white/70 dark:bg-white/5 backdrop-blur-md rounded-xl shadow-sm border border-white/50 dark:border-white/10">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               <span className="ml-3 text-gray-600 dark:text-gray-300">Loading dashboard data...</span>
             </div>
@@ -529,7 +504,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
                 {/* Quick Actions - LEFT SUBGRID */}
                 <div className="lg:col-span-5 space-y-6">
-                  <div className="bg-white dark:bg-[#1F1F1F] p-7 rounded-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-white/5">
+                  <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md p-7 rounded-[16px] shadow-sm border border-gray-200 dark:border-white/10">
                     <div className="flex items-center space-x-3 mb-6">
                       <div className="h-9 w-9 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20">
                         <Zap className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -590,7 +565,7 @@ const Dashboard = () => {
 
                 {/* Recent Activity - RIGHT SUBGRID */}
                 <div className="lg:col-span-7">
-                  <div className="bg-white dark:bg-[#1F1F1F] p-7 rounded-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-white/5 h-full">
+                  <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md p-7 rounded-[16px] shadow-sm border border-gray-200 dark:border-white/10 h-full">
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center space-x-3">
                         <div className="h-9 w-9 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20">
@@ -601,7 +576,7 @@ const Dashboard = () => {
                       <button
                         onClick={handleRefresh}
                         className="p-2.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all active:scale-95 border border-transparent hover:border-blue-100/50"
-                        title="Refresh History"
+                        aria-label="Refresh History"
                       >
                         <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                       </button>
@@ -855,7 +830,7 @@ const StatCard = ({ label, value, icon: Icon, color, trend, badge, subtitle }) =
   };
 
   return (
-    <div className="group relative bg-white dark:bg-[#1F1F1F] p-5 rounded-[16px] border border-gray-200 dark:border-white/5 shadow-[0_4px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1.5 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden">
+    <div className="group relative bg-white dark:bg-white/5 dark:backdrop-blur-md p-5 rounded-[16px] border border-gray-200 dark:border-white/10 shadow-sm hover:bg-white/10 hover:-translate-y-1.5 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] overflow-hidden">
       <div className="flex items-center space-x-5 relative z-10">
         {/* Icon Container */}
         <div className={`h-14 w-14 rounded-xl ${colors[color]} flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-sm shrink-0`}>

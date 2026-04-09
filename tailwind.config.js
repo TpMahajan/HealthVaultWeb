@@ -39,6 +39,7 @@ module.exports = {
           300: '#d8b4fe',
           400: '#c084fc',
           500: '#a855f7',
+          DEFAULT: 'var(--secondary-color)',
           600: '#9333ea',
           700: '#7c3aed',
           800: '#6b21a8',

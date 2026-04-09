@@ -22,6 +22,7 @@ const SignUpPage = () => {
   const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const googleBtnRef = useRef(null);
+  const gsiInitializedRef = useRef(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -63,6 +64,7 @@ const SignUpPage = () => {
 
   useEffect(() => {
     if (!window.google) return;
+    if (gsiInitializedRef.current) return;
     try {
       const clientId = GOOGLE_CLIENT_ID;
       if (!clientId) return;
@@ -81,7 +83,9 @@ const SignUpPage = () => {
         cancel_on_tap_outside: true,
         context: 'signup'
       });
+      gsiInitializedRef.current = true;
       if (googleBtnRef.current) {
+        googleBtnRef.current.innerHTML = '';
         window.google.accounts.id.renderButton(googleBtnRef.current, {
           theme: 'outline',
           size: 'large',

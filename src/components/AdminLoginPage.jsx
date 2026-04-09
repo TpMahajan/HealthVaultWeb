@@ -61,10 +61,7 @@ const AdminLoginPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="min-h-screen relative flex flex-col justify-center items-center p-4 overflow-hidden"
-      style={{
-        background: `radial-gradient(circle at 70% 30%, rgba(13,148,136,0.15), transparent 50%), linear-gradient(135deg, #F8FAFC 0%, #E6FFFA 100%)`
-      }}
+      className="min-h-screen relative flex flex-col justify-center items-center p-4 overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#F0F9FF] to-[#ECFEFF] dark:from-[#0f172a] dark:via-[#111827] dark:to-[#0b1120]"
     >
       {/* Background Grid Pattern */}
       <div
@@ -84,22 +81,22 @@ const AdminLoginPage = () => {
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.6, delay: 0.1 }}
         onClick={() => navigate('/')}
-        className="group absolute top-8 left-8 flex items-center gap-2 text-[#64748B] hover:text-[#0D9488] transition-all duration-300 font-semibold z-20"
+        className="group absolute top-8 left-8 flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-[#0EA5A4] transition-all duration-300 font-bold z-20"
       >
-        <div className="bg-white/60 backdrop-blur-md p-2.5 rounded-full border border-[#E2E8F0] group-hover:bg-[#0D9488]/10 group-hover:border-[#0D9488]/20 transition-all duration-300 shadow-sm">
+        <div className="bg-white/60 dark:bg-white/5 backdrop-blur-md p-2.5 rounded-full border border-slate-200 dark:border-white/10 group-hover:bg-[#0EA5A4]/10 group-hover:border-[#0EA5A4]/20 transition-all duration-300 shadow-sm">
           <ArrowLeft className="w-4 h-4" />
         </div>
         <span className="text-sm">Back to Home</span>
       </motion.button>
 
       {/* Admin Glow Overlay */}
-      <div className="absolute inset-0 bg-teal-900/[0.01] pointer-events-none z-[0]" />
+      <div className="absolute inset-0 bg-[#0EA5A4]/[0.02] dark:bg-[#22D3EE]/[0.03] pointer-events-none z-[0]" />
 
       {/* Soft floating glow behind card */}
       <motion.div
         animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.4, 0.3] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute w-[500px] h-[500px] bg-[#0EA5A4]/10 rounded-full blur-[80px] pointer-events-none z-[0]"
+        className="absolute w-[500px] h-[500px] bg-[#0EA5A4]/10 dark:bg-[#22D3EE]/10 rounded-full blur-[80px] pointer-events-none z-[0]"
       />
 
       <div className="w-full max-w-[420px] relative z-10 flex flex-col items-center">
@@ -111,15 +108,15 @@ const AdminLoginPage = () => {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="text-center mb-8 flex flex-col items-center"
         >
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0F172A]/5 border border-[#0F172A]/10 mb-6 mx-auto backdrop-blur-sm">
-            <Shield className="w-3.5 h-3.5 text-[#0D9488]" />
-            <span className="text-[11px] font-[800] uppercase tracking-[0.1em] text-[#475569]">Admin Secure Access</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0EA5A4]/10 dark:bg-white/5 border border-[#0EA5A4]/20 dark:border-white/10 mb-6 mx-auto backdrop-blur-sm">
+            <Shield className="w-3.5 h-3.5 text-[#0EA5A4] dark:text-[#67E8F9]" />
+            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[#0EA5A4] dark:text-[#67E8F9]">Admin Secure Access</span>
           </div>
 
-          <h2 className="text-3xl font-[900] tracking-tight text-[#0F172A] mb-2">
-            Admin <span className="bg-gradient-to-r from-[#0D9488] to-[#0EA5E9] bg-clip-text text-transparent">Login</span>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
+            Admin <span className="bg-gradient-to-r from-[#0EA5A4] to-[#22D3EE] bg-clip-text text-transparent">Login</span>
           </h2>
-          <p className="text-[15px] text-[#475569] font-medium">
+          <p className="text-[15px] text-slate-500 dark:text-slate-400 font-bold">
             Enter Admin or SuperAdmin credentials to continue.
           </p>
         </motion.div>
@@ -129,20 +126,20 @@ const AdminLoginPage = () => {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-          className="bg-white/85 backdrop-blur-[14px] border border-[#E2E8F0]/80 shadow-[0_30px_70px_rgba(15,23,42,0.15)] rounded-[24px] p-8 md:p-10 w-full"
+          className="bg-white/85 dark:bg-white/5 backdrop-blur-[14px] border border-slate-200 dark:border-white/10 shadow-[0_30px_70px_rgba(15,23,42,0.15)] rounded-[24px] p-8 md:p-10 w-full"
         >
           {/* Role Selection */}
-          <div className="flex p-1 gap-1 bg-[#F1F5F9] rounded-[14px] mb-8">
+          <div className="flex p-1 gap-1 bg-slate-100 dark:bg-white/5 rounded-[14px] mb-8">
             <button
               onClick={() => navigate('/login')}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[11px] font-[700] text-[14px] text-[#475569] hover:bg-[#E2E8F0] transition-colors duration-200"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[11px] font-black text-[14px] text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/5 transition-colors duration-200"
             >
               <Mail className="w-4 h-4" />
               Doctor
             </button>
             <button
               onClick={() => navigate('/admin/login')}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[11px] font-[700] text-[14px] bg-[#0D9488] text-white shadow-[0_4px_12px_rgba(13,148,136,0.2)] transition-colors duration-200"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[11px] font-black text-[14px] bg-gradient-to-r from-[#0EA5A4] to-[#0891B2] text-white shadow-[0_10px_24px_rgba(14,165,164,0.22)] transition-colors duration-200"
             >
               <Shield className="w-4 h-4" />
               Admin
@@ -153,12 +150,12 @@ const AdminLoginPage = () => {
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-[13px] font-[600] text-[#475569] mb-1.5 ml-1">
+              <label htmlFor="email" className="block text-[13px] font-black text-slate-700 dark:text-slate-300 mb-1.5 ml-1">
                 Admin Email
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-[18px] w-[18px] text-[#94A3B8] transition-colors group-focus-within:text-[#0D9488]" />
+                  <Mail className="h-[18px] w-[18px] text-slate-400 transition-colors group-focus-within:text-[#0EA5A4]" />
                 </div>
                 <input
                   id="email"
@@ -166,7 +163,7 @@ const AdminLoginPage = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-[40px] pr-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0D9488] focus:ring-[4px] focus:ring-[#0EA5A4]/15 transition-all duration-300 font-medium"
+                  className="block w-full pl-[40px] pr-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[12px] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0EA5A4] focus:ring-[4px] focus:ring-[#0EA5A4]/15 transition-all duration-300 font-bold"
                   placeholder="admin@medicalvault.com"
                 />
               </div>
@@ -174,12 +171,12 @@ const AdminLoginPage = () => {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-[13px] font-[600] text-[#475569] mb-1.5 ml-1">
+              <label htmlFor="password" className="block text-[13px] font-black text-slate-700 dark:text-slate-300 mb-1.5 ml-1">
                 Password
               </label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="h-[18px] w-[18px] text-[#94A3B8] transition-colors group-focus-within:text-[#0D9488]" />
+                  <Lock className="h-[18px] w-[18px] text-slate-400 transition-colors group-focus-within:text-[#0EA5A4]" />
                 </div>
                 <input
                   id="password"
@@ -187,7 +184,7 @@ const AdminLoginPage = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-[40px] pr-4 py-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px] text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#0D9488] focus:ring-[4px] focus:ring-[#0EA5A4]/15 transition-all duration-300 font-medium"
+                  className="block w-full pl-[40px] pr-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[12px] text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#0EA5A4] focus:ring-[4px] focus:ring-[#0EA5A4]/15 transition-all duration-300 font-bold"
                   placeholder="••••••••"
                 />
               </div>
@@ -206,7 +203,7 @@ const AdminLoginPage = () => {
               disabled={loading}
               whileHover={{ y: -3 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full flex justify-center items-center py-3.5 px-4 rounded-[12px] text-white bg-[#0D9488] hover:bg-[#0F766E] shadow-[0_10px_25px_rgba(13,148,136,0.25)] transition-colors duration-300 font-[700] text-[15px] disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+              className="w-full flex justify-center items-center py-4 px-4 rounded-[12px] text-white bg-gradient-to-r from-[#0EA5A4] to-[#0891B2] shadow-[0_12px_32px_rgba(14,165,164,0.35)] hover:shadow-[0_16px_36px_rgba(14,165,164,0.4)] transition-all duration-300 font-black text-[15px] disabled:opacity-70 disabled:cursor-not-allowed mt-2 uppercase tracking-widest"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

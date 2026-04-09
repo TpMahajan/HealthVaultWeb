@@ -5,6 +5,7 @@ import { API_BASE } from "../constants/api";
 /* ─── Constants ─── */
 const MERCHANT_UPI = "medicalvault@upi";
 const MERCHANT_NAME = "Medical Vault";
+
 const PLATFORM_FEE = 49;
 const MRP_MULT = 1.18;
 

@@ -19,6 +19,22 @@ const normalizeNotification = (notification) => {
   };
 };
 
+const isTokenUsable = (token) => {
+  const value = String(token || "").trim();
+  if (!value) return false;
+  try {
+    const parts = value.split(".");
+    if (parts.length < 2) return false;
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padding = "=".repeat((4 - (payloadBase64.length % 4)) % 4);
+    const payload = JSON.parse(atob(`${payloadBase64}${padding}`));
+    if (!payload?.exp) return true;
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -79,6 +95,11 @@ export const NotificationProvider = ({ children }) => {
   // Load initial notifications
   const loadNotifications = useCallback(async () => {
     const token = localStorage.getItem('token');
+    if (!isTokenUsable(token)) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/notifications`, {
@@ -184,7 +205,8 @@ export const NotificationProvider = ({ children }) => {
     loadNotifications();
 
     const storedUser = localStorage.getItem('user');
-    if (!storedUser) return;
+    const token = localStorage.getItem('token');
+    if (!storedUser || !isTokenUsable(token)) return;
 
     let es = null;
     try {

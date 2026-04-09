@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Filter, Calendar, Clock, User, FileText, ChevronRight, CheckCircle, Activity, Download, X, ChevronDown, CreditCard, AlertCircle, Check, ChevronLeft, FileSpreadsheet, FileDown, FileBox, ArrowLeft, RefreshCw, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import { API_BASE } from '../constants/api';
-import AppointmentModal from './AppointmentModal';
-import { generatePatientSummaryPDF } from '../utils/pdfGenerator';
 
 const SessionHistory = () => {
     const navigate = useNavigate();
@@ -29,8 +26,6 @@ const SessionHistory = () => {
     // Drawer state
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedSession, setSelectedSession] = useState(null);
-    const [showAppointmentModal, setShowAppointmentModal] = useState(false);
-    const [appointmentPatient, setAppointmentPatient] = useState(null);
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
@@ -39,8 +34,6 @@ const SessionHistory = () => {
     // Export Dropdown state
     const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
     const exportDropdownRef = useRef(null);
-    const tableContainerRef = useRef(null);
-    const appointmentLaunchTimeoutRef = useRef(null);
 
     // Handle outside click for export dropdown
     useEffect(() => {
@@ -239,32 +232,11 @@ const SessionHistory = () => {
         setCurrentPage(1);
     };
 
-    // Calculate pagination (strictly 10 sessions per page)
+    // Calculate pagination
     const totalPages = Math.ceil(filteredSessions.length / itemsPerPage);
-    const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
-    const currentSessions = filteredSessions.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
-    const startIndex = filteredSessions.length === 0 ? 0 : ((safeCurrentPage - 1) * itemsPerPage) + 1;
-    const endIndex = filteredSessions.length === 0 ? 0 : Math.min(safeCurrentPage * itemsPerPage, filteredSessions.length);
-
-    const goToPage = (page) => {
-        const boundedPage = Math.min(Math.max(page, 1), Math.max(totalPages, 1));
-        setCurrentPage(boundedPage);
-        if (tableContainerRef.current && typeof tableContainerRef.current.scrollTo === 'function') {
-            tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
-
-    useEffect(() => {
-        if (totalPages === 0 && currentPage !== 1) {
-            setCurrentPage(1);
-        } else if (totalPages > 0 && currentPage > totalPages) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, dateFrom, dateTo, statusFilter, timePreset]);
+    const currentSessions = filteredSessions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage + 1;
+    const endIndex = Math.min(currentPage * itemsPerPage, filteredSessions.length);
 
     // Highlight matching text in search results
     const highlightText = (text, search) => {
@@ -275,7 +247,7 @@ const SessionHistory = () => {
             <>
                 {parts.map((part, index) =>
                     part.toLowerCase() === search.toLowerCase() ? (
-                        <mark key={index} className="bg-primary/20 dark:bg-primary/30 text-slate-900 dark:text-white px-0.5 rounded">
+                        <mark key={index} className="bg-yellow-200 dark:bg-yellow-500/30 text-slate-900 dark:text-white px-0.5 rounded">
                             {part}
                         </mark>
                     ) : (
@@ -295,135 +267,6 @@ const SessionHistory = () => {
         setDrawerOpen(false);
         setTimeout(() => setSelectedSession(null), 300); // Wait for animation to complete
     };
-
-    const handleCloseAppointmentModal = () => {
-        setShowAppointmentModal(false);
-    };
-
-    const handleAppointmentCreated = (newAppointment) => {
-        console.log('✅ Appointment created from Session History:', newAppointment);
-    };
-
-    const handleBookAppointment = () => {
-        if (!selectedSession) return;
-
-        const resolvedPatientId = selectedSession.patientMongoId || selectedSession.patientId || '';
-        if (!resolvedPatientId) return;
-
-        setAppointmentPatient({
-            id: resolvedPatientId,
-            patientId: resolvedPatientId,
-            name: selectedSession.patientName || 'Unknown Patient',
-            email: selectedSession.patientEmail || '',
-            mobile: selectedSession.patientMobile || ''
-        });
-
-        closeDrawer();
-
-        if (appointmentLaunchTimeoutRef.current) {
-            clearTimeout(appointmentLaunchTimeoutRef.current);
-        }
-
-        appointmentLaunchTimeoutRef.current = setTimeout(() => {
-            setShowAppointmentModal(true);
-        }, 320);
-    };
-
-    const handleDownloadSummary = async () => {
-        if (!selectedSession) {
-            alert('No session data available to download summary.');
-            return;
-        }
-
-        const resolvedPatientId = selectedSession.patientMongoId || selectedSession.patientId || '';
-        if (!resolvedPatientId || !selectedSession.patientName) {
-            alert('No data available to download summary.');
-            return;
-        }
-
-        try {
-            const patientSummaryPayload = {
-                id: resolvedPatientId,
-                patientId: selectedSession.patientId || resolvedPatientId,
-                name: selectedSession.patientName,
-                email: selectedSession.patientEmail || '',
-                mobile: selectedSession.patientMobile || '',
-                age: selectedSession.patientAge || '',
-                gender: selectedSession.patientGender || '',
-                bloodType: selectedSession.patientBloodType || '',
-                medicalHistory: [],
-                medications: []
-            };
-
-            const summaryAppointments = [selectedSession, ...selectedPatientPastSessions].map((session) => ({
-                appointmentDate: session.createdAt || session.date,
-                appointmentTime: session.time || '',
-                reason: session.diagnosis || session.type || 'Session Summary',
-                status: session.status || 'Completed'
-            }));
-
-            const result = await generatePatientSummaryPDF(patientSummaryPayload, [], summaryAppointments);
-
-            if (!result?.success) {
-                alert('Failed to generate PDF summary. Please try again.');
-            }
-        } catch (error) {
-            console.error('PDF generation error:', error);
-            alert('Failed to generate PDF summary. Please try again.');
-        }
-    };
-
-    const selectedPatientPastSessions = useMemo(() => {
-        if (!selectedSession) return [];
-
-        const selectedPatientKey = selectedSession.patientMongoId || selectedSession.patientId || '';
-
-        return sessions
-            .filter((session) => {
-                if (session.id === selectedSession.id) return false;
-
-                const currentPatientKey = session.patientMongoId || session.patientId || '';
-                if (selectedPatientKey && currentPatientKey) {
-                    return currentPatientKey === selectedPatientKey;
-                }
-
-                return (session.patientName || '').trim().toLowerCase() === (selectedSession.patientName || '').trim().toLowerCase();
-            })
-            .sort((a, b) => {
-                const aTime = new Date(a.createdAt || a.date || 0).getTime();
-                const bTime = new Date(b.createdAt || b.date || 0).getTime();
-                return bTime - aTime;
-            });
-    }, [sessions, selectedSession]);
-
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape' && drawerOpen) {
-                closeDrawer();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [drawerOpen]);
-
-    useEffect(() => {
-        if (!drawerOpen) return undefined;
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [drawerOpen]);
-
-    useEffect(() => {
-        return () => {
-            if (appointmentLaunchTimeoutRef.current) {
-                clearTimeout(appointmentLaunchTimeoutRef.current);
-            }
-        };
-    }, []);
 
     const handleExport = (format) => {
         setExportDropdownOpen(false);
@@ -524,9 +367,9 @@ const SessionHistory = () => {
     };
 
     return (
-        <div className="relative space-y-6">
+        <div className="space-y-6">
             {/* Page Header - matches Dashboard welcome section */}
-            <div className="relative overflow-hidden bg-white dark:bg-[#1F1F1F] p-8 rounded-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.04)] border border-gray-200 dark:border-white/5 group transition-all duration-500 hover:shadow-md">
+            <div className="relative overflow-hidden bg-white dark:bg-[#121212] p-6 lg:p-8 rounded-[16px] shadow-sm border border-gray-100 dark:border-white/5 group transition-all duration-500 hover:shadow-md">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
                     <div className="max-w-2xl">
                         <div className="flex items-center space-x-5 mb-2">
@@ -538,18 +381,19 @@ const SessionHistory = () => {
                         <p className="text-[11px] md:text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest opacity-80">Review all past clinical sessions and outcomes</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button onClick={() => fetchSessions(true)} disabled={refreshing} className="p-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/10 transition-all shadow-sm dark:shadow-lg disabled:opacity-50">
-                            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin text-primary' : ''}`} />
+                        <button onClick={() => fetchSessions(true)} disabled={refreshing} className="p-3 bg-slate-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-all shadow-sm disabled:opacity-50">
+                            <RefreshCw className="h-4 w-4" />
                         </button>
                         <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400 group-focus-within:text-primary transition-colors z-10" />
-                            <input type="text" placeholder="Search by patient name or ID" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-gray-700 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full md:w-72 transition-all shadow-sm dark:shadow-lg" />
-                            {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg transition-all z-10"><X className="h-3.5 w-3.5" /></button>)}
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors z-10" />
+                            <input type="text" placeholder="Search by patient name or ID" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary w-full md:w-72 transition-all shadow-sm" />
+                            {searchTerm && (<button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-all z-10"><X className="h-3.5 w-3.5" /></button>)}
                         </div>
-                        <button onClick={() => setShowFilters(!showFilters)} className={`p-3 border rounded-xl transition-all shadow-sm dark:shadow-lg ${showFilters ? 'bg-primary text-white border-primary' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/10'}`}>
-                            <Filter className="h-4 w-4" />
+                        <button onClick={() => setShowFilters(!showFilters)} className="p-3 bg-slate-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl transition-all shadow-sm">
+                            <Filter className="h-4 w-4 text-slate-600 dark:text-slate-300" />
                         </button>
-                        <button onClick={() => navigate('/scan')} className="group relative flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl hover:shadow-primary/30 transition-all duration-300 shadow-lg shadow-primary/20 font-bold active:scale-95 overflow-hidden whitespace-nowrap">
+                        <button onClick={() => navigate('/scan')} className="group relative flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl hover:opacity-90 transition-all duration-300 shadow-lg shadow-primary/20 font-bold active:scale-95 overflow-hidden whitespace-nowrap">
+                            <div className="absolute inset-0 w-[40px] h-full bg-white/20 -skew-x-[20deg] -translate-x-[100px] group-hover:translate-x-[200px] transition-transform duration-700 ease-in-out"></div>
                             <Plus className="h-4 w-4" /><span>New Session</span>
                         </button>
                     </div>
@@ -571,8 +415,8 @@ const SessionHistory = () => {
 
                     <div className="p-6 bg-white dark:bg-[#1F1F1F] border border-gray-100 dark:border-white/5 rounded-xl shadow-md cursor-default">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2.5 bg-primary/10 rounded-xl">
-                                <Clock className="h-5 w-5 text-primary dark:text-primary" />
+                            <div className="p-2.5 bg-green-50 rounded-xl">
+                                <Clock className="h-5 w-5 text-[#16A34A] dark:text-green-400" />
                             </div>
                             <span className="text-sm font-semibold text-[#475569] dark:text-slate-300">Avg. Duration</span>
                         </div>
@@ -631,7 +475,7 @@ const SessionHistory = () => {
                                     <select
                                         value={timePreset}
                                         onChange={(e) => setTimePreset(e.target.value)}
-                                        className="w-full pl-4 pr-10 py-3 bg-[#F8FAFC] dark:bg-[#121212] border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white transition-all appearance-none cursor-pointer focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        className="w-full pl-4 pr-10 py-3 bg-[#F8FAFC] dark:bg-[#121212] border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white transition-all appearance-none cursor-pointer focus:ring-2 focus:ring-[#3B82F6]/20"
                                     >
                                         <option value="All">All Time</option>
                                         <option value="This Week">This Week</option>
@@ -677,7 +521,7 @@ const SessionHistory = () => {
                                     <select
                                         value={statusFilter}
                                         onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="w-full pl-4 pr-10 py-3 bg-[#F8FAFC] dark:bg-[#121212] border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white transition-all appearance-none cursor-pointer focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        className="w-full pl-4 pr-10 py-3 bg-[#F8FAFC] dark:bg-[#121212] border border-slate-200 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-900 dark:text-white transition-all appearance-none cursor-pointer focus:ring-2 focus:ring-[#3B82F6]/20"
                                     >
                                         <option value="All">All Status</option>
                                         <option value="Active">Active</option>
@@ -727,8 +571,8 @@ const SessionHistory = () => {
                                             className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-all group"
                                             onClick={() => handleExport('Excel')}
                                         >
-                                            <div className="p-1.5 bg-primary/10 dark:bg-primary/20 rounded-md group-hover:scale-110 transition-transform">
-                                                <FileSpreadsheet className="h-3.5 w-3.5 text-primary dark:text-primary" />
+                                            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-md group-hover:scale-110 transition-transform">
+                                                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                                             </div>
                                             <span>Export as Excel</span>
                                         </button>
@@ -747,7 +591,7 @@ const SessionHistory = () => {
                         </div>
                     </div>
 
-                    <div ref={tableContainerRef} className="overflow-x-auto max-h-[600px] custom-scrollbar">
+                    <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
                         <table className="w-full border-collapse">
                             <thead className="sticky top-0 z-20 bg-white dark:bg-[#1A1A1A] border-b border-slate-100 dark:border-white/5">
                                 <tr>
@@ -757,7 +601,7 @@ const SessionHistory = () => {
                                     <th className="w-[12%] px-7 py-5 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Duration</th>
                                     <th className="w-[8%] px-7 py-5 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Sessions</th>
                                     <th className="w-[8%] px-7 py-5 text-left text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Status</th>
-                                    <th className="w-[4%] px-7 py-5 text-right text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Detail</th>
+                                    <th className="w-[4%] px-7 py-5 text-right text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 dark:divide-white/5">
@@ -822,10 +666,10 @@ const SessionHistory = () => {
                                             </td>
                                             <td className="px-7 py-6">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shadow-sm border ${session.status === 'Completed'
-                                                    ? 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20'
+                                                    ? 'bg-green-100 text-[#16A34A] border-green-200 dark:bg-green-900/30'
                                                     : session.status === 'Cancelled'
                                                         ? 'bg-red-100 text-[#DC2626] border-red-200 dark:bg-red-900/30'
-                                                        : 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20'
+                                                        : 'bg-blue-100 text-[#3B82F6] border-blue-200 dark:bg-blue-900/30'
                                                     }`}>
                                                     {session.status === 'Completed' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                                                     {session.status}
@@ -859,24 +703,35 @@ const SessionHistory = () => {
                             Showing <span className="text-slate-900 dark:text-white">{startIndex}–{endIndex}</span> of <span className="text-slate-900 dark:text-white">{filteredSessions.length}</span> sessions
                         </p>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                             <button
-                                onClick={() => goToPage(safeCurrentPage - 1)}
-                                disabled={safeCurrentPage === 1}
-                                className={`p-2 rounded-xl transition-all active-scale tooltip-trigger ${safeCurrentPage === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-primary'}`}
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className={`p-2 rounded-xl transition-all active-scale tooltip-trigger ${currentPage === 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-primary'}`}
                                 data-tooltip="Previous Page"
                             >
                                 <ChevronLeft className="h-4 w-4" />
                             </button>
 
-                            <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10">
-                                Page {safeCurrentPage} / {Math.max(totalPages, 1)}
-                            </span>
+                            <div className="flex items-center gap-1">
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`h-8 w-8 rounded-xl text-xs font-black transition-all active-scale ${currentPage === i + 1
+                                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110'
+                                            : 'text-slate-500 hover:bg-gray-50 dark:hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
 
                             <button
-                                onClick={() => goToPage(safeCurrentPage + 1)}
-                                disabled={safeCurrentPage === totalPages || totalPages === 0}
-                                className={`p-2 rounded-xl transition-all active-scale tooltip-trigger ${safeCurrentPage === totalPages || totalPages === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-primary'}`}
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages || totalPages === 0}
+                                className={`p-2 rounded-xl transition-all active-scale tooltip-trigger ${currentPage === totalPages || totalPages === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-primary'}`}
                                 data-tooltip="Next Page"
                             >
                                 <ChevronRight className="h-4 w-4" />
@@ -885,165 +740,168 @@ const SessionHistory = () => {
                     </div>
                 </div>
 
-                {/* Session Details Modal */}
-                {drawerOpen && selectedSession && createPortal(
-                    <div className="fixed inset-0 z-[999] flex items-center justify-center p-5">
+                {/* Session Details Drawer */}
+                {drawerOpen && (
+                    <>
                         {/* Backdrop */}
                         <div
-                            className="absolute top-0 left-0 w-full h-full z-[999] bg-[rgba(0,0,0,0.4)] backdrop-blur-[5px] transition-opacity duration-300 animate-in fade-in"
+                            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300"
                             onClick={closeDrawer}
                         />
 
-                        {/* Modal Panel */}
-                        <div className="relative z-[1000] w-[92%] max-w-[640px] max-h-[90vh] overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#F8FAFC] dark:bg-[#1F1F1F] rounded-[16px] shadow-[0_20px_60px_rgba(0,0,0,0.3)] border border-gray-200 dark:border-white/10 animate-in fade-in zoom-in-95 duration-200 origin-center">
-
-                            {/* Sticky Header */}
-                            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 bg-[#F8FAFC] dark:bg-[#1F1F1F] border-b border-gray-200 dark:border-white/10 rounded-t-xl">
-                                <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Session Details</h2>
-                                <button
-                                    onClick={closeDrawer}
-                                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-all"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <div className="p-6 space-y-5">
-
-                                {/* Patient Info */}
-                                <div className="flex items-center gap-3 p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                    <div className="h-11 w-11 shrink-0 bg-primary/10 dark:bg-primary/20 rounded-full flex items-center justify-center text-primary font-bold text-base border border-primary/20 dark:border-primary/30">
-                                        {selectedSession.patientName ? selectedSession.patientName.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white">{selectedSession.patientName}</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{selectedSession.patientId}</p>
-                                    </div>
-                                </div>
-
-                                {/* Details Grid */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            <Calendar className="h-3.5 w-3.5 text-primary" />
-                                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Date & Time</span>
-                                        </div>
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-white">{selectedSession.date}</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{selectedSession.time}</p>
-                                    </div>
-                                    <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                        <div className="flex items-center gap-1.5 mb-2">
-                                            <Clock className="h-3.5 w-3.5 text-primary" />
-                                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Duration</span>
-                                        </div>
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-white">
-                                            {selectedSession.duration}{String(selectedSession.duration).includes('m') ? '' : ' min'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Session Type */}
-                                <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">Session Type</label>
-                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                                        selectedSession.type === 'Emergency'
-                                            ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
-                                            : 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30'
-                                    }`}>
-                                        {selectedSession.type || 'Regular Checkup'}
-                                    </span>
-                                </div>
-
-                                {/* Divider */}
-                                <div className="border-t border-gray-100 dark:border-white/5" />
-
-                                {/* Next Appointment Section */}
-                                <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">Next Appointment</label>
-                                    <div className="p-4 bg-slate-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-800 dark:text-white">10 April 2026</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">11:30 AM</p>
-                                        </div>
-                                        <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 dark:bg-primary/20">
-                                            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                            Available
-                                        </span>
+                        {/* Drawer Panel */}
+                        <div className="fixed right-0 top-0 h-full w-full md:w-[480px] bg-white dark:bg-[#0A0A0A] shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-y-auto">
+                            {selectedSession && (
+                                <div className="flex flex-col h-full">
+                                    {/* Header */}
+                                    <div className="sticky top-0 bg-white dark:bg-[#0A0A0A] border-b border-gray-200 dark:border-white/5 px-6 py-5 flex items-center justify-between z-10">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Session Details</h2>
+                                        <button
+                                            onClick={closeDrawer}
+                                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all"
+                                        >
+                                            <X className="h-5 w-5" />
+                                        </button>
                                     </div>
 
-                                    <button
-                                        onClick={handleBookAppointment}
-                                        className="w-full mt-3 flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-teal-500 text-white px-5 py-3 rounded-xl hover:opacity-90 transition-all duration-300 shadow-lg shadow-primary/20 text-sm font-bold active:scale-95"
-                                    >
-                                        <Calendar className="h-4 w-4" />
-                                        Book Appointment
-                                    </button>
-                                </div>
-
-                                {/* Past Sessions */}
-                                <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
-                                    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-2">Past Sessions</label>
-                                    <div className="border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden">
-                                        <div className="grid grid-cols-4 px-4 py-2 bg-slate-50 dark:bg-white/5 border-b border-gray-200 dark:border-white/10">
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date</span>
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Time</span>
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Duration</span>
-                                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Status</span>
+                                    {/* Content */}
+                                    <div className="flex-1 px-6 py-6 space-y-6">
+                                        {/* Patient Info */}
+                                        <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-[16px] border border-blue-100 dark:border-blue-500/20">
+                                            <div className="p-3 bg-white dark:bg-[#0A0A0A] rounded-full shadow-sm">
+                                                <User className="h-8 w-8 text-primary" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedSession.patientName}</h3>
+                                                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{selectedSession.patientId}</p>
+                                            </div>
                                         </div>
 
-                                        <div className="max-h-44 overflow-y-auto custom-scrollbar divide-y divide-gray-200 dark:divide-white/10">
-                                            {selectedPatientPastSessions.length > 0 ? (
-                                                selectedPatientPastSessions.map((session) => {
-                                                    const normalizedStatus = String(session.status || '').toLowerCase() === 'completed' ? 'Completed' : 'Pending';
-                                                    return (
-                                                        <div key={session.id} className="grid grid-cols-4 px-4 py-2.5 text-xs">
-                                                            <span className="text-slate-700 dark:text-slate-200 font-medium">{session.date}</span>
-                                                            <span className="text-slate-500 dark:text-slate-400">{session.time}</span>
-                                                            <span className="text-slate-500 dark:text-slate-400">{session.duration}</span>
-                                                            <div className="text-right">
-                                                                <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                                                                    normalizedStatus === 'Completed'
-                                                                        ? 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20'
-                                                                        : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
-                                                                }`}>
-                                                                    {normalizedStatus}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })
-                                            ) : (
-                                                <div className="px-4 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                                                    No past sessions available
+                                        {/* Session Metadata */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Calendar className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</span>
                                                 </div>
-                                            )}
+                                                <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedSession.date}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{selectedSession.time}</p>
+                                            </div>
+
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Clock className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Duration</span>
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedSession.duration}</p>
+                                            </div>
+
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <CreditCard className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Payment Status</span>
+                                                </div>
+                                                <span className={`text-xs font-black uppercase inline-block px-2 py-0.5 rounded-md ${selectedSession.paymentStatus === 'Paid'
+                                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                                    }`}>
+                                                    {selectedSession.paymentStatus}
+                                                </span>
+                                            </div>
+
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <AlertCircle className="h-4 w-4 text-slate-400" />
+                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Follow-up</span>
+                                                </div>
+                                                <p className={`text-sm font-bold ${selectedSession.followUpRequired ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                                    {selectedSession.followUpRequired ? 'Required' : 'Not Required'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Type Badge */}
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Session Type</label>
+                                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold border ${selectedSession.type === 'Emergency'
+                                                ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+                                                : selectedSession.type === 'Follow-up'
+                                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20'
+                                                    : 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20'
+                                                }`}>
+                                                {selectedSession.type}
+                                            </span>
+                                        </div>
+
+                                        {/* Diagnosis */}
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Diagnosis</label>
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5">
+                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{selectedSession.diagnosis}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Doctor Notes */}
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Doctor Notes</label>
+                                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-[16px] border border-gray-200 dark:border-white/5 min-h-[100px]">
+                                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                                    {selectedSession.doctorNotes || 'No additional notes provided for this session.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Status */}
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Status</label>
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
+                                                <CheckCircle className="h-4 w-4" />
+                                                {selectedSession.status}
+                                            </span>
                                         </div>
                                     </div>
+
+                                    {/* Footer Actions */}
+                                    <div className="sticky bottom-0 bg-white dark:bg-[#0A0A0A] border-t border-gray-200 dark:border-white/5 px-6 py-4 space-y-3">
+                                        {/* Session ended-at info */}
+                                        {selectedSession?.endedAt && (
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl">
+                                                <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                                <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                                    Session ended: {new Date(selectedSession.endedAt).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                if (selectedSession.patientMongoId) {
+                                                    navigate(`/patient-details/${selectedSession.patientMongoId}`);
+                                                }
+                                            }}
+                                            disabled={!selectedSession.patientMongoId}
+                                            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-[16px] text-sm font-bold transition-all active:scale-95"
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                            View Patient Record
+                                        </button>
+                                        <button className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-[16px] text-sm font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95">
+                                            <Download className="h-4 w-4" />
+                                            Download Report
+                                        </button>
+                                        <button
+                                            onClick={closeDrawer}
+                                            className="w-full px-5 py-3 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 rounded-[16px] text-sm font-bold transition-all"
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
                                 </div>
-
-                                <button
-                                    onClick={handleDownloadSummary}
-                                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-primary to-teal-500 hover:opacity-90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                                >
-                                    <Download className="h-4 w-4" />
-                                    Download Summary
-                                </button>
-
-                            </div>
+                            )}
                         </div>
-                    </div>,
-                    document.body
-                )}
-
-                {appointmentPatient && (
-                    <AppointmentModal
-                        isOpen={showAppointmentModal}
-                        onClose={handleCloseAppointmentModal}
-                        patient={appointmentPatient}
-                        onAppointmentCreated={handleAppointmentCreated}
-                    />
+                    </>
                 )}
             </div>
+        </div>
     );
 };
 

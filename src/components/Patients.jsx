@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, User, Eye, Loader, History, Activity, Shield, Plus,
   Trash2, Mail, ExternalLink, Calendar, ChevronRight, Filter,
-  MoreVertical, CheckCircle, Clock, UserCircle, AlertCircle, X
+  MoreVertical, CheckCircle, Clock, UserCircle, AlertCircle, X, Edit2
 } from 'lucide-react';
 import { API_BASE } from '../constants/api';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ const Patients = () => {
   const [viewMode, setViewMode] = useState('active'); // 'active' or 'history'
   const [showSessionEndedPopup, setShowSessionEndedPopup] = useState(false);
   const [endedSessionsCount, setEndedSessionsCount] = useState(0);
+  const [activeMenu, setActiveMenu] = useState(null);
 
   // End Session Modal States
   const [isEndModalOpen, setIsEndModalOpen] = useState(false);
@@ -132,6 +133,29 @@ const Patients = () => {
     setIsEndModalOpen(true);
   };
 
+  const handleEditPatient = (patient) => {
+    navigate('/patients');
+  };
+
+  const handleDeletePatientHistory = async (session) => {
+    if (!window.confirm('Are you sure you want to delete this session record?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/sessions/history/${session.sessionId || session.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setPatients(prev => ({
+          ...prev,
+          history: prev.history.filter(s => (s.sessionId || s.id) !== (session.sessionId || session.id))
+        }));
+      }
+    } catch (err) {
+      console.error('Error deleting session history:', err);
+    }
+  };
+
   const confirmEndSession = async () => {
     if (!sessionToEnd) return;
 
@@ -175,7 +199,7 @@ const Patients = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-inter">
+      <div className="flex items-center justify-center font-inter pt-20">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
             <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-primary animate-spin"></div>
@@ -190,17 +214,17 @@ const Patients = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FB] dark:bg-[#0A0A0A] font-inter selection:bg-primary/10 selection:text-primary pb-20">
+    <div className="w-full relative z-10 space-y-6 font-inter bg-transparent">
 
       {/* Session Ended Popup */}
       {showSessionEndedPopup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
             <div className="flex items-start gap-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="h-12 w-12 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-primary dark:text-primary" />
               </div>
-              <div className="flex-1">
+              <div className="mt-10 flex justify-center">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                   Sessions Ended
                 </h3>
@@ -236,117 +260,152 @@ const Patients = () => {
       {/* Top Decoration */}
       <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 relative pt-10">
+      <div className="w-full relative z-10 space-y-6">
 
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div>
-            <h1 className="text-[32px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight mb-1">
-              Active Session
-            </h1>
-            <p className="text-[#6B7280] dark:text-slate-400 font-medium text-sm">
-              View and manage patients who are currently in a live session.
-            </p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          {/* Premium title card — matches KPI card design system */}
+          <div
+            style={{
+              display: 'inline-block',
+              padding: '20px 24px',
+              borderRadius: 16,
+              background: 'var(--card-bg)', // removed fallback to allow Tailwind classes to work correctly
+              border: '1px solid rgba(0,0,0,0.05)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+              minWidth: 320,
+              maxWidth: 480,
+              transition: 'all 0.3s ease',
+              cursor: 'default',
+            }}
+            className="bg-white dark:bg-white/5 dark:backdrop-blur-md dark:border-white/10 dark:shadow-none"
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)'}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              {/* Left accent bar */}
+              <div
+                style={{
+                  width: 3,
+                  minWidth: 3,
+                  borderRadius: 99,
+                  background: 'var(--primary-gradient, var(--primary-color, #10B981))',
+                  alignSelf: 'stretch',
+                  marginTop: 2,
+                }}
+              />
+              <div>
+                <h1
+                  className="text-slate-900 dark:text-white tracking-wide leading-tight"
+                  style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, lineHeight: 1.2 }}
+                >
+                  Active Session
+                </h1>
+                <p
+                  className="text-slate-500 dark:text-gray-400 font-medium"
+                  style={{ fontSize: 13.5, margin: 0, lineHeight: 1.6 }}
+                >
+                  View and manage patients who are currently in a live session.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="flex p-1 bg-[#F1F5F9] dark:bg-white/5 rounded-xl self-start md:self-auto">
+          <div className="flex p-1 bg-gray-200/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl self-start md:self-auto mb-6">
             <button
               onClick={() => setViewMode('active')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-[10px] text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${viewMode === 'active'
-                ? 'bg-white dark:bg-white/10 text-primary shadow-[0_2px_6px_rgba(0,0,0,0.05)]'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${viewMode === 'active'
+                ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
             >
-              <Activity className="h-3.5 w-3.5" />
+              <Activity className="h-4 w-4" />
               Active
             </button>
             <button
               onClick={() => setViewMode('history')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-[10px] text-[11px] font-black uppercase tracking-wider transition-all duration-300 ${viewMode === 'history'
-                ? 'bg-white dark:bg-white/10 text-primary shadow-[0_2px_6px_rgba(0,0,0,0.05)]'
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${viewMode === 'history'
+                ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
             >
-              <History className="h-3.5 w-3.5" />
+              <History className="h-4 w-4" />
               History
             </button>
           </div>
         </div>
 
-        {/* Quick Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {[
-            { label: 'Active Sessions', val: activeSessions.length, icon: Activity, color: 'text-primary' },
-            { label: 'Total Sessions Today', val: previousSessions.length, icon: Clock, color: 'text-blue-500' },
-            { label: 'Average Duration', val: '18m', icon: Shield, color: 'text-emerald-500' }
-          ].map((stat, i) => (
-            <div key={i} className="bg-white dark:bg-[#121212] p-5 rounded-[16px] border border-[#E5E7EB] dark:border-white/5 shadow-[0_4px_12px_rgba(0,0,0,0.04)] flex items-center justify-between group hover:shadow-md transition-all">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-white leading-none">{stat.val}</p>
+        {/* Quick Stats Row */}          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            {[
+              { label: 'Active Sessions', val: activeSessions.length, icon: Activity, color: 'text-primary' },
+              { label: 'Total Sessions Today', val: previousSessions.length, icon: Clock, color: 'text-primary' },
+              { label: 'Average Duration', val: '18m', icon: Shield, color: 'text-primary' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white dark:bg-white/5 dark:backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-md p-5 flex justify-between items-center group hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-300">
+                <div>
+                  <p className="text-slate-500 dark:text-gray-400 text-sm font-medium mb-1">{stat.label}</p>
+                  <p className="text-xl font-semibold text-slate-900 dark:text-white">{stat.val}</p>
+                </div>
+                <div className={`h-10 w-10 rounded-lg bg-gray-100 dark:bg-white/5 flex items-center justify-center ${stat.color} transition-colors p-2`}>
+                  <stat.icon className="h-5 w-5" />
+                </div>
               </div>
-              <div className={`h-11 w-11 rounded-[12px] bg-slate-50 dark:bg-white/5 flex items-center justify-center ${stat.color} transition-colors`}>
-                <stat.icon className="h-5.5 w-5.5" />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Command Bar / Toolbar */}
-        <div className="mb-8 p-1 bg-white dark:bg-[#121212] border border-[#E5E7EB] dark:border-white/5 rounded-full shadow-sm flex flex-col md:flex-row items-center gap-3 doctor-focus-ring">
+        <div className="flex items-center justify-between gap-4 mt-6">
           {/* Search Input */}
-          <div className="flex-1 w-full relative">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-400" />
             <input
               type="text"
               placeholder="Search for a patient..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-11 pl-12 pr-4 bg-transparent text-sm font-medium text-slate-700 dark:text-white focus:outline-none placeholder:text-slate-400"
+              className="w-full h-11 pl-11 pr-4 bg-white/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:border-primary transition-all placeholder-gray-400 dark:placeholder-gray-500"
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto px-1">
-            <div className="hidden md:flex items-center gap-5 px-5 border-r border-slate-100 dark:border-white/5 h-8">
-               <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-black text-slate-400 leading-none">TOTAL</span>
-                  <span className="text-xs font-black text-slate-900 dark:text-white">{patients.active?.length + patients.history?.length}</span>
-               </div>
-               <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-black text-slate-400 leading-none">ACTIVE</span>
-                  <span className="text-xs font-black text-emerald-500">{patients.active?.length}</span>
-               </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-5 px-5 border-r border-gray-200 dark:border-white/10 h-8">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 leading-none">TOTAL</span>
+                <span className="text-xs font-semibold text-slate-900 dark:text-white">{patients.active?.length + patients.history?.length}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 leading-none">ACTIVE</span>
+                <span className="text-xs font-semibold text-primary dark:text-primary">{patients.active?.length}</span>
+              </div>
             </div>
 
             <button
               onClick={() => navigate('/scan')}
-              className="flex-1 md:flex-none h-[44px] px-6 bg-[#0F172A] dark:bg-white text-white dark:text-black rounded-full text-[11px] font-bold uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+              className="flex-1 md:flex-none h-[40px] px-5 py-2 bg-primary text-white rounded-xl text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
               <Plus className="h-4 w-4" />
               New Session
             </button>
           </div>
         </div>
-
         {/* Content Area */}
         <div className="min-h-[400px] animate-in slide-in-from-bottom-5 duration-500">
           {viewMode === 'active' ? (
             <div className="space-y-4">
               {activeSessions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10">
-                  <div className="bg-white dark:bg-[#121212] border border-dashed border-[#D1D5DB] dark:border-white/10 rounded-[16px] p-8 max-w-[520px] w-full text-center shadow-sm">
-                    <div className="h-14 w-14 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-5 rotate-3 group-hover:rotate-0 transition-transform">
-                      <UserCircle className="h-7 w-7 text-slate-300" />
+                <div className="mt-10 flex justify-center">
+                  <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md border border-white/10 rounded-2xl p-10 max-w-md w-full text-center shadow-lg px-6 group transition-all duration-300 hover:bg-white/10">
+                    <div className="h-16 w-16 bg-gray-50 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 p-3 translate-y-2 group-hover:translate-y-0 transition-transform">
+                      <UserCircle className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">No Active Sessions</h3>
-                    <p className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-8 px-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No Active Sessions</h3>
+                    <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mt-2">
                       No active sessions currently running. Initiate a new session to begin diagnosing patients.
                     </p>
                     <button
                       onClick={() => navigate('/scan')}
-                      className="inline-flex items-center gap-2.5 px-6 py-3 bg-[#0F172A] dark:bg-white text-white dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95"
+                      className="mt-6 inline-flex items-center gap-2.5 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:scale-105 transition-all duration-200 shadow-lg shadow-primary/20"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-4 w-4" />
                       Start New Session
                     </button>
                   </div>
@@ -355,7 +414,7 @@ const Patients = () => {
                 activeSessions.map((patient) => (
                   <div
                     key={patient.sessionId}
-                    className="group bg-white dark:bg-[#121212] rounded-[16px] p-5 border border-slate-200 dark:border-white/5 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200"
+                    className="group bg-white dark:bg-white/5 dark:backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-5 shadow-sm dark:shadow-lg hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-300"
                   >
                     <div className="flex items-center gap-4">
 
@@ -366,7 +425,7 @@ const Patients = () => {
                           alt={patient.name}
                           className="h-12 w-12 rounded-full object-cover border border-slate-100 shadow-sm"
                         />
-                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 border-[3px] border-white rounded-full p-0.5">
+                        <div className="absolute -bottom-1 -right-1 bg-primary border-[3px] border-white rounded-full p-0.5">
                           <Activity className="h-2 w-2 text-white" />
                         </div>
                       </div>
@@ -374,21 +433,19 @@ const Patients = () => {
                       {/* Main Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <h3 className="text-base font-bold text-slate-900 truncate group-hover:text-primary transition-colors">
+                          <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-wide truncate">
                             {patient.name}
                           </h3>
-                          <span className="shrink-0 px-2 py-0.5 bg-primary-50 text-primary text-[9px] font-black uppercase tracking-wider rounded-md">
+                          <span className="shrink-0 px-3 py-1 bg-primary/10 text-primary dark:text-primary text-xs rounded-full">
                             Active
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                          <span>ID: <span className="font-mono text-slate-400">{patient.id.slice(0, 8)}</span></span>
-                          <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-500">
+                          <span>ID: <span className="font-mono text-slate-400 dark:text-gray-400">{patient.id.slice(0, 8)}</span></span>
+                          <span className="w-1 h-1 rounded-full bg-gray-200 dark:bg-white/10" />
                           <span className="truncate max-w-[150px]">{patient.email}</span>
                         </div>
                       </div>
-
-
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 pl-4 border-l border-slate-100 md:border-0">
@@ -396,7 +453,7 @@ const Patients = () => {
                           <SessionTimer expiresAt={patient.expiresAt || patient.expiryTime} />
                           <button
                             onClick={() => handleViewDetails(patient)}
-                            className="h-9 px-4 bg-white border border-slate-200 hover:border-primary/50 hover:text-primary text-slate-600 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all shadow-sm flex items-center gap-2 group-hover:bg-primary-50"
+                            className="h-9 px-4 bg-gray-50 dark:bg-white/10 hover:bg-gray-100 dark:hover:bg-white/20 border border-gray-200 dark:border-white/10 text-slate-700 dark:text-white text-xs font-semibold rounded-xl transition-all duration-200 flex items-center gap-2"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             <span className="hidden sm:inline">View</span>
@@ -404,8 +461,8 @@ const Patients = () => {
                         </div>
                         <button
                           onClick={() => handleDeleteSession(patient)}
-                          className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 border border-transparent rounded-lg transition-all"
-                          title="End Session"
+                          className="h-9 w-9 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all"
+                          aria-label="End Session"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -417,15 +474,15 @@ const Patients = () => {
               )}
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-100">
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Patient Identity</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Clinical Timestamp</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Session Duration</th>
-                      <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    <tr className="bg-gray-50/50 dark:bg-transparent border-b border-gray-200 dark:border-white/10">
+                      <th className="px-8 py-6 text-slate-500 dark:text-gray-400 text-sm font-semibold tracking-wide uppercase">Patient Identity</th>
+                      <th className="px-8 py-6 text-slate-500 dark:text-gray-400 text-sm font-semibold tracking-wide uppercase">Clinical Timestamp</th>
+                      <th className="px-8 py-6 text-slate-500 dark:text-gray-400 text-sm font-semibold tracking-wide uppercase">Session Duration</th>
+                      <th className="px-8 py-6 text-slate-500 dark:text-gray-400 text-sm font-semibold tracking-wide uppercase text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -433,50 +490,95 @@ const Patients = () => {
                       <tr>
                         <td colSpan="4" className="px-8 py-16 text-center">
                           <div className="flex flex-col items-center">
-                             <div className="h-12 w-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
-                                <History className="h-6 w-6 text-slate-300" />
-                             </div>
-                             <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">No historical records found for today</p>
+                            <div className="h-12 w-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
+                              <History className="h-6 w-6 text-slate-300" />
+                            </div>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">No historical records found for today</p>
                           </div>
                         </td>
                       </tr>
                     ) : (
                       previousSessions.map((session) => (
-                        <tr key={session.sessionId || session.patient_id} className="group hover:bg-primary-50 transition-colors">
+                        <tr key={session.sessionId || session.patient_id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 transition duration-300">
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-4">
-                              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center border border-white shadow-sm font-bold text-slate-500 text-xs">
+                              <div className="h-10 w-10 rounded-xl bg-gray-50 dark:bg-white/5 flex items-center justify-center border border-gray-200 dark:border-white/10 text-primary font-semibold text-sm">
                                 {session.name.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{session.name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">REF: {session.id?.slice(-8) || session.patient_id?.slice(-8)}</p>
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white">{session.name}</p>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-500 uppercase tracking-wider">REF: {session.id?.slice(-8) || session.patient_id?.slice(-8)}</p>
                               </div>
                             </div>
                           </td>
+
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-2">
-                              <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                              <span className="text-xs font-bold text-slate-600">
+                              <Calendar className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                              <span className="text-sm text-slate-600 dark:text-gray-300">
                                 {new Date(session.createdAt || (session.sessions && session.sessions[0]?.visit_date)).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                               </span>
                             </div>
                           </td>
                           <td className="px-8 py-5">
                             <div className="flex items-center gap-2">
-                              <Clock className="h-3.5 w-3.5 text-slate-400" />
-                              <span className="text-xs font-bold text-slate-600">
+                              <Clock className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
+                              <span className="text-sm text-slate-600 dark:text-gray-300">
                                 {session.duration || '15'}m
                               </span>
                             </div>
                           </td>
                           <td className="px-8 py-5 text-right">
-                            <button
-                              onClick={() => handleViewDetails(session)}
-                              className="inline-flex items-center gap-2 text-[10px] font-black text-primary hover:opacity-80 uppercase tracking-widest bg-primary-50 hover:bg-primary/20 px-4 py-2 rounded-lg transition-all"
-                            >
-                              Open Dossier <ExternalLink className="h-3 w-3" />
-                            </button>
+                            <div className="relative inline-block text-left">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenu(activeMenu === (session.sessionId || session.id) ? null : (session.sessionId || session.id));
+                                }}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-xl transition-all text-gray-400 dark:text-gray-500"
+                              >
+                                <MoreVertical className="h-5 w-5" />
+                              </button>
+
+                              {activeMenu === (session.sessionId || session.id) && (
+                                <>
+                                  <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveMenu(null); }} />
+                                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl z-20 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleViewDetails(session);
+                                        setActiveMenu(null);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                                    >
+                                      <Eye className="h-4 w-4" /> View Details
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditPatient(session);
+                                        setActiveMenu(null);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                                    >
+                                      <Edit2 className="h-4 w-4" /> Edit Patient
+                                    </button>
+                                    <div className="h-px bg-gray-100 dark:bg-white/5 my-1" />
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeletePatientHistory(session);
+                                        setActiveMenu(null);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                    >
+                                      <Trash2 className="h-4 w-4" /> Delete
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -492,71 +594,71 @@ const Patients = () => {
 
       {/* End Session Modal */}
       {isEndModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-            <div className="bg-[#F1F5F9] px-8 py-6 flex items-center justify-between border-b border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/40 dark:bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div className="bg-gray-50 dark:bg-white/5 px-8 py-6 flex items-center justify-between border-b border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-rose-100 rounded-xl">
-                  <Trash2 className="h-5 w-5 text-rose-600" />
+                <div className="p-2.5 bg-red-100 dark:bg-red-500/10 rounded-xl">
+                  <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Finish Session</h3>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Enter patient details</p>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Finish Session</h3>
+                  <p className="text-[11px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Enter patient details</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsEndModalOpen(false)}
-                className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-gray-400 hover:text-slate-900 dark:hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-8 space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-primary-50 rounded-2xl border border-primary/10">
-                <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center border-2 border-primary/20 font-bold text-primary text-lg shadow-sm">
+              <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10">
+                <div className="h-12 w-12 rounded-full bg-white dark:bg-white/5 flex items-center justify-center border-2 border-gray-100 dark:border-white/10 font-bold text-primary dark:text-primary text-lg shadow-sm">
                   {sessionToEnd?.name?.charAt(0)}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{sessionToEnd?.name}</p>
-                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Patient</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{sessionToEnd?.name}</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Patient</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Disease Name</label>
+                  <label className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.2em] pl-1">Disease Name</label>
                   <textarea
                     value={modalDiagnosis}
                     onChange={(e) => setModalDiagnosis(e.target.value)}
                     placeholder="Enter disease or health issue"
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all resize-none h-24"
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-primary transition-all resize-none h-24"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">Extra Notes</label>
+                  <label className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.2em] pl-1">Extra Notes</label>
                   <textarea
                     value={modalNotes}
                     onChange={(e) => setModalNotes(e.target.value)}
                     placeholder="Add any extra details or advice here..."
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all resize-none h-32"
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-primary transition-all resize-none h-32"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-8 py-6 bg-[#F1F5F9] border-t border-slate-200 flex gap-4">
+            <div className="px-8 py-6 bg-gray-50 dark:bg-white/5 border-t border-gray-200 dark:border-white/10 flex gap-4">
               <button
                 onClick={() => setIsEndModalOpen(false)}
-                className="flex-1 px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
+                className="flex-1 px-6 py-4 bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-slate-700 dark:text-white rounded-2xl text-sm font-bold hover:bg-gray-50 dark:hover:bg-white/20 transition-all active:scale-95 shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmEndSession}
                 disabled={isEnding}
-                className="flex-1 px-6 py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-sm font-bold shadow-lg shadow-rose-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isEnding ? (
                   <>

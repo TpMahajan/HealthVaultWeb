@@ -10,6 +10,36 @@ const debugLog = (...args) => {
   if (isDev) console.log(...args);
 };
 
+const isTokenUsable = (token) => {
+  try {
+    const raw = String(token || "").trim();
+    if (!raw) return false;
+    const parts = raw.split(".");
+    if (parts.length < 2) return false;
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padding = "=".repeat((4 - (payloadBase64.length % 4)) % 4);
+    const payload = JSON.parse(atob(`${payloadBase64}${padding}`));
+    if (!payload?.exp) return true;
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
+const decodeTokenPayload = (token) => {
+  try {
+    const raw = String(token || "").trim();
+    if (!raw) return null;
+    const parts = raw.split(".");
+    if (parts.length < 2) return null;
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padding = "=".repeat((4 - (payloadBase64.length % 4)) % 4);
+    return JSON.parse(atob(`${payloadBase64}${padding}`));
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +72,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const flushDoctorSessions = (authToken, reason) => {
-    if (!authToken) return;
+    if (!isTokenUsable(authToken)) {
+      if (isDev) console.log(`AuthContext - Skipping session flush (${reason}): token missing/expired`);
+      return;
+    }
 
     fetch(`${API_BASE}/sessions/end-all-active`, {
       method: "POST",
@@ -91,36 +124,23 @@ export const AuthProvider = ({ children }) => {
 
         debugLog("Restoring auth state");
 
-        if (storedUser && storedToken && storedRole) {
+        if (storedUser && storedRole) {
           const userData = JSON.parse(storedUser);
+          setUser({ ...userData, role: storedRole });
+          setSelectedTimeZone(userData?.preferences?.timezone);
+          debugLog("User restored from cache");
 
-          // Validate token with safe decode before restoring
-          try {
-            const tokenParts = String(storedToken).split(".");
-            if (tokenParts.length < 2) throw new Error("Malformed token");
-            const tokenPayload = JSON.parse(atob(tokenParts[1]));
-            const isExpired = tokenPayload.exp * 1000 < Date.now();
-
-            if (isExpired) {
-              if (storedRole === "doctor") {
-                flushDoctorSessions(storedToken, "token expiry");
-              }
-              debugLog("Token expired; clearing auth data");
-              clearSecureAuthSession();
-            } else {
-              setUser({ ...userData, role: storedRole });
-              setSelectedTimeZone(userData?.preferences?.timezone);
-              debugLog("User restored from cache");
-            }
-          } catch (tokenError) {
-            if (isDev) console.error("Invalid token format; clearing auth data");
-            clearSecureAuthSession();
+          const tokenPayload = decodeTokenPayload(storedToken);
+          if (!tokenPayload && storedToken) {
+            debugLog("Token payload decode failed during restore; preserving stored session.");
+          } else if (tokenPayload?.exp && tokenPayload.exp * 1000 <= Date.now()) {
+            debugLog("Cached token appears expired; preserving session until API validation.");
           }
         }
       } catch (error) {
-        if (isDev) console.error("Error restoring auth state", error);
-        // Clear corrupted data
-        clearSecureAuthSession();
+        if (isDev) {
+          console.error("Error restoring auth state; keeping stored session unchanged", error);
+        }
       } finally {
         setIsLoading(false);
         debugLog("Auth restoration complete");
@@ -133,21 +153,49 @@ export const AuthProvider = ({ children }) => {
   // Doctor login
   const login = async (email, password) => {
     try {
-      const res = await fetch(`${DOCTOR_API_BASE}/login`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+      const rawPassword = String(password ?? "");
+      if (!normalizedEmail || !rawPassword) {
+        throw new Error("Email and password are required.");
+      }
 
-      const data = await res.json();
+      const loginRequest = async (passwordToTry) => {
+        const res = await fetch(`${DOCTOR_API_BASE}/login`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail, password: passwordToTry }),
+        });
 
-      if (!res.ok) throw new Error(data?.message || "Login failed");
+        let data = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+
+        return { ok: res.ok, status: res.status, data };
+      };
+
+      let loginResult = await loginRequest(rawPassword);
+      if (
+        !loginResult.ok &&
+        loginResult.status === 401 &&
+        rawPassword !== rawPassword.trim()
+      ) {
+        loginResult = await loginRequest(rawPassword.trim());
+      }
+
+      if (!loginResult.ok) {
+        throw new Error(loginResult.data?.message || "Login failed");
+      }
+
+      const data = loginResult.data;
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.doctor));
       localStorage.setItem("role", "doctor");
-      setUser(data.doctor);
+      setUser({ ...data.doctor, role: "doctor" });
       setSelectedTimeZone(data?.doctor?.preferences?.timezone);
 
       // Register FCM token after successful login

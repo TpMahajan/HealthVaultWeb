@@ -10,6 +10,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const isDoctor = user?.role !== 'patient';
 
   const navigationItems = user?.role === 'patient'
     ? [
@@ -62,9 +63,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
       <button
         key={item.name}
         onClick={() => navigate(item.href)}
-        className={`relative w-full flex items-center ${isCollapsed ? 'justify-center mx-auto' : 'space-x-4'} px-4 py-4 rounded-2xl transition-all duration-500 group overflow-hidden ${isActive
+        className={`relative w-full flex items-center ${isCollapsed ? 'justify-center mx-auto' : 'space-x-4'} px-4 py-4 rounded-2xl transition-all duration-200 group overflow-hidden ${isActive
           ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary'
-          : 'text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-white hover:bg-primary/5 dark:hover:bg-white/10'
+          : 'text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-white hover:bg-primary/5 hover:bg-white/10 dark:hover:bg-white/10'
           }`}
       >
         {isActive && (
@@ -77,14 +78,6 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
           </span>
         )}
 
-        {/* Collapsed Sidebar Tooltip */}
-        {isCollapsed && (
-          <div className="absolute left-full ml-4 px-3 py-2 bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-bold uppercase tracking-widest rounded-xl opacity-0 translate-x-[-10px] pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 z-[100] shadow-2xl border border-white/10 whitespace-nowrap">
-            {item.name}
-            {/* Arrow */}
-            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-slate-900 dark:border-r-slate-800" />
-          </div>
-        )}
       </button>
     );
   };
@@ -97,13 +90,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
           {isCollapsed ? (
             <button
               onClick={() => setIsCollapsed(false)}
-              className="group/toggle relative p-2.5 text-slate-400 hover:text-primary hover:bg-primary/5 dark:hover:bg-white/5 rounded-xl transition-all"
+              className="group/toggle relative p-2.5 text-slate-400 hover:text-primary hover:bg-white/10 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
             >
               <Menu className="h-6 w-6" />
-              <div className="absolute left-full ml-4 px-3 py-2 bg-slate-900 dark:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl opacity-0 translate-x-[-10px] pointer-events-none group-hover/toggle:opacity-100 group-hover/toggle:translate-x-0 transition-all duration-300 z-[100] shadow-2xl border border-white/10 whitespace-nowrap">
-                Open Sidebar
-                <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-slate-900 dark:border-r-slate-800" />
-              </div>
             </button>
           ) : (
             <>
@@ -118,12 +107,9 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
               </span>
               <button
                 onClick={() => setIsCollapsed(true)}
-                className="group/toggle relative p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all"
+                className="group/toggle relative p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white/10 dark:hover:bg-white/10 rounded-xl transition-all duration-200"
               >
                 <X className="h-5 w-5" />
-                <div className="absolute top-full right-0 mt-2 px-3 py-2 bg-slate-900 dark:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-widest rounded-xl opacity-0 translate-y-[-10px] pointer-events-none group-hover/toggle:opacity-100 group-hover/toggle:translate-y-0 transition-all duration-300 z-[100] shadow-2xl border border-white/10 whitespace-nowrap">
-                  Close Sidebar
-                </div>
               </button>
             </>
           )}
@@ -136,13 +122,13 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
         <div className="p-4 border-t border-gray-100 dark:border-white/5">
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} p-3 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-all duration-300 group/profile`}>
             <div className="relative cursor-pointer shrink-0" onClick={() => navigate('/profile')}>
-              <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/profile:bg-blue-50 dark:group-hover/profile:bg-blue-500/10 group-hover/profile:text-blue-600 transition-all duration-300">
+              <div className={`h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 transition-all duration-300 ${isDoctor ? 'group-hover/profile:bg-primary/10 group-hover/profile:text-primary dark:group-hover/profile:bg-primary/20' : 'group-hover/profile:bg-blue-50 dark:group-hover/profile:bg-blue-500/10 group-hover/profile:text-blue-600'}`}>
                 <UserCircle className="h-6 w-6" />
               </div>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 cursor-pointer overflow-hidden transition-all duration-500" onClick={() => navigate('/profile')}>
-                <p className="text-sm font-medium tracking-inter text-slate-900 dark:text-white truncate group-hover/profile:text-blue-600 transition-colors">{user?.name || 'User'}</p>
+                <p className={`text-sm font-medium tracking-inter text-slate-900 dark:text-white truncate transition-colors ${isDoctor ? 'group-hover/profile:text-primary' : 'group-hover/profile:text-blue-600'}`}>{user?.name || 'User'}</p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 font-medium uppercase tracking-inter tracking-wider">{user?.role === 'patient' ? 'Patient' : 'Specialist'}</p>
               </div>
             )}
@@ -163,7 +149,12 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-gray-100 dark:border-white/5 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <div
+                className="h-9 w-9 rounded-xl flex items-center justify-center shadow-lg"
+                style={isDoctor
+                  ? { background: 'var(--primary-gradient)', boxShadow: '0 8px 22px color-mix(in srgb, var(--primary-color) 26%, var(--secondary-color) 26%, transparent)' }
+                  : { background: 'linear-gradient(to bottom right, #3b82f6, #4f46e5)' }}
+              >
                 <Shield className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Medical Vault</span>

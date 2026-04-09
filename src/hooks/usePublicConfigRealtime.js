@@ -2,6 +2,9 @@ import { useEffect, useRef } from "react";
 import { API_BASE } from "../constants/api";
 
 const RECONNECT_DELAY_MS = 4000;
+const MAX_RECONNECT_DELAY_MS = 60000;
+const RECONNECT_BACKOFF_MULTIPLIER = 1.8;
+const COOLDOWN_AFTER_FAILURES = 8;
 
 const toList = (value) => {
   if (Array.isArray(value)) return value;
@@ -35,6 +38,14 @@ const buildSocketUrl = ({ platform, surface }) => {
   return url.toString();
 };
 
+const getReconnectDelay = (attempt) => {
+  if (attempt <= 1) return RECONNECT_DELAY_MS;
+  const exponentialDelay =
+    RECONNECT_DELAY_MS *
+    Math.pow(RECONNECT_BACKOFF_MULTIPLIER, Math.max(0, attempt - 1));
+  return Math.min(Math.round(exponentialDelay), MAX_RECONNECT_DELAY_MS);
+};
+
 export const usePublicConfigRealtime = ({
   platform = "WEB",
   surface = "",
@@ -43,6 +54,7 @@ export const usePublicConfigRealtime = ({
 }) => {
   const onEventRef = useRef(onEvent);
   const reconnectTimerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
 
   useEffect(() => {
     onEventRef.current = onEvent;
@@ -53,9 +65,31 @@ export const usePublicConfigRealtime = ({
     let socket = null;
     let closedByUser = false;
 
+    const scheduleReconnect = () => {
+      if (closedByUser) return;
+      const nextAttempt = reconnectAttemptRef.current + 1;
+      reconnectAttemptRef.current = nextAttempt;
+      const inCooldownWindow = nextAttempt >= COOLDOWN_AFTER_FAILURES;
+      const delay = inCooldownWindow
+        ? MAX_RECONNECT_DELAY_MS
+        : getReconnectDelay(nextAttempt);
+      if (inCooldownWindow) {
+        reconnectAttemptRef.current = 0;
+      }
+      reconnectTimerRef.current = window.setTimeout(connect, delay);
+    };
+
     const connect = () => {
       if (closedByUser) return;
-      socket = new WebSocket(buildSocketUrl({ platform, surface }));
+      try {
+        socket = new WebSocket(buildSocketUrl({ platform, surface }));
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      socket.onopen = () => {
+        reconnectAttemptRef.current = 0;
+      };
 
       socket.onmessage = (event) => {
         let payload = null;
@@ -87,10 +121,7 @@ export const usePublicConfigRealtime = ({
 
       socket.onclose = () => {
         if (closedByUser) return;
-        reconnectTimerRef.current = window.setTimeout(
-          connect,
-          RECONNECT_DELAY_MS
-        );
+        scheduleReconnect();
       };
     };
 
@@ -101,7 +132,11 @@ export const usePublicConfigRealtime = ({
       if (reconnectTimerRef.current) {
         window.clearTimeout(reconnectTimerRef.current);
       }
-      if (socket && socket.readyState === WebSocket.OPEN) {
+      if (
+        socket &&
+        (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
+      ) {
         socket.close();
       }
     };

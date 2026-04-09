@@ -2,8 +2,6 @@ import React, { useRef, useState } from 'react';
 import { 
   X, 
   Calendar, 
-  Clock, 
-  User, 
   AlertCircle,
   CheckCircle,
   Loader
@@ -26,7 +24,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const formRef = useRef(null);
+  const submitInFlightRef = useRef(false);
 
   if (!isOpen) return null;
 
@@ -45,7 +43,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
 
   const handleSubmit = async (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    if (creating) {
+    if (creating || submitInFlightRef.current) {
       console.log('⏳ Submission already in progress, ignoring duplicate click');
       return;
     }
@@ -79,6 +77,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
       }
     }
 
+    submitInFlightRef.current = true;
     setCreating(true);
     setError(null);
     setSuccess(null);
@@ -191,6 +190,7 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
     } catch (err) {
       setError(err.message || 'Failed to create appointment');
     } finally {
+      submitInFlightRef.current = false;
       setCreating(false);
     }
   };
@@ -210,119 +210,124 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
   const timeSlots = generateTimeSlots();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[98vh] sm:max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-5">
+      <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[5px]" />
+      <div className="relative z-[1000] w-[92%] max-w-[640px] max-h-[90vh] overflow-hidden bg-[#F8FAFC] dark:bg-[#1F1F1F] rounded-[16px] border border-gray-200 dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.3)] animate-in fade-in zoom-in-95 duration-200 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm md:text-lg flex-shrink-0">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-white/10 bg-[#F8FAFC] dark:bg-[#1F1F1F] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="h-11 w-11 bg-primary/10 dark:bg-primary/20 rounded-full border border-primary/20 dark:border-primary/30 flex items-center justify-center text-primary font-bold text-base flex-shrink-0">
               {patient.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">
+              <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white truncate tracking-tight">
                 Schedule Appointment
               </h2>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 {patient.name}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400" />
+            <X className="h-5 w-5 text-slate-500 dark:text-slate-400" />
           </button>
         </div>
 
         {/* Form */}
-        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
           {/* Info Box */}
-          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-green-800 dark:text-green-200 font-medium">
+          <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-primary rounded-full"></div>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 Appointment will be saved to MongoDB database
               </span>
             </div>
           </div>
-          {/* Appointment Date */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-              Appointment Date *
-            </label>
-            <input
-              type="date"
-              name="appointmentDate"
-              value={formData.appointmentDate}
-              onChange={handleInputChange}
-              min={getCurrentDateInSelectedTimeZone()}
-              className="w-full px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring"
-              required
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Appointment Date */}
+            <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                Appointment Date *
+              </label>
+              <input
+                type="date"
+                name="appointmentDate"
+                value={formData.appointmentDate}
+                onChange={handleInputChange}
+                min={getCurrentDateInSelectedTimeZone()}
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                required
+              />
+            </div>
+
+            {/* Appointment Time */}
+            <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                Appointment Time *
+              </label>
+              <select
+                name="appointmentTime"
+                value={formData.appointmentTime}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                required
+              >
+                <option value="">Select time</option>
+                {timeSlots.map(time => (
+                  <option key={time} value={time}>{time}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Appointment Time */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-              Appointment Time *
-            </label>
-            <select
-              name="appointmentTime"
-              value={formData.appointmentTime}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring"
-              required
-            >
-              <option value="">Select time</option>
-              {timeSlots.map(time => (
-                <option key={time} value={time}>{time}</option>
-              ))}
-            </select>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Duration */}
+            <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                Duration (minutes)
+              </label>
+              <select
+                name="duration"
+                value={formData.duration}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              >
+                <option value={15}>15 minutes</option>
+                <option value={30}>30 minutes</option>
+                <option value={45}>45 minutes</option>
+                <option value={60}>60 minutes</option>
+                <option value={90}>90 minutes</option>
+                <option value={120}>120 minutes</option>
+              </select>
+            </div>
 
-          {/* Duration */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-              Duration (minutes)
-            </label>
-            <select
-              name="duration"
-              value={formData.duration}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring"
-            >
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={45}>45 minutes</option>
-              <option value={60}>60 minutes</option>
-              <option value={90}>90 minutes</option>
-              <option value={120}>120 minutes</option>
-            </select>
-          </div>
-
-          {/* Appointment Type */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-              Appointment Type
-            </label>
-            <select
-              name="appointmentType"
-              value={formData.appointmentType}
-              onChange={handleInputChange}
-              className="w-full px-4 py-2.5 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring"
-            >
-              <option value="consultation">Consultation</option>
-              <option value="follow-up">Follow-up</option>
-              <option value="emergency">Emergency</option>
-              <option value="routine">Routine Checkup</option>
-              <option value="specialist">Specialist Visit</option>
-            </select>
+            {/* Appointment Type */}
+            <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                Appointment Type
+              </label>
+              <select
+                name="appointmentType"
+                value={formData.appointmentType}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              >
+                <option value="consultation">Consultation</option>
+                <option value="follow-up">Follow-up</option>
+                <option value="emergency">Emergency</option>
+                <option value="routine">Routine Checkup</option>
+                <option value="specialist">Specialist Visit</option>
+              </select>
+            </div>
           </div>
 
           {/* Reason */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+          <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
               Reason for Visit *
             </label>
             <textarea
@@ -331,14 +336,14 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
               onChange={handleInputChange}
               placeholder="Describe the reason for this appointment..."
               rows={3}
-              className="w-full px-4 py-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring resize-none"
+              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
               required
             />
           </div>
 
           {/* Notes */}
-          <div>
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+          <div className="p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-[16px] shadow-sm space-y-2">
+            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
               Additional Notes (Optional)
             </label>
             <textarea
@@ -347,13 +352,13 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
               onChange={handleInputChange}
               placeholder="Any additional information or special requirements..."
               rows={2}
-              className="w-full px-4 py-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 doctor-focus-ring resize-none"
+              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-medium text-slate-700 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
             />
           </div>
 
           {/* Error/Success Messages */}
           {(error || success) && (
-            <div className={`p-3 rounded-lg flex items-center space-x-2 ${
+            <div className={`p-3 rounded-xl flex items-center space-x-2 border ${
               error 
                 ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800' 
                 : 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800'
@@ -374,36 +379,30 @@ const AppointmentModal = ({ isOpen, onClose, patient, onAppointmentCreated }) =>
           )}
 
           {/* Actions - Inside Form */}
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-2 sm:pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
+          <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-white/10 mt-4">
             <button
               type="submit"
               disabled={creating || !formData.appointmentDate || !formData.appointmentTime || !formData.reason.trim()}
-              onClick={() => {
-                console.log('🖱️ Create & Save clicked');
-                if (formRef.current && typeof formRef.current.requestSubmit === 'function') {
-                  try { formRef.current.requestSubmit(); } catch {}
-                }
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+              className="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-teal-500 text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg shadow-primary/20 active:scale-95"
             >
               {creating ? (
                 <>
-                  <Loader className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" />
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  <Calendar className="h-4 w-4 mr-2" />
                   Create Appointment
                 </>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full px-6 py-3 border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-300"
+            >
+              Cancel
             </button>
           </div>
         </form>

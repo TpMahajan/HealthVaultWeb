@@ -51,9 +51,16 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
       }
       
       // Validate file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
       if (!allowedTypes.includes(file.type)) {
-        setError('Invalid file type. Only PDF, images, Word docs, and text files are allowed.');
+        setError('Invalid file type. Only PDF, JPEG/PNG/WebP images, and Word documents are allowed.');
         return;
       }
 
@@ -81,7 +88,11 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
       return;
     }
 
-    if (!patient || !patient.id) {
+    const resolvedPatientId = String(
+      patient?.id || patient?._id || patient?.userId || patient?.patientId || ''
+    ).trim();
+
+    if (!resolvedPatientId) {
       console.log('❌ No patient information');
       setError('Patient information is missing');
       return;
@@ -100,7 +111,8 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
       const uploadData = new FormData();
       uploadData.append('file', selectedFile);
-      uploadData.append('userId', patient.id);
+      uploadData.append('userId', resolvedPatientId);
+      uploadData.append('patientId', resolvedPatientId);
       uploadData.append('title', formData.title);
       uploadData.append('category', formData.category);
       uploadData.append('notes', formData.description);
@@ -108,7 +120,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
       console.log('📤 Upload data prepared:', {
         file: selectedFile.name,
-        userId: patient.id,
+        userId: resolvedPatientId,
         title: formData.title,
         category: formData.category,
         notes: formData.description
@@ -159,7 +171,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
       if (data.success) {
         console.log('✅ Upload successful!');
-        setSuccess('✅ Document uploaded to S3 and saved to MongoDB successfully!');
+        setSuccess('✅ Document uploaded and saved successfully!');
         setFormData({ title: '', category: 'Report', description: '' });
         setSelectedFile(null);
         
@@ -175,7 +187,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
         }, 3000);
       } else {
         console.log('❌ Upload failed:', data.message);
-        setError(data.message || 'Failed to upload document');
+        setError(data.message || data.msg || data.error || 'Failed to upload document');
       }
     } catch (err) {
       console.error('💥 Upload error:', err);
@@ -218,9 +230,6 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
                 {patient.name} • {patient.patientId}
               </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 hidden sm:block">
-                📁 Files will be stored in S3 & MongoDB
-              </p>
             </div>
           </div>
           <button
@@ -233,15 +242,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Info Box */}
-          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                Document will be uploaded to S3 and metadata saved to MongoDB
-              </span>
-            </div>
-          </div>
+
           {/* File Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -251,7 +252,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
               <input
                 type="file"
                 onChange={handleFileChange}
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.txt"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
                 className="hidden"
                 id="file-upload"
               />

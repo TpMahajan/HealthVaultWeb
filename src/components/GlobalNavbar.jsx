@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Menu, Bell, BellRing, User, UserCircle, Settings, LogOut,
-  Sun, Moon, ChevronDown, Shield
+  Sun, Moon, ChevronDown, Shield, LayoutDashboard, UserCheck,
+  Users, MessageSquare, QrCode, FolderHeart, History, ScanLine
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -25,15 +26,40 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
   const location = useLocation();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
   const { pathname } = useLocation();
+
+  const resolveUserAvatar = (profile) => {
+    const rawAvatar = String(
+      profile?.avatar ||
+      profile?.avatarUrl ||
+      profile?.profileImage ||
+      profile?.profilePicture ||
+      ""
+    ).trim();
+    if (!rawAvatar) return "";
+    if (/^(https?:)?\/\//i.test(rawAvatar) || rawAvatar.startsWith("data:")) {
+      return rawAvatar;
+    }
+    if (rawAvatar.startsWith("/uploads/")) return `http://localhost:5000${rawAvatar}`;
+    if (rawAvatar.startsWith("uploads/")) return `http://localhost:5000/${rawAvatar}`;
+    if (rawAvatar.startsWith("/")) return `http://localhost:5000${rawAvatar}`;
+    return `http://localhost:5000/uploads/${rawAvatar}`;
+  };
+
+  const navbarAvatarSrc = resolveUserAvatar(user);
 
   // Close menus when route changes
   useEffect(() => {
     setNotificationsOpen(false);
     setProfileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [navbarAvatarSrc]);
 
   // Click outside functionality - Detects click on document
   useEffect(() => {
@@ -75,6 +101,22 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
     if (path === '/history') return 'Session History';
     if (path.startsWith('/patient-details')) return 'Patient Details';
     return 'Medical Vault';
+  };
+
+  const getPageIcon = () => {
+    const path = location.pathname;
+    const cls = 'h-[15px] w-[15px] shrink-0';
+    if (path === '/dashboard') return <LayoutDashboard className={cls} />;
+    if (path === '/patients') return <UserCheck className={cls} />;
+    if (path === '/all-patients') return <Users className={cls} />;
+    if (path === '/messages') return <MessageSquare className={cls} />;
+    if (path === '/scan') return <QrCode className={cls} />;
+    if (path === '/vault') return <FolderHeart className={cls} />;
+    if (path === '/profile') return <User className={cls} />;
+    if (path === '/settings') return <Settings className={cls} />;
+    if (path === '/history') return <History className={cls} />;
+    if (path.startsWith('/patient-details')) return <UserCheck className={cls} />;
+    return <LayoutDashboard className={cls} />;
   };
 
   const resolveNotificationTarget = (notification) => {
@@ -170,45 +212,117 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight ml-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+        <div
+          className="group flex items-center gap-2 px-4 py-2 rounded-[14px] border transition-all duration-300 ease-in-out
+            bg-white/50 dark:bg-white/[0.06]
+            border-white/60 dark:border-white/[0.12]
+            shadow-[0_4px_20px_rgba(0,0,0,0.06)] hover:shadow-[0_6px_28px_rgba(0,0,0,0.12)]
+            backdrop-blur-[12px]"
+          style={{ display: 'inline-flex', alignItems: 'center' }}
+        >
+          <span className="text-slate-400 dark:text-white/40 transition-colors duration-300 group-hover:text-slate-500 dark:group-hover:text-white/60">
+            {getPageIcon()}
+          </span>
+          <h1
+            className="text-[15px] font-semibold tracking-tight text-slate-800 dark:text-white leading-none"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+          >
             {getPageTitle()}
           </h1>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Theme Toggle */}
+      {/* ── Navbar chip animations ── */}
+      <style>{`
+        @keyframes chip-glow {
+          0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.45); }
+          50%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+          100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+        }
+        @keyframes bell-shake {
+          0%,100% { transform: rotate(0deg); }
+          15%     { transform: rotate(-18deg); }
+          30%     { transform: rotate(16deg); }
+          45%     { transform: rotate(-12deg); }
+          60%     { transform: rotate(10deg); }
+          75%     { transform: rotate(-6deg); }
+          90%     { transform: rotate(4deg); }
+        }
+        @keyframes sun-spin {
+          from { transform: rotate(0deg) scale(1); }
+          50%  { transform: rotate(200deg) scale(1.25); }
+          to   { transform: rotate(360deg) scale(1); }
+        }
+        @keyframes moon-bounce {
+          0%,100% { transform: translateY(0) scale(1); }
+          40%     { transform: translateY(-4px) scale(1.15); }
+          70%     { transform: translateY(2px) scale(0.95); }
+        }
+        .chip-btn:active { animation: chip-glow 0.4s ease-out forwards; }
+        .bell-icon       { animation: bell-shake 0.6s ease-in-out; }
+        .sun-icon:active { animation: sun-spin 0.55s ease-in-out; }
+        .dark .chip-dark-visible {
+          background: rgba(255,255,255,0.10) !important;
+          border-color: rgba(255,255,255,0.22) !important;
+        }
+      `}</style>
+
+      {/* ── Right section: 3 separate glass chips ── */}
+      <div className="flex items-center gap-3">
+        {/* Theme Toggle — glass chip */}
         <button
           onClick={toggleTheme}
-          className="w-10 h-10 flex items-center justify-center bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 rounded-[12px] text-[#1F2937] dark:text-[#E4E8EE] hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300 ease-out hover:scale-105 hover:shadow-lg hover:shadow-[#BFEFFF]/30 active:scale-95 relative group"
-          title={isDark ? 'Light Mode' : 'Dark Mode'}
+          aria-label={isDark ? 'Light Mode' : 'Dark Mode'}
+          className="chip-btn relative group inline-flex items-center justify-center w-10 h-10 rounded-[12px]
+            bg-white/60 dark:bg-white/[0.10]
+            border border-slate-200/80 dark:border-white/[0.22]
+            shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]
+            backdrop-blur-[10px]
+            transition-all duration-[250ms] ease-out
+            hover:-translate-y-[3px] hover:scale-[1.06]
+            hover:shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]
+            hover:bg-white/80 dark:hover:bg-white/[0.16]
+            hover:border-slate-300 dark:hover:border-white/[0.35]
+            active:scale-95 active:translate-y-0"
         >
-          <div className="relative z-10 transition-transform duration-500 group-hover:rotate-12">
-            {isDark ? (
-              <Sun key="sun" className="h-5 w-5 text-amber-500" />
-            ) : (
-              <Moon key="moon" className="h-5 w-5 text-[#2E2E2E]" />
-            )}
-          </div>
+          {isDark ? (
+            <Sun
+              key="sun"
+              className="h-5 w-5 text-amber-400 transition-transform duration-500 group-hover:rotate-[30deg] group-active:rotate-180"
+            />
+          ) : (
+            <Moon
+              key="moon"
+              className="h-5 w-5 text-slate-600 transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110"
+            />
+          )}
         </button>
 
         {/* Notification Center */}
+        {/* Notification Bell — glass chip */}
         <div className="relative" ref={notificationRef}>
           <button
             onClick={() => {
               setNotificationsOpen(!notificationsOpen);
               setProfileOpen(false);
             }}
-            className={`w-10 h-10 flex items-center justify-center rounded-[12px] bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 transition-all duration-300 ease-out hover:bg-white/90 dark:hover:bg-white/10 hover:scale-105 hover:shadow-lg hover:shadow-[#BFEFFF]/30 active:scale-95 group relative ${notificationsOpen
-              ? 'ring-2 ring-[#BFEFFF]/60 bg-white/90 shadow-inner'
-              : ''
-              }`}
+            className={`chip-btn relative group inline-flex items-center justify-center w-10 h-10 rounded-[12px]
+              bg-white/60 dark:bg-white/[0.10]
+              border border-slate-200/80 dark:border-white/[0.22]
+              shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]
+              backdrop-blur-[10px]
+              transition-all duration-[250ms] ease-out
+              hover:-translate-y-[3px] hover:scale-[1.06]
+              hover:shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]
+              hover:bg-white/80 dark:hover:bg-white/[0.16]
+              hover:border-slate-300 dark:hover:border-white/[0.35]
+              active:scale-95 active:translate-y-0
+              ${notificationsOpen ? 'bg-white/80 dark:bg-white/[0.16] border-slate-300 dark:border-white/[0.35] shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] -translate-y-[2px]' : ''}`}
           >
-            <BellRing className={`h-5 w-5 transition-colors duration-300 ${unreadCount > 0
-              ? 'text-[#2E2E2E] animate-pulse'
-              : 'text-[#1F2937] dark:text-[#E4E8EE]'
-              }`} />
+            <BellRing className={`h-5 w-5 transition-all duration-300
+              group-hover:scale-110
+              ${unreadCount > 0 ? 'text-[#2E2E2E] dark:text-white bell-icon' : 'text-[#1F2937] dark:text-[#E4E8EE]'}
+              `} />
             {highlightedNotificationIds.length > 0 && (
               <span className="absolute inset-0 rounded-[12px] ring-2 ring-rose-400/60 animate-pulse pointer-events-none" />
             )}
@@ -222,7 +336,7 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 mt-4 w-[320px] bg-white/95 dark:bg-[#1A1C23]/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[16px] shadow-xl z-[70] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-300 transform-gpu origin-top-right">
+            <div className="absolute right-0 mt-4 w-[320px] bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/10 rounded-[16px] shadow-xl dark:shadow-black/60 z-[70] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-300 transform-gpu origin-top-right">
               <style>
                 {`
                   .notif-scrollbar::-webkit-scrollbar {
@@ -241,9 +355,9 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                 `}
               </style>
 
-              <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex justify-between items-baseline bg-gray-50/30 dark:bg-white/[0.02]">
+              <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 flex justify-between items-baseline bg-gray-50/30 dark:bg-[#1e1e1e]">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[13px] font-bold text-[#1F2937] dark:text-[#1F2937] uppercase tracking-wider">Notifications</h3>
+                  <h3 className="text-[13px] font-bold text-[#1F2937] dark:text-white uppercase tracking-wider">Notifications</h3>
                   {unreadCount > 0 && (
                     <span className="px-2 py-0.5 bg-[#EEF3F7] dark:bg-[#EEF3F7]/20 text-[#2E2E2E] text-[10px] font-bold rounded-full">
                       {unreadCount}
@@ -253,13 +367,13 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                 <div className="flex items-center gap-3">
                   <button
                     onClick={markAllAsRead}
-                    className="text-[10px] font-bold text-[#1F2937] hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wider"
+                    className="text-[10px] font-bold text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wider"
                   >
                     Mark Read
                   </button>
                   <button
                     onClick={clearAllNotifications}
-                    className="text-[10px] font-bold text-[#1F2937] hover:text-rose-500 dark:hover:text-rose-400 transition-colors uppercase tracking-wider"
+                    className="text-[10px] font-bold text-gray-500 dark:text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors uppercase tracking-wider"
                   >
                     Clear All
                   </button>
@@ -270,10 +384,10 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                 {notifications.length === 0 ? (
                   <div className="py-20 text-center px-6">
                     <div className="h-12 w-12 bg-[#EEF3F7] dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BellRing className="h-6 w-6 text-[#E4E8EE] dark:text-[#1F2937]" />
+                      <BellRing className="h-6 w-6 text-gray-300 dark:text-gray-600" />
                     </div>
-                    <p className="text-sm font-semibold text-[#1F2937] dark:text-[#1F2937] mb-1">No new notifications</p>
-                    <p className="text-[12px] text-[#1F2937] dark:text-[#E4E8EE]">You're all caught up!</p>
+                    <p className="text-sm font-semibold text-[#1F2937] dark:text-white mb-1">No new notifications</p>
+                    <p className="text-[12px] text-gray-500 dark:text-gray-500">You're all caught up!</p>
                   </div>
                 ) : (
                   notifications.map((n) => {
@@ -326,7 +440,7 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
                               <p className={`text-[13px] font-bold leading-tight truncate ${!n.read ? 'text-[#1F2937] dark:text-white' : 'text-[#1F2937] dark:text-[#E4E8EE]'}`}>
                                 {n.title}
                               </p>
-                              <span className="text-[10px] font-bold text-[#1F2937] dark:text-[#1F2937] uppercase ml-2 shrink-0">
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase ml-2 shrink-0">
                                 {formatTime(n.createdAt)}
                               </span>
                             </div>
@@ -349,24 +463,36 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
           )}
         </div>
 
-        {/* Profile Context */}
+        {/* Profile — glass chip */}
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => {
               setProfileOpen(!profileOpen);
               setNotificationsOpen(false);
             }}
-            className={`flex items-center gap-3 p-1 rounded-[16px] bg-white/70 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 transition-all duration-300 ease-out hover:bg-white/90 dark:hover:bg-white/10 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] group ${profileOpen
-              ? 'ring-2 ring-[#BFEFFF]/60 bg-white/90 shadow-inner'
-              : ''
-              }`}
-            style={{ paddingRight: '1rem' }}
+            className={`chip-btn group inline-flex items-center gap-2.5 px-3 py-2 rounded-[12px]
+              bg-white/60 dark:bg-white/[0.10]
+              border border-slate-200/80 dark:border-white/[0.22]
+              shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]
+              backdrop-blur-[10px]
+              transition-all duration-[250ms] ease-out
+              hover:-translate-y-[3px] hover:scale-[1.03]
+              hover:shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.5)]
+              hover:bg-white/80 dark:hover:bg-white/[0.16]
+              hover:border-slate-300 dark:hover:border-white/[0.35]
+              active:scale-95 active:translate-y-0
+              ${profileOpen ? 'bg-white/80 dark:bg-white/[0.16] border-slate-300 dark:border-white/[0.35] shadow-[0_8px_24px_rgba(0,0,0,0.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5)] -translate-y-[2px]' : ''}`}
           >
             {/* Circular Avatar (40px) */}
             <div className="h-10 w-10 rounded-full bg-[#EEF3F7] dark:bg-[#1A1C23] flex items-center justify-center p-[2px] shadow-sm transition-transform duration-300 group-hover:scale-105 border border-[#E4E8EE] dark:border-white/10">
               <div className="h-full w-full rounded-full overflow-hidden flex items-center justify-center">
-                {user?.avatar || user?.avatarUrl ? (
-                  <img src={user.avatar || user.avatarUrl} alt="" className="h-full w-full object-cover" />
+                {navbarAvatarSrc && !avatarLoadFailed ? (
+                  <img
+                    src={navbarAvatarSrc}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center bg-[#BFEFFF]/30">
                     <User className="h-5 w-5 text-[#1F2937]" />
@@ -377,7 +503,7 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
 
             {/* User Info */}
             <div className="hidden lg:block text-left">
-              <p className="text-sm font-semibold text-[#1F2937] dark:text-[#1F2937] leading-none tracking-tight">
+              <p className="text-sm font-semibold text-[#1F2937] dark:text-white leading-none tracking-tight">
                 {user?.name?.split(' ')[0] || 'User'}
               </p>
               <div className="flex items-center gap-1.5 mt-1.5">
@@ -393,36 +519,39 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 mt-4 w-60 bg-white/95 dark:bg-[#1A1C23]/95 backdrop-blur-xl border border-[#E4E8EE] dark:border-white/10 rounded-3xl shadow-2xl z-[70] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-300 transform-gpu origin-top-right">
-              <div className="p-5 border-b border-[#E4E8EE] dark:border-white/5 bg-[#EEF3F7] dark:bg-white/[0.02]">
+            <div className="absolute right-0 mt-4 w-60 bg-white dark:bg-[#141414] border border-[#E4E8EE] dark:border-white/10 rounded-3xl shadow-2xl dark:shadow-black/60 z-[70] overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-300 transform-gpu origin-top-right">
+              {/* Header */}
+              <div className="p-5 border-b border-[#E4E8EE] dark:border-white/5 bg-[#EEF3F7] dark:bg-[#1e1e1e]">
                 <div className="flex flex-col">
-                  <span className="text-[13px] font-black text-[#1F2937] dark:text-[#1F2937] uppercase tracking-tight truncate">
+                  <span className="text-[13px] font-black text-[#1F2937] dark:text-white uppercase tracking-tight truncate">
                     {user?.name}
                   </span>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <Shield className="h-3 w-3 text-[#2F9E6F]" />
-                    <span className="text-[10px] font-bold text-[#1F2937] dark:text-[#E4E8EE] uppercase tracking-widest opacity-80">
+                    <Shield className="h-3 w-3 text-[#2F9E6F] dark:text-emerald-400" />
+                    <span className="text-[10px] font-bold text-[#64748B] dark:text-gray-400 uppercase tracking-widest">
                       {user?.role === 'patient' ? 'Verified Patient' : (user?.specialty || 'Medical Professional')}
                     </span>
                   </div>
                 </div>
               </div>
+              {/* Menu Items */}
               <div className="p-2.5">
-                <Link to="/profile" onClick={() => setProfileOpen(false)} className="flex items-center px-4 py-3 text-[11px] font-bold text-[#1F2937] dark:text-[#E4E8EE] hover:text-[#2E2E2E] hover:bg-[#EEF3F7] dark:hover:bg-[#2F9E6F]/40 rounded-2xl transition-all uppercase tracking-wider group">
-                  <UserCircle className="h-4 w-4 mr-3 text-[#1F2937] group-hover:text-[#2F9E6F] transition-all duration-300 group-hover:scale-110" />
+                <Link to="/profile" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-[11px] font-bold text-[#1F2937] dark:text-gray-300 hover:text-[#2E2E2E] dark:hover:text-white hover:bg-[#EEF3F7] dark:hover:bg-white/5 rounded-2xl transition-all duration-200 uppercase tracking-wider group">
+                  <UserCircle className="h-4 w-4 text-[#64748B] dark:text-gray-400 group-hover:text-[#2F9E6F] dark:group-hover:text-white transition-all duration-200 group-hover:scale-110" />
                   My Profile
                 </Link>
-                <Link to="/settings" onClick={() => setProfileOpen(false)} className="flex items-center px-4 py-3 text-[11px] font-bold text-[#1F2937] dark:text-[#E4E8EE] hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-2xl transition-all uppercase tracking-wider group">
-                  <Settings className="h-4 w-4 mr-3 text-[#1F2937] group-hover:text-indigo-500 transition-all duration-300 group-hover:scale-110" />
+                <Link to="/settings" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-[11px] font-bold text-[#1F2937] dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white hover:bg-indigo-50 dark:hover:bg-white/5 rounded-2xl transition-all duration-200 uppercase tracking-wider group">
+                  <Settings className="h-4 w-4 text-[#64748B] dark:text-gray-400 group-hover:text-indigo-500 dark:group-hover:text-white transition-all duration-200 group-hover:scale-110" />
                   Settings
                 </Link>
               </div>
-              <div className="p-2.5 border-t border-[#E4E8EE] dark:border-white/5 bg-gray-50/50 dark:bg-white/[0.01]">
+              {/* Logout */}
+              <div className="p-2.5 border-t border-[#E4E8EE] dark:border-white/5 bg-gray-50/50 dark:bg-[#141414]">
                 <button
                   onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-3 text-[11px] font-black text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-2xl transition-all tracking-[0.1em] uppercase group"
+                  className="flex items-center gap-3 w-full px-4 py-3 text-[11px] font-black text-rose-500 dark:text-red-400 hover:text-rose-600 dark:hover:text-red-300 hover:bg-rose-50 dark:hover:bg-white/5 rounded-2xl transition-all duration-200 tracking-[0.1em] uppercase group"
                 >
-                  <LogOut className="h-4 w-4 mr-3 transition-transform duration-300 group-hover:translate-x-1" />
+                  <LogOut className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                   Log out
                 </button>
               </div>

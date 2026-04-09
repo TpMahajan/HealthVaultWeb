@@ -42,6 +42,8 @@
 
 /* Base styles with medical palette */
 :root {
+  --doctor-theme-transition-duration: 320ms;
+  --doctor-theme-transition-easing: ease-in-out;
   --tooltip-bg: rgba(255, 255, 255, 0.95);
   --tooltip-border: #e5e7eb;
   --tooltip-text: #1e293b;
@@ -79,6 +81,79 @@ body {
   color: #F8FAFC;
 }
 
+/* Doctor shell base colors (instant switch, no theme animation) */
+.doctor-shell-surface {
+  position: relative;
+  isolation: isolate;
+  background-color: #F5F7FB;
+}
+
+.dark .doctor-shell-surface {
+  background-color: #0f0f0f;
+}
+
+/* Doctor-only dual-color accent system */
+.doctor-theme-scope {
+  --doctor-accent-primary: var(--primary-color);
+  --doctor-accent-secondary: var(--secondary-color, var(--primary-color));
+  --doctor-accent-gradient: linear-gradient(
+    135deg,
+    var(--doctor-accent-primary) 0%,
+    var(--doctor-accent-secondary) 100%
+  );
+  --doctor-accent-mix: color-mix(
+    in srgb,
+    var(--doctor-accent-primary) 55%,
+    var(--doctor-accent-secondary) 45%
+  );
+  --doctor-accent-soft-5: color-mix(in srgb, var(--doctor-accent-mix) 5%, transparent);
+  --doctor-accent-soft-10: color-mix(in srgb, var(--doctor-accent-mix) 10%, transparent);
+  --doctor-accent-soft-20: color-mix(in srgb, var(--doctor-accent-mix) 20%, transparent);
+}
+
+.doctor-theme-scope .bg-primary {
+  background: var(--primary-gradient, var(--doctor-accent-gradient)) !important;
+}
+
+.doctor-theme-scope .after\:bg-primary::after {
+  background: var(--primary-gradient, var(--doctor-accent-gradient)) !important;
+}
+
+.doctor-theme-scope .bg-primary\/5 {
+  background-color: var(--doctor-accent-soft-5) !important;
+}
+
+.doctor-theme-scope .bg-primary\/10 {
+  background-color: var(--doctor-accent-soft-10) !important;
+}
+
+.doctor-theme-scope .bg-primary\/20 {
+  background-color: var(--doctor-accent-soft-20) !important;
+}
+
+.doctor-theme-scope .border-primary {
+  border-color: var(--doctor-accent-mix) !important;
+}
+
+.doctor-theme-scope .ring-primary,
+.doctor-theme-scope .focus\:ring-primary:focus,
+.doctor-theme-scope .focus\:ring-primary\/20:focus,
+.doctor-theme-scope .focus\:ring-primary\/30:focus {
+  --tw-ring-color: color-mix(in srgb, var(--doctor-accent-mix) 45%, transparent) !important;
+}
+
+.doctor-theme-scope .shadow-primary\/20 {
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--doctor-accent-mix) 20%, transparent) !important;
+}
+
+.doctor-theme-scope .shadow-primary\/30 {
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--doctor-accent-mix) 30%, transparent) !important;
+}
+
+.doctor-theme-scope .shadow-primary\/50 {
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--doctor-accent-mix) 45%, transparent) !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
@@ -105,6 +180,15 @@ code {
 /* Smooth theme transitions */
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Doctor-only theme switching: disable all transition/animation during mode change */
+.theme-transitioning .doctor-theme-scope,
+.theme-transitioning .doctor-theme-scope *,
+.theme-transitioning .doctor-theme-scope *::before,
+.theme-transitioning .doctor-theme-scope *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
 /* Re-enable transitions only where explicitly needed */

@@ -5,6 +5,7 @@ const isLocalhost =
   window.location.hostname === "127.0.0.1";
 
 const env = typeof import.meta !== "undefined" ? import.meta.env : {};
+const isDevEnvironment = Boolean(env?.DEV);
 
 const normalizeApiBase = (rawValue) => {
   const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
@@ -40,7 +41,7 @@ const isPlaceholderGoogleClientId =
 
 export const API_BASE =
   configuredApiBase ||
-  (isLocalhost
+  (isDevEnvironment || isLocalhost
     ? "http://localhost:5000/api"
     : "https://backend-medicalvault.onrender.com/api");
 
