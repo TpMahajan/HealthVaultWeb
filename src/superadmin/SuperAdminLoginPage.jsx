@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { HeartPulse, Lock, Mail } from "lucide-react";
 
@@ -10,6 +10,18 @@ const SuperAdminLoginPage = () => {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const notice = window.sessionStorage.getItem("forced_logout_notice");
+      if (notice) {
+        setError(notice);
+        window.sessionStorage.removeItem("forced_logout_notice");
+      }
+    } catch {
+      // Ignore sessionStorage errors.
+    }
+  }, []);
 
   if (hasValidSuperAdminSession()) {
     return <Navigate to="/superadmin" replace />;

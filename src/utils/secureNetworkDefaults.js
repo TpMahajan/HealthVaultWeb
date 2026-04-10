@@ -4,6 +4,11 @@ const REQUEST_TIMEOUT_MS = 15000;
 const GET_RETRY_COUNT = 2;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 const AUTH_FAILURE_STATUS = new Set([401, 403]);
+const FORCED_LOGOUT_CODES = new Set([
+  "USER_DISABLED",
+  "SESSION_INVALID",
+  "TOKEN_VERSION_MISMATCH",
+]);
 
 const isApiRequest = (inputUrl, apiBase) => {
   if (!inputUrl || !apiBase) return false;
@@ -57,6 +62,47 @@ const notifyDoctorAuthFailure = (requestUrl, status) => {
     );
   } catch {
     // Ignore event dispatch failures.
+  }
+};
+
+const notifyForcedLogout = ({ requestUrl, status, code, message }) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent("auth-force-logout", {
+        detail: {
+          requestUrl,
+          status,
+          code,
+          message:
+            message ||
+            (code === "USER_DISABLED"
+              ? "Your account has been deactivated by admin."
+              : "Your session is no longer valid. Please login again."),
+          timestamp: Date.now(),
+        },
+      })
+    );
+  } catch {
+    // Ignore event dispatch failures.
+  }
+};
+
+const checkForcedLogoutResponse = async (response, requestUrl) => {
+  if (!AUTH_FAILURE_STATUS.has(response.status)) return false;
+  try {
+    const payload = await response.clone().json();
+    const code = String(payload?.code || "").trim().toUpperCase();
+    if (!FORCED_LOGOUT_CODES.has(code)) return false;
+    notifyForcedLogout({
+      requestUrl,
+      status: response.status,
+      code,
+      message: String(payload?.message || "").trim(),
+    });
+    return true;
+  } catch {
+    return false;
   }
 };
 
@@ -126,6 +172,10 @@ export const installSecureNetworkDefaults = ({ apiBase }) => {
 
       try {
         const response = await originalFetch(input, requestOptions);
+
+        if (shouldHarden) {
+          await checkForcedLogoutResponse(response, requestUrl);
+        }
 
         if (shouldHarden && AUTH_FAILURE_STATUS.has(response.status)) {
           console.warn(

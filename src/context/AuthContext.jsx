@@ -114,6 +114,15 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
+  useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener("auth-force-logout", handleForcedLogout);
+    return () =>
+      window.removeEventListener("auth-force-logout", handleForcedLogout);
+  }, []);
+
   // Restore auth state on mount
   useEffect(() => {
     const restoreAuthState = () => {

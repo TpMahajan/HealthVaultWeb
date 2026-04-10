@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Shield, Mail, Lock } from 'lucide-react';
@@ -13,6 +13,18 @@ const AdminLoginPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    try {
+      const notice = window.sessionStorage.getItem('forced_logout_notice');
+      if (notice) {
+        setError(notice);
+        window.sessionStorage.removeItem('forced_logout_notice');
+      }
+    } catch {
+      // Ignore sessionStorage errors.
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

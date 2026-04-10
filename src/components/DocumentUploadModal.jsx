@@ -55,12 +55,9 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
         'application/pdf',
         'image/jpeg',
         'image/png',
-        'image/webp',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ];
       if (!allowedTypes.includes(file.type)) {
-        setError('Invalid file type. Only PDF, JPEG/PNG/WebP images, and Word documents are allowed.');
+        setError('Invalid file type. Only PDF, JPG, and PNG documents are allowed.');
         return;
       }
 
@@ -187,11 +184,19 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
         }, 3000);
       } else {
         console.log('❌ Upload failed:', data.message);
-        setError(data.message || data.msg || data.error || 'Failed to upload document');
+        setError(
+          data.message ||
+            data.msg ||
+            data.error ||
+            'Only medical-related documents are allowed. Please upload valid reports, prescriptions, or health records.'
+        );
       }
     } catch (err) {
       console.error('💥 Upload error:', err);
-      setError(err.message || 'Failed to upload document');
+      setError(
+        err.message ||
+          'Only medical-related documents are allowed. Please upload valid reports, prescriptions, or health records.'
+      );
     } finally {
       setUploading(false);
     }
@@ -252,7 +257,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
               <input
                 type="file"
                 onChange={handleFileChange}
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                accept=".pdf,.jpg,.jpeg,.png"
                 className="hidden"
                 id="file-upload"
               />
@@ -280,7 +285,7 @@ const DocumentUploadModal = ({ isOpen, onClose, patient, onUploadSuccess }) => {
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        PDF, Images, Word docs, or Text files (max 10MB)
+                        PDF, JPG, JPEG, PNG (max 10MB)
                       </p>
                     </div>
                   </div>

@@ -18,6 +18,18 @@ const LoginPage = () => {
   const googleBtnRef = useRef(null);
   const gsiInitializedRef = useRef(false);
 
+  useEffect(() => {
+    try {
+      const notice = window.sessionStorage.getItem('forced_logout_notice');
+      if (notice) {
+        setError(notice);
+        window.sessionStorage.removeItem('forced_logout_notice');
+      }
+    } catch {
+      // Ignore unavailable sessionStorage.
+    }
+  }, []);
+
   // ✅ Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
