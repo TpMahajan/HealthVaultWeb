@@ -30,8 +30,9 @@ import MedicalCard from './components/MedicalCard';
 import SessionHistory from './components/SessionHistory';
 import Messages from './components/Messages';
 import FeaturesPage from './components/FeaturesPage';
-import ProductPage from './components/ProductPage';
+import * as ProductPageModule from './components/ProductPage.jsx';
 import CartPage from './components/CartPage';
+import CheckoutPage from './components/CheckoutPage';
 import OrdersPage from './components/OrdersPage';
 import SuperAdminLoginPage from './superadmin/SuperAdminLoginPage';
 import SuperAdminProtectedRoute from './superadmin/SuperAdminProtectedRoute';
@@ -46,11 +47,14 @@ import SuperAdminUiConfigPage from './superadmin/SuperAdminUiConfigPage';
 import SuperAdminAlertsPage from './superadmin/SuperAdminAlertsPage';
 import SuperAdminNotificationsPage from './superadmin/SuperAdminNotificationsPage';
 
+const ProductPage = ProductPageModule.default || ProductPageModule.ProductPage;
+
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
+import { DoctorToastProvider } from './context/DoctorToastContext';
 import { ADMIN_PERMISSIONS, hasPermission } from './admin/rbac';
 import { clearSecureAuthSession } from './utils/secureAuthStorage';
 
@@ -175,6 +179,7 @@ const AppContent = () => {
         <Route path="/features" element={<FeaturesPage />} />
         <Route path="/products" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
@@ -296,13 +301,15 @@ const App = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <AdminAuthProvider>
-            <Router>
-              <AppContent />
-            </Router>
-          </AdminAuthProvider>
-        </NotificationProvider>
+        <DoctorToastProvider>
+          <NotificationProvider>
+            <AdminAuthProvider>
+              <Router>
+                <AppContent />
+              </Router>
+            </AdminAuthProvider>
+          </NotificationProvider>
+        </DoctorToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -31,36 +31,47 @@ const AdminLoginPage = () => {
     setLoading(true);
     setError('');
     try {
-      // 1) Try SuperAdmin login from the same Admin login page.
-      const superAdminRes = await fetch(`${API_BASE}/superadmin/auth/login`, {
+      const payload = {
+        email: String(email || '').trim().toLowerCase(),
+        password: String(password || ''),
+      };
+      const adminRes = await fetch(`${API_BASE}/admin/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
-      const superAdminData = await superAdminRes.json();
-      if (superAdminRes.ok && superAdminData?.success && superAdminData?.token) {
-        setSuperAdminSession(superAdminData.token, superAdminData.user || {});
-        localStorage.removeItem('adminToken');
-        navigate('/superadmin');
+      const adminData = await adminRes.json().catch(() => ({}));
+      if (adminRes.ok && adminData?.success && adminData?.token) {
+        clearSuperAdminSession();
+        setAdminSession({ token: adminData.token, admin: adminData.admin || null });
+        navigate('/admin/dashboard');
         return;
       }
 
-      // 2) Fallback to existing Admin login.
-      clearSuperAdminSession();
-      const res = await fetch(`${API_BASE}/admin/login`, {
+      const shouldTrySuperAdmin = adminRes.status === 401;
+      if (!shouldTrySuperAdmin) {
+        setError(adminData?.message || 'Login failed');
+        return;
+      }
+
+      const superRes = await fetch(`${API_BASE}/superadmin/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.success && data.token) {
-        setAdminSession({ token: data.token, admin: data.admin || null });
-        navigate('/admin/dashboard');
-      } else {
-        setError(data.message || 'Login failed');
+      const superData = await superRes.json().catch(() => ({}));
+      if (superRes.ok && superData?.success && superData?.token) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('mv_admin_auth');
+        window.dispatchEvent(new Event('mv-admin-auth-sync'));
+        setSuperAdminSession(superData.token, superData.user || {});
+        navigate('/superadmin', { replace: true });
+        return;
       }
+
+      setError(superData?.message || adminData?.message || 'Invalid email or password');
     } catch (e) {
       setError('Network error');
     } finally {

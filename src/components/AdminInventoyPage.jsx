@@ -42,6 +42,88 @@ function fmtShort(d) {
   return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+const MONGO_OBJECT_ID_RE = /^[a-f\d]{24}$/i;
+const GENERIC_UNKNOWN_PRODUCT_RE = /^unknown product\b/i;
+const NUMERIC_ONLY_RE = /^\d+$/;
+
+const addLedgerLookupEntry = (lookup, key, label) => {
+  const normalizedKey = String(key || "").trim();
+  const normalizedLabel = String(label || "").trim();
+  if (!normalizedKey || !normalizedLabel) return;
+  if (GENERIC_UNKNOWN_PRODUCT_RE.test(normalizedLabel)) return;
+
+  lookup.set(normalizedKey, normalizedLabel);
+  lookup.set(normalizedKey.toUpperCase(), normalizedLabel);
+  lookup.set(normalizedKey.toLowerCase(), normalizedLabel);
+};
+
+function buildLedgerProductLookup(productRows = []) {
+  const lookup = new Map();
+
+  PRODUCTS.forEach((meta) => addLedgerLookupEntry(lookup, meta.key, meta.label));
+
+  (Array.isArray(productRows) ? productRows : []).forEach((row) => {
+    const label = String(
+      row?.productName || row?.product || row?.name || ""
+    ).trim();
+    if (!label) return;
+
+    addLedgerLookupEntry(lookup, row?.productKey, label);
+    addLedgerLookupEntry(lookup, row?.productId, label);
+    addLedgerLookupEntry(lookup, row?.externalProductId, label);
+    addLedgerLookupEntry(lookup, row?.sku, label);
+  });
+
+  return lookup;
+}
+
+function resolveLedgerProductName(entry, productLookup) {
+  const lookup = productLookup instanceof Map ? productLookup : new Map();
+
+  const lookupCandidates = [
+    entry?.productKey,
+    entry?.productId,
+    entry?.productRef,
+    entry?.product,
+    entry?.metadata?.productKey,
+    entry?.metadata?.productId,
+    entry?.metadata?.productRef,
+  ];
+
+  for (const candidate of lookupCandidates) {
+    const raw = String(candidate || "").trim();
+    if (!raw) continue;
+    const resolved = lookup.get(raw) || lookup.get(raw.toUpperCase()) || lookup.get(raw.toLowerCase());
+    if (resolved) return resolved;
+  }
+
+  const textCandidates = [
+    entry?.metadata?.productName,
+    entry?.metadata?.name,
+    entry?.productName,
+    entry?.name,
+    entry?.product,
+  ];
+  for (const candidate of textCandidates) {
+    const value = String(candidate || "").trim();
+    if (!value) continue;
+    if (MONGO_OBJECT_ID_RE.test(value)) continue;
+    if (GENERIC_UNKNOWN_PRODUCT_RE.test(value)) continue;
+    if (NUMERIC_ONLY_RE.test(value)) continue;
+    return value;
+  }
+
+  const staticKeyCandidates = [entry?.productKey, entry?.productId, entry?.productRef];
+  for (const candidate of staticKeyCandidates) {
+    const normalized = String(candidate || "").trim().toUpperCase();
+    if (!normalized) continue;
+    const meta = PRODUCTS.find((p) => p.key === normalized);
+    if (meta?.label) return meta.label;
+  }
+
+  return "Unknown Product";
+}
+
 /* ══════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════*/
@@ -62,9 +144,9 @@ export default function AdminInventoyPage() {
   const [ledgerPage, setLedgerPage] = useState(1);
 
   /* Modals */
-  const [restockModal, setRestockModal] = useState(null); // productKey
-  const [adjustModal, setAdjustModal] = useState(null); // productKey
-  const [reorderModal, setReorderModal] = useState(null); // { productKey, current }
+  const [restockModal, setRestockModal] = useState(null); // { productKey, label }
+  const [adjustModal, setAdjustModal] = useState(null); // { productKey, label }
+  const [reorderModal, setReorderModal] = useState(null); // { productKey, current, label }
   const [historyProduct, setHistoryProduct] = useState(null);
 
   const fetchDashboard = useCallback(async () => {
@@ -95,6 +177,26 @@ export default function AdminInventoyPage() {
     finally { setLoading(false); }
   }, [filterProduct]);
 
+  const fetchLedgerProducts = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (historyProduct || filterProduct !== "ALL") {
+        params.set("productKey", historyProduct || filterProduct);
+      }
+      const query = params.toString();
+      const res = await fetch(
+        `${ADMIN_INVENTORY_BASE}/products${query ? `?${query}` : ""}`,
+        { headers: adminHeaders() }
+      );
+      const data = await res.json();
+      if (data.success) {
+        setProducts(Array.isArray(data.data?.rows) ? data.data.rows : []);
+      }
+    } catch {
+      // Keep ledger resilient if product master lookup fails.
+    }
+  }, [filterProduct, historyProduct]);
+
   const fetchLedger = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -114,14 +216,17 @@ export default function AdminInventoyPage() {
   useEffect(() => {
     if (tab === "dashboard") fetchDashboard();
     else if (tab === "table") fetchProducts();
-    else if (tab === "ledger") fetchLedger();
-  }, [tab, fetchDashboard, fetchProducts, fetchLedger]);
+    else if (tab === "ledger") {
+      fetchLedger();
+      fetchLedgerProducts();
+    }
+  }, [tab, fetchDashboard, fetchProducts, fetchLedger, fetchLedgerProducts]);
 
   const refreshCurrentTab = useCallback(async () => {
     if (tab === "dashboard") await fetchDashboard();
     else if (tab === "table") await fetchProducts();
-    else if (tab === "ledger") await fetchLedger();
-  }, [tab, fetchDashboard, fetchProducts, fetchLedger]);
+    else if (tab === "ledger") await Promise.all([fetchLedger(), fetchLedgerProducts()]);
+  }, [tab, fetchDashboard, fetchProducts, fetchLedger, fetchLedgerProducts]);
 
   const refresh = () => {
     refreshCurrentTab();
@@ -298,13 +403,27 @@ export default function AdminInventoyPage() {
         <main style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 20px 80px", animation: "aiFade .3s ease" }}>
           {tab === "dashboard" && dashboard && <DashboardTab data={dashboard} onRestock={setRestockModal} onAdjust={setAdjustModal} onViewHistory={pk => { setHistoryProduct(pk); setTab("ledger"); }} />}
           {tab === "table" && <TableTab rows={products} onRestock={setRestockModal} onAdjust={setAdjustModal} onReorder={setReorderModal} onHistory={pk => { setHistoryProduct(pk); setTab("ledger"); }} />}
-          {tab === "ledger" && ledger && <LedgerTab data={ledger} page={ledgerPage} setPage={setLedgerPage} historyProduct={historyProduct} onClearHistory={() => setHistoryProduct(null)} />}
+          {tab === "ledger" && ledger && <LedgerTab data={ledger} page={ledgerPage} setPage={setLedgerPage} historyProduct={historyProduct} onClearHistory={() => setHistoryProduct(null)} productRows={products} />}
         </main>
       )}
 
       {/* ── Modals ── */}
-      {restockModal && <RestockModal productKey={restockModal} onClose={() => setRestockModal(null)} onSuccess={refreshInventoryViews} />}
-      {adjustModal && <AdjustModal productKey={adjustModal} onClose={() => setAdjustModal(null)} onSuccess={refreshInventoryViews} />}
+      {restockModal && (
+        <RestockModal
+          productKey={restockModal?.productKey || restockModal}
+          productLabel={restockModal?.label || ""}
+          onClose={() => setRestockModal(null)}
+          onSuccess={refreshInventoryViews}
+        />
+      )}
+      {adjustModal && (
+        <AdjustModal
+          productKey={adjustModal?.productKey || adjustModal}
+          productLabel={adjustModal?.label || ""}
+          onClose={() => setAdjustModal(null)}
+          onSuccess={refreshInventoryViews}
+        />
+      )}
       {reorderModal && <ReorderModal {...reorderModal} onClose={() => setReorderModal(null)} onSuccess={refreshInventoryViews} />}
     </div>
   );
@@ -379,11 +498,17 @@ function DashboardTab({ data, onRestock, onAdjust, onViewHistory }) {
                 <span title="Last Restocked">Last Restocked: <b style={{ color: "#1E293B" }}>{fmtShort(row.lastRestocked)}</b></span>
               </div>
               <div style={{ display: "flex", gap: 16 }}>
-                <button className="ai-btn" onClick={() => onRestock(row.productKey)}
+                <button className="ai-btn" onClick={() => onRestock({
+                  productKey: row.productKey,
+                  label: row.product || row.productName || row.sku || row.productKey,
+                })}
                   style={{ flex: 1, height: 42, borderRadius: 99, background: "#22C55E", color: "white", fontSize: 13, display: "flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
                   <Plus size={16} strokeWidth={3} /> Restock
                 </button>
-                <button className="ai-btn" onClick={() => onAdjust(row.productKey)}
+                <button className="ai-btn" onClick={() => onAdjust({
+                  productKey: row.productKey,
+                  label: row.product || row.productName || row.sku || row.productKey,
+                })}
                   style={{ flex: 1, height: 42, borderRadius: 99, background: "#6366F1", color: "white", fontSize: 13, display: "flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
                   <Settings2 size={16} strokeWidth={2.5} /> Adjust
                 </button>
@@ -439,13 +564,23 @@ function TableTab({ rows, onRestock, onAdjust, onReorder, onHistory }) {
             </div>
             {/* Actions */}
             <div style={{ display: "flex", gap: 5 }}>
-              <button className="ai-btn" onClick={() => onRestock(row.productKey)}
+              <button className="ai-btn" onClick={() => onRestock({
+                productKey: row.productKey,
+                label: row.product || row.productName || row.sku || row.productKey,
+              })}
                 title="Add stock"
                 style={{ height: 32, padding: "0 10px", borderRadius: 8, background: "#DCFCE7", color: "#15803D", fontSize: 12, border: "1px solid #BBF7D0" }}><Plus size={14} strokeWidth={3} /></button>
-              <button className="ai-btn" onClick={() => onAdjust(row.productKey)}
+              <button className="ai-btn" onClick={() => onAdjust({
+                productKey: row.productKey,
+                label: row.product || row.productName || row.sku || row.productKey,
+              })}
                 title="Adjust stock"
                 style={{ height: 32, padding: "0 10px", borderRadius: 8, background: "#DBEAFE", color: "#1D4ED8", fontSize: 12, border: "1px solid #BFDBFE" }}><Settings2 size={14} strokeWidth={2.5} /></button>
-              <button className="ai-btn" onClick={() => onReorder({ productKey: row.productKey, current: row.reorderLevel })}
+              <button className="ai-btn" onClick={() => onReorder({
+                productKey: row.productKey,
+                current: row.reorderLevel,
+                label: row.product || row.productName || row.sku || row.productKey,
+              })}
                 title="Reorder level"
                 style={{ height: 32, padding: "0 10px", borderRadius: 8, background: "#F3E8FF", color: "#7C3AED", fontSize: 12, border: "1px solid #E9D5FF" }}><Target size={14} strokeWidth={2.5} /></button>
               <button className="ai-btn" onClick={() => onHistory(row.productKey)}
@@ -469,9 +604,10 @@ function TableTab({ rows, onRestock, onAdjust, onReorder, onHistory }) {
 }
 
 /* ══ LEDGER TAB ══ */
-function LedgerTab({ data, page, setPage, historyProduct, onClearHistory }) {
+function LedgerTab({ data, page, setPage, historyProduct, onClearHistory, productRows = [] }) {
   const { items, pagination } = data;
   const meta = historyProduct ? PRODUCTS.find(p => p.key === historyProduct) : null;
+  const productLookup = buildLedgerProductLookup(productRows);
   return (
     <div>
       {historyProduct && meta && (
@@ -502,7 +638,7 @@ function LedgerTab({ data, page, setPage, historyProduct, onClearHistory }) {
                     {mtc.label}
                   </span>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>{entry.product || entry.productKey}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B" }}>{resolveLedgerProductName(entry, productLookup)}</div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: "#1E293B" }}>{entry.quantity}</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: (entry.signedQuantity || 0) >= 0 ? "#16A34A" : "#DC2626" }}>{sign}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{entry.amount ? fmtCurrency(entry.amount) : "—"}</div>
@@ -626,13 +762,14 @@ function EmptyState({ icon, title, sub }) {
 }
 
 /* ══ MODAL: RESTOCK ══ */
-function RestockModal({ productKey, onClose, onSuccess }) {
+function RestockModal({ productKey, productLabel, onClose, onSuccess }) {
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("");
   const [ref, setRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const meta = PRODUCTS.find(p => p.key === productKey);
+  const resolvedLabel = productLabel || meta?.label || productKey || "Product";
 
   async function submit() {
     if (!qty || Number(qty) < 1) { setErr("Quantity must be ≥ 1"); return; }
@@ -653,7 +790,7 @@ function RestockModal({ productKey, onClose, onSuccess }) {
   }
 
   return (
-    <InventoryModal icon={<Plus size={18} strokeWidth={3} />} title={`Add Stock - ${meta?.label}`} onClose={onClose}>
+    <InventoryModal icon={<Plus size={18} strokeWidth={3} />} title={`Add Stock - ${resolvedLabel}`} onClose={onClose}>
       <ModalField label="Quantity to Add *">
         <input className={`ai-inp${err && !qty ? " err" : ""}`} type="number" min="1" placeholder="e.g. 50" value={qty} onChange={e => setQty(e.target.value)} />
       </ModalField>
@@ -673,13 +810,14 @@ function RestockModal({ productKey, onClose, onSuccess }) {
 }
 
 /* ══ MODAL: ADJUST ══ */
-function AdjustModal({ productKey, onClose, onSuccess }) {
+function AdjustModal({ productKey, productLabel, onClose, onSuccess }) {
   const [qty, setQty] = useState("");
   const [sign, setSign] = useState("1");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const meta = PRODUCTS.find(p => p.key === productKey);
+  const resolvedLabel = productLabel || meta?.label || productKey || "Product";
 
   async function submit() {
     if (!qty || Number(qty) < 1) { setErr("Quantity must be ≥ 1"); return; }
@@ -701,7 +839,7 @@ function AdjustModal({ productKey, onClose, onSuccess }) {
   }
 
   return (
-    <InventoryModal icon={<Settings2 size={18} strokeWidth={2.5} />} title={`Adjust Stock - ${meta?.label}`} onClose={onClose}>
+    <InventoryModal icon={<Settings2 size={18} strokeWidth={2.5} />} title={`Adjust Stock - ${resolvedLabel}`} onClose={onClose}>
       <ModalField label="Direction">
         <select className="ai-sel" style={{ width: "100%", height: 42 }} value={sign} onChange={e => setSign(e.target.value)}>
           <option value="1">Increase stock</option>
@@ -724,11 +862,12 @@ function AdjustModal({ productKey, onClose, onSuccess }) {
 }
 
 /* ══ MODAL: REORDER LEVEL ══ */
-function ReorderModal({ productKey, current, onClose, onSuccess }) {
+function ReorderModal({ productKey, current, label, onClose, onSuccess }) {
   const [level, setLevel] = useState(String(current || ""));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const meta = PRODUCTS.find(p => p.key === productKey);
+  const resolvedLabel = label || meta?.label || productKey || "Product";
 
   async function submit() {
     const n = Number(level);
@@ -749,7 +888,7 @@ function ReorderModal({ productKey, current, onClose, onSuccess }) {
   }
 
   return (
-    <InventoryModal icon={<Target size={18} strokeWidth={2.5} />} title={`Reorder Level — ${meta?.label}`} onClose={onClose}>
+    <InventoryModal icon={<Target size={18} strokeWidth={2.5} />} title={`Reorder Level — ${resolvedLabel}`} onClose={onClose}>
       <ModalField label="Reorder Alert Level">
         <input className="ai-inp" type="number" min="0" placeholder="e.g. 20" value={level} onChange={e => setLevel(e.target.value)} />
       </ModalField>

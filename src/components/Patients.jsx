@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Search, User, Eye, Loader, History, Activity, Shield, Plus,
   Trash2, Mail, ExternalLink, Calendar, ChevronRight, Filter,
-  MoreVertical, CheckCircle, Clock, UserCircle, AlertCircle, X, Edit2
+  MoreVertical, Clock, UserCircle, AlertCircle, X, Edit2
 } from 'lucide-react';
 import { API_BASE } from '../constants/api';
 import { useAuth } from '../context/AuthContext';
@@ -594,71 +594,51 @@ const Patients = () => {
 
       {/* End Session Modal */}
       {isEndModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 dark:bg-black/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#121212] border border-gray-200 dark:border-white/10 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-            <div className="bg-gray-50 dark:bg-white/5 px-8 py-6 flex items-center justify-between border-b border-gray-200 dark:border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-red-100 dark:bg-red-500/10 rounded-xl">
-                  <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
-                </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 dark:bg-black/65 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-[400px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151515] shadow-[0_22px_48px_rgba(15,23,42,0.26)] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Finish Session</h3>
-                  <p className="text-[11px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Enter patient details</p>
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white">End Session?</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-gray-300">
+                    Are you sure you want to end this session?
+                  </p>
                 </div>
-              </div>
-              <button
-                onClick={() => setIsEndModalOpen(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors text-gray-400 hover:text-slate-900 dark:hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-8 space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/10">
-                <div className="h-12 w-12 rounded-full bg-white dark:bg-white/5 flex items-center justify-center border-2 border-gray-100 dark:border-white/10 font-bold text-primary dark:text-primary text-lg shadow-sm">
-                  {sessionToEnd?.name?.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{sessionToEnd?.name}</p>
-                  <p className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Patient</p>
-                </div>
+                <button
+                  onClick={() => setIsEndModalOpen(false)}
+                  disabled={isEnding}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white transition-colors disabled:opacity-50"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.2em] pl-1">Disease Name</label>
-                  <textarea
-                    value={modalDiagnosis}
-                    onChange={(e) => setModalDiagnosis(e.target.value)}
-                    placeholder="Enter disease or health issue"
-                    className="w-full px-5 py-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-primary transition-all resize-none h-24"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.2em] pl-1">Extra Notes</label>
-                  <textarea
-                    value={modalNotes}
-                    onChange={(e) => setModalNotes(e.target.value)}
-                    placeholder="Add any extra details or advice here..."
-                    className="w-full px-5 py-4 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-primary transition-all resize-none h-32"
-                  />
-                </div>
+              <div className="mt-4">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-gray-400">
+                  Session Notes (Optional)
+                </label>
+                <textarea
+                  value={modalNotes}
+                  onChange={(e) => setModalNotes(e.target.value)}
+                  placeholder="Add diagnosis, advice, or notes..."
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-100 dark:focus:ring-red-500/20 focus:border-red-300 dark:focus:border-red-400"
+                />
               </div>
             </div>
 
-            <div className="px-8 py-6 bg-gray-50 dark:bg-white/5 border-t border-gray-200 dark:border-white/10 flex gap-4">
+            <div className="px-5 pb-5 flex gap-3">
               <button
                 onClick={() => setIsEndModalOpen(false)}
-                className="flex-1 px-6 py-4 bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 text-slate-700 dark:text-white rounded-2xl text-sm font-bold hover:bg-gray-50 dark:hover:bg-white/20 transition-all active:scale-95 shadow-sm"
+                disabled={isEnding}
+                className="flex-1 h-12 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white text-sm font-bold hover:bg-slate-200 dark:hover:bg-white/20 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmEndSession}
                 disabled={isEnding}
-                className="flex-1 px-6 py-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm font-bold shadow-lg shadow-red-500/25 hover:brightness-105 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isEnding ? (
                   <>
@@ -666,10 +646,7 @@ const Patients = () => {
                     <span>Ending...</span>
                   </>
                 ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Save & Finish</span>
-                  </>
+                  <span>Yes, End Session</span>
                 )}
               </button>
             </div>

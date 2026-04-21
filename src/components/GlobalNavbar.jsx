@@ -7,11 +7,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useDoctorToast } from '../context/DoctorToastContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 
 const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSidebarCollapsed }) => {
   const { user, logout } = useAuth();
   const { toggleTheme, isDark } = useTheme();
+  const { showDoctorToast } = useDoctorToast();
   const {
     notifications,
     unreadCount,
@@ -30,6 +32,9 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
   const profileRef = useRef(null);
   const notificationRef = useRef(null);
   const { pathname } = useLocation();
+  const storedRole = typeof window !== 'undefined' ? localStorage.getItem('role') : '';
+  const currentRole = String(user?.role || storedRole || '').toLowerCase();
+  const isDoctor = currentRole === 'doctor';
 
   const resolveUserAvatar = (profile) => {
     const rawAvatar = String(
@@ -60,6 +65,50 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [navbarAvatarSrc]);
+
+  useEffect(() => {
+    if (!toastNotification || !isDoctor) return;
+
+    const titleText = String(toastNotification.title || '').toLowerCase();
+    const bodyText = String(toastNotification.body || toastNotification.message || '').toLowerCase();
+    const rawType = String(toastNotification.type || '').toLowerCase();
+
+    let toastType = 'info';
+    if (rawType === 'success' || titleText.includes('success') || bodyText.includes('success')) {
+      toastType = 'success';
+    } else if (
+      rawType === 'error' ||
+      rawType === 'alert' ||
+      titleText.includes('error') ||
+      titleText.includes('failed') ||
+      titleText.includes('critical') ||
+      titleText.includes('emergency') ||
+      bodyText.includes('error') ||
+      bodyText.includes('failed')
+    ) {
+      toastType = 'error';
+    } else if (
+      rawType === 'warning' ||
+      titleText.includes('warning') ||
+      titleText.includes('inactive') ||
+      bodyText.includes('warning')
+    ) {
+      toastType = 'warning';
+    }
+
+    const message =
+      String(toastNotification.body || toastNotification.message || '').trim() ||
+      String(toastNotification.title || '').trim() ||
+      'New notification received';
+
+    showDoctorToast({
+      type: toastType,
+      title: String(toastNotification.title || '').trim(),
+      message,
+      duration: 5000,
+    });
+    setToastNotification(null);
+  }, [toastNotification, isDoctor, setToastNotification, showDoctorToast]);
 
   // Click outside functionality - Detects click on document
   useEffect(() => {
@@ -563,7 +612,7 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
       {/* Notification Toast Preview handled separately by its own timer */}
 
       {/* Toast Notification Preview */}
-      {toastNotification && (
+      {toastNotification && !isDoctor && (
         <div className="fixed top-20 right-6 z-[100] animate-in slide-in-from-right-5 fade-in duration-500">
           <div className="w-[360px] bg-white/95 dark:bg-[#1A1C23]/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-[16px] shadow-2xl overflow-hidden">
             <div className="p-5">

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { API_BASE } from "../constants/api";
 
 const ADMIN_AUTH_KEY = "mv_admin_auth";
+const ADMIN_AUTH_SYNC_EVENT = "mv-admin-auth-sync";
 
 const AdminAuthContext = createContext({
   admin: null,
@@ -32,11 +33,21 @@ export const AdminAuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem("adminToken") || "");
   const [isLoading, setIsLoading] = useState(true);
 
+  const syncFromStorage = useCallback(() => {
+    const nextAdmin = readStoredAdmin()?.admin || null;
+    const nextToken = localStorage.getItem("adminToken") || "";
+    setAdmin(nextAdmin);
+    setToken(nextToken);
+  }, []);
+
   const logoutAdmin = useCallback(() => {
     localStorage.removeItem("adminToken");
     writeStoredAdmin(null);
     setAdmin(null);
     setToken("");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(ADMIN_AUTH_SYNC_EVENT));
+    }
   }, []);
 
   const refreshAdmin = useCallback(async () => {
@@ -75,6 +86,22 @@ export const AdminAuthProvider = ({ children }) => {
     refreshAdmin();
   }, [refreshAdmin]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleSync = () => {
+      syncFromStorage();
+    };
+
+    window.addEventListener(ADMIN_AUTH_SYNC_EVENT, handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      window.removeEventListener(ADMIN_AUTH_SYNC_EVENT, handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [syncFromStorage]);
+
   const value = useMemo(
     () => ({ admin, token, isLoading, refreshAdmin, logoutAdmin }),
     [admin, token, isLoading, refreshAdmin, logoutAdmin]
@@ -88,4 +115,7 @@ export const useAdminAuth = () => useContext(AdminAuthContext);
 export const setAdminSession = ({ token, admin }) => {
   if (token) localStorage.setItem("adminToken", token);
   writeStoredAdmin({ admin: admin || null });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(ADMIN_AUTH_SYNC_EVENT));
+  }
 };

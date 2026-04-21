@@ -9,9 +9,7 @@ import {
   Moon,
   Sun,
   Monitor,
-  AlertCircle,
   CheckCircle,
-  X,
   Plus,
   RefreshCw,
   Activity,
@@ -26,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useTheme, COLOR_THEMES } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { useDoctorToast } from '../context/DoctorToastContext';
 import { DOCTOR_API_BASE, API_BASE } from '../constants/api';
 import {
   DEFAULT_APP_TIMEZONE,
@@ -44,11 +43,9 @@ function Settings() {
     customColors, setCustomColors
   } = useTheme();
   const { user, updateUser } = useAuth();
+  const { showDoctorToast } = useDoctorToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const [passwordInfo, setPasswordInfo] = useState(null);
-  const [statusToast, setStatusToast] = useState(null); // { type: 'active' | 'inactive', show: boolean }
   const [settings, setSettings] = useState({
     notifications: {
       newPatients: true,
@@ -334,24 +331,21 @@ function Settings() {
     }));
     setHasChanges(true);
 
-    // Show toast notification when profile status changes
+    // Show standardized doctor toast when profile status changes
     if (setting === 'isActive') {
-      setStatusToast({
-        type: value ? 'active' : 'inactive',
-        show: true
+      showDoctorToast({
+        type: value ? 'success' : 'warning',
+        title: value ? 'Profile Activated' : 'Profile Deactivated',
+        message: value
+          ? 'Your profile is now active. You can scan QR codes and attend sessions.'
+          : 'Your profile is now inactive. You cannot scan QR codes or attend sessions.',
+        duration: 4000,
       });
-
-      // Auto-hide toast after 4 seconds
-      setTimeout(() => {
-        setStatusToast(null);
-      }, 4000);
     }
   };
 
   const handleSave = async () => {
     setLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       // Apply Appearance Changes to global context (deferred until now)
@@ -361,7 +355,11 @@ function Settings() {
 
       const token = localStorage.getItem('token');
       if (!token) {
-        setError('Please login first to save settings');
+        showDoctorToast({
+          type: 'error',
+          title: 'Update Failed',
+          message: 'Please login first to save settings',
+        });
         setLoading(false);
         return;
       }
@@ -379,7 +377,12 @@ function Settings() {
       if (!response.ok) {
         if (response.status !== 404) {
           const errorData = await response.json().catch(() => ({}));
-          setError(errorData.message || `Server error: ${response.status}`);
+          showDoctorToast({
+            type: 'error',
+            title: 'Update Failed',
+            message: errorData.message || `Server error: ${response.status}`,
+            duration: 3500,
+          });
           setLoading(false);
           return;
         }
@@ -413,7 +416,12 @@ function Settings() {
         // Update global auth state
         updateUser(saved.doctor);
         setHasChanges(false);
-        setSuccess('Settings updated successfully!');
+        showDoctorToast({
+          type: 'success',
+          title: 'Settings Saved',
+          message: 'Settings updated successfully!',
+          duration: 3000,
+        });
 
         // Return to overview if in detail view
         if (view === 'detail') {
@@ -424,16 +432,30 @@ function Settings() {
         if (settings.isActive === false && saved.doctor.isActive === false) {
           const endedCount = await endActiveSessions();
           if (endedCount > 0) {
-            setSuccess(`Profile deactivated. ${endedCount} active session(s) have been ended.`);
+            showDoctorToast({
+              type: 'warning',
+              title: 'Profile Deactivated',
+              message: `Profile deactivated. ${endedCount} active session(s) have been ended.`,
+              duration: 4200,
+            });
           } else {
-            setSuccess('Profile deactivated successfully.');
+            showDoctorToast({
+              type: 'warning',
+              title: 'Profile Deactivated',
+              message: 'Profile deactivated successfully.',
+              duration: 3500,
+            });
           }
         }
       } else {
         // Settings saved locally even if backend is unavailable
-        setSuccess('Settings saved locally. Will sync with server when available.');
+        showDoctorToast({
+          type: 'info',
+          title: 'Saved Locally',
+          message: 'Settings saved locally. Will sync with server when available.',
+          duration: 3500,
+        });
       }
-      setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
       // Keep this silent in production to avoid leaking runtime context
       // Still save locally
@@ -448,8 +470,12 @@ function Settings() {
           privacy: settings.privacy,
           appearance: { ...settings.appearance, theme: draftTheme },
         }));
-        setSuccess('Settings saved locally.');
-        setTimeout(() => setSuccess(null), 3000);
+        showDoctorToast({
+          type: 'info',
+          title: 'Saved Locally',
+          message: 'Settings saved locally.',
+          duration: 3000,
+        });
       } catch { }
     } finally {
       setLoading(false);
@@ -747,81 +773,6 @@ function Settings() {
 
   return (
     <main className="min-h-screen bg-transparent relative">
-      {statusToast?.show && (
-        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-right-5 fade-in duration-500">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden min-w-[320px] max-w-md">
-            <div className="flex items-start gap-3 p-4">
-              <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center ${statusToast.type === 'active'
-                ? 'bg-emerald-100 dark:bg-emerald-900/30'
-                : 'bg-amber-100 dark:bg-amber-900/30'
-                }`}>
-                {statusToast.type === 'active' ? (
-                  <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight mb-1">
-                  {statusToast.type === 'active' ? 'Profile Activated' : 'Profile Deactivated'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                  {statusToast.type === 'active'
-                    ? 'Your profile is now active. You can scan QR codes and attend sessions.'
-                    : 'Your profile is now inactive. You cannot scan QR codes or attend sessions.'}
-                </p>
-              </div>
-              <button
-                onClick={() => setStatusToast(null)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="h-1 bg-gray-100 dark:bg-gray-700 overflow-hidden">
-              <div className={`h-full animate-[shrink_4s_linear_forwards] ${statusToast.type === 'active'
-                ? 'bg-gradient-to-r from-emerald-500 to-green-500'
-                : 'bg-gradient-to-r from-amber-500 to-orange-500'
-                }`}></div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Global Success/Error Notifications */}
-      {(success || error) && (
-        <div className="fixed top-24 right-6 z-[100] animate-in slide-in-from-right-5 fade-in duration-500">
-          <div className={`bg-white dark:bg-[#121212] rounded-2xl shadow-2xl border ${success ? 'border-emerald-100 dark:border-emerald-500/20' : 'border-red-100 dark:border-red-500/20'} overflow-hidden min-w-[340px] max-w-md`}>
-            <div className="flex items-start gap-3 p-4">
-              <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center ${success ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-red-50 dark:bg-red-500/10'}`}>
-                {success ? (
-                  <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">
-                  {success ? 'Settings Saved' : 'Update Failed'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                  {success || error}
-                </p>
-              </div>
-              <button
-                onClick={() => { setSuccess(null); setError(null); }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors mt-0.5"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="h-1 bg-slate-50 dark:bg-white/5 overflow-hidden">
-              <div className={`h-full animate-[shrink_5s_linear_forwards] ${success ? 'bg-emerald-500' : 'bg-red-500'}`} />
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 pt-24 relative z-10">
         {view === 'overview' ? (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
@@ -1459,7 +1410,14 @@ function Settings() {
                             <div className="flex flex-wrap gap-4 items-center">
                               <button className="h-10 px-8 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform" style={{ background: "var(--primary-gradient)" }}>Primary Action</button>
                               <button
-                                onClick={() => setSuccess('Secondary preview triggered!')}
+                                onClick={() =>
+                                  showDoctorToast({
+                                    type: 'success',
+                                    title: 'Preview',
+                                    message: 'Secondary preview triggered!',
+                                    duration: 2500,
+                                  })
+                                }
                                 className="h-10 px-6 bg-secondary text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-secondary/20 transition-all hover:bg-secondary/90 hover:scale-[1.02]"
                               >
                                 Secondary

@@ -134,8 +134,7 @@ export const usePublicConfigRealtime = ({
       }
       if (
         socket &&
-        (socket.readyState === WebSocket.OPEN ||
-          socket.readyState === WebSocket.CONNECTING)
+        socket.readyState === WebSocket.OPEN
       ) {
         socket.close();
       }

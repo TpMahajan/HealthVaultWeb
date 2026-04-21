@@ -95,10 +95,28 @@ const normalizePatientThreadEntry = (patient) => {
   };
 };
 
+const buildAvatarSeed = (value = "") => {
+  let hash = 0;
+  const input = String(value);
+  for (let i = 0; i < input.length; i += 1) {
+    hash = input.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+};
+
+const getAvatarFallbackStyle = (seedValue) => {
+  const seed = buildAvatarSeed(seedValue || "user");
+  const startHue = seed % 360;
+  const endHue = (startHue + 40 + (seed % 30)) % 360;
+  return {
+    background: `linear-gradient(135deg, hsl(${startHue} 72% 52%) 0%, hsl(${endHue} 68% 40%) 100%)`,
+  };
+};
+
 /* ─────────────────────────────────────────────────────────────────────────
    Reusable Avatar
 ───────────────────────────────────────────────────────────────────────── */
-const Avatar = ({ src, name, size = "md", accentStyle }) => {
+const Avatar = ({ src, name, size = "md", accentStyle, fallbackStyle }) => {
   const sizes = { sm: "h-7 w-7 text-[10px]", md: "h-9 w-9 text-xs", lg: "h-10 w-10 text-sm" };
   const initials = (name || "?")
     .split(" ")
@@ -106,11 +124,15 @@ const Avatar = ({ src, name, size = "md", accentStyle }) => {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const defaultStyle = { background: "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)" };
+  const avatarStyle = src
+    ? (accentStyle || defaultStyle)
+    : (fallbackStyle || accentStyle || defaultStyle);
 
   return (
     <div
       className={`${sizes[size]} shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-white`}
-      style={accentStyle || { background: "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)" }}
+      style={avatarStyle}
     >
       {src ? (
         <>
@@ -159,6 +181,7 @@ const Messages = () => {
   const [threads, setThreads] = useState([]);
   const [allPatients, setAllPatients] = useState([]);
   const [selectedCounterpartId, setSelectedCounterpartId] = useState("");
+  const selectedChatUserId = selectedCounterpartId;
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [loadingThreads, setLoadingThreads] = useState(true);
@@ -166,6 +189,7 @@ const Messages = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const listEndRef = useRef(null);
   const notificationCountRef = useRef(notifications.length);
   const mergedThreads = useMemo(() => {
@@ -233,6 +257,13 @@ const Messages = () => {
   const selectedPatientProfileImage = useMemo(
     () => resolvePatientProfileImage(selectedPatient),
     [selectedPatient]
+  );
+  const selectedPatientFallbackStyle = useMemo(
+    () =>
+      getAvatarFallbackStyle(
+        `${String(selectedThread?.counterpartId || "").trim()}-${String(selectedThread?.counterpartName || "").trim()}`
+      ),
+    [selectedThread?.counterpartId, selectedThread?.counterpartName]
   );
 
   /* ── data loading UNCHANGED ── */
@@ -395,7 +426,22 @@ const Messages = () => {
     );
   }
 
-  const listItems = mergedThreads;
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const listItems = useMemo(() => {
+    if (!normalizedSearchQuery) return mergedThreads;
+    return mergedThreads.filter((thread) => {
+      const searchableText = [
+        thread?.counterpartName,
+        thread?.lastMessage,
+        thread?.counterpartEmail,
+        thread?.counterpartMobile,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ");
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [mergedThreads, normalizedSearchQuery]);
+  const hasActiveSearch = normalizedSearchQuery.length > 0;
   const isListLoading = loadingThreads || (isDoctor && loadingPatients);
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -428,7 +474,8 @@ const Messages = () => {
             <input
               type="text"
               placeholder="Search"
-              readOnly
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full h-9 pl-9 pr-4 rounded-xl border-0 bg-slate-100 dark:bg-white/[0.06] text-[13px] text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 ${isDoctor ? "focus:ring-primary/20" : "focus:ring-sky-500/20"} transition-all`}
             />
           </div>
@@ -445,12 +492,15 @@ const Messages = () => {
             <div className="flex flex-col items-center justify-center h-40 gap-3 px-4 text-center">
               <InboxIcon className="h-8 w-8 text-slate-200 dark:text-slate-700" />
               <p className="text-[12px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                No conversations yet.<br />They will appear here.
+                {hasActiveSearch ? "No matching conversations found." : "No conversations yet."}
+                <br />
+                {hasActiveSearch ? "Try another search term." : "They will appear here."}
               </p>
             </div>
           ) : (
             listItems.map((thread) => {
-              const active = thread.counterpartId === selectedCounterpartId;
+              const user = { id: String(thread?.counterpartId || "").trim() };
+              const active = selectedChatUserId === user.id;
               const patient = {
                 name: thread?.counterpartName || "",
                 profileImage:
@@ -461,6 +511,9 @@ const Messages = () => {
                   null,
               };
               const patientProfileImage = resolvePatientProfileImage(patient);
+              const userAvatarFallbackStyle = getAvatarFallbackStyle(
+                `${user.id}-${String(thread?.counterpartName || "").trim()}`
+              );
               return (
                 <button
                   key={thread.counterpartId}
@@ -477,8 +530,16 @@ const Messages = () => {
                   <div className="flex items-center gap-3">
                     {/* Avatar with static online dot */}
                     <div className="relative shrink-0">
-                      <Avatar src={patientProfileImage} name={thread.counterpartName} size="md" accentStyle={doctorAvatarStyle} />
-                      <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${isDoctor ? "bg-primary" : "bg-emerald-400"} ring-[1.5px] ring-white dark:ring-[#141414]`} />
+                      <Avatar
+                        src={patientProfileImage}
+                        name={thread.counterpartName}
+                        size="md"
+                        accentStyle={doctorAvatarStyle}
+                        fallbackStyle={!patientProfileImage ? userAvatarFallbackStyle : undefined}
+                      />
+                      {active && (
+                        <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${isDoctor ? "bg-primary" : "bg-emerald-400"} ring-[1.5px] ring-white dark:ring-[#141414]`} />
+                      )}
                     </div>
 
                     {/* Text section */}
@@ -526,7 +587,13 @@ const Messages = () => {
               <div className="flex items-center gap-3">
                 {/* Avatar with static online dot */}
                 <div className="relative shrink-0">
-                  <Avatar src={selectedPatientProfileImage} name={selectedThread.counterpartName} size="lg" accentStyle={doctorAvatarStyle} />
+                  <Avatar
+                    src={selectedPatientProfileImage}
+                    name={selectedThread.counterpartName}
+                    size="lg"
+                    accentStyle={doctorAvatarStyle}
+                    fallbackStyle={!selectedPatientProfileImage ? selectedPatientFallbackStyle : undefined}
+                  />
                   <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ${isDoctor ? "bg-primary" : "bg-emerald-400"} ring-[1.5px] ring-white dark:ring-[#141414]`} />
                 </div>
 
@@ -588,7 +655,13 @@ const Messages = () => {
                         {!mine && (
                           <div className="shrink-0 w-7">
                             {!sameSenderAsPrev && (
-                              <Avatar src={selectedPatientProfileImage} name={selectedThread.counterpartName} size="sm" accentStyle={doctorAvatarStyle} />
+                              <Avatar
+                                src={selectedPatientProfileImage}
+                                name={selectedThread.counterpartName}
+                                size="sm"
+                                accentStyle={doctorAvatarStyle}
+                                fallbackStyle={!selectedPatientProfileImage ? selectedPatientFallbackStyle : undefined}
+                              />
                             )}
                           </div>
                         )}

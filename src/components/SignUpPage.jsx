@@ -51,7 +51,7 @@ const SignUpPage = () => {
     try {
       const result = await signup(formData.name, formData.email, formData.mobile, formData.password);
       if (result.success) {
-        navigate('/dashboard');
+        navigate('/login');
       } else {
         setError(result.error || 'Registration failed');
       }

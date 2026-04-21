@@ -9,7 +9,7 @@ import { API_BASE } from '../constants/api';
 import Footer from './Footer';
 import AIAssistant from './AIAssistant';
 import AnimatedChatButton from './AnimatedChatButton';
-import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Shield, Plus, RefreshCw, X, Home, Settings, LogOut, Info, Search, User, Sun, Moon, Menu, ChevronLeft, ChevronDown, Bell, UserCircle, Stethoscope, Zap, History } from 'lucide-react';
+import { Users, QrCode, ArrowRight, Calendar, Clock, Activity, TrendingUp, AlertTriangle, CheckCircle, FileText, Heart, Plus, RefreshCw, X, Home, Settings, LogOut, Info, Search, User, Sun, Moon, Menu, ChevronLeft, ChevronDown, Bell, UserCircle, Stethoscope, Zap, History } from 'lucide-react';
 import PatientDashboard from './PatientDashboard';
 import { fetchTrackedAdUrl } from '../superadmin/api';
 import { usePublicConfigRealtime } from '../hooks/usePublicConfigRealtime';
@@ -34,6 +34,7 @@ const Dashboard = () => {
   const [publicAds, setPublicAds] = useState([]);
   const [publicAlerts, setPublicAlerts] = useState([]);
   const [publicAdIndex, setPublicAdIndex] = useState(0);
+  const [adImageLoadFailed, setAdImageLoadFailed] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -177,6 +178,29 @@ const Dashboard = () => {
     }
 
     window.open(targetUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const resolvePublicAdImageUrl = (ad) => {
+    if (!ad || typeof ad !== "object") return "";
+    const baseOrigin = String(API_BASE || "").replace(/\/api\/?$/i, "");
+    const candidates = [
+      ad.imageUrl,
+      ad.image,
+      ad.bannerImage,
+      ad.thumbnail,
+      ad?.media?.thumbnail,
+    ];
+
+    for (const candidate of candidates) {
+      const raw = String(candidate || "").trim();
+      if (!raw) continue;
+      if (raw.startsWith("data:image/")) return raw;
+      if (/^https?:\/\//i.test(raw)) return raw;
+      if (raw.startsWith("/uploads/")) return `${baseOrigin}${raw}`;
+      if (raw.startsWith("uploads/")) return `${baseOrigin}/${raw}`;
+    }
+
+    return "";
   };
 
 
@@ -350,10 +374,26 @@ const Dashboard = () => {
 
   const activePublicAd =
     publicAds.length > 0 ? publicAds[publicAdIndex % publicAds.length] : null;
+  const activePublicAdImageUrl = resolvePublicAdImageUrl(activePublicAd);
+  const activePublicAdUrlText = String(
+    activePublicAd?.redirectUrl ||
+      activePublicAd?.linkUrl ||
+      activePublicAd?.url ||
+      ""
+  ).trim();
+  const activePublicAdDescriptionText = String(
+    activePublicAd?.description || ""
+  ).trim();
+  const showActivePublicAdImage =
+    Boolean(activePublicAdImageUrl) && !adImageLoadFailed;
   const alertTickerText = publicAlerts
     .map((alert) => String(alert?.message || "").trim())
     .filter(Boolean)
     .join("   •   ");
+
+  useEffect(() => {
+    setAdImageLoadFailed(false);
+  }, [activePublicAd?._id, activePublicAd?.id, activePublicAdImageUrl]);
 
   return (
     <>
@@ -381,31 +421,204 @@ const Dashboard = () => {
             <button
               type="button"
               onClick={() => handlePublicAdClick(activePublicAd)}
-              className="w-full overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition hover:opacity-95"
+              style={{
+                display: 'block',
+                width: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+                background: 'transparent',
+                borderRadius: '0',
+                border: 'none',
+                boxShadow: '0 2px 12px rgba(15,23,42,0.08)',
+                color: '#fff',
+                cursor: 'pointer',
+                textAlign: 'left',
+                padding: 0,
+                transition: 'transform 0.22s ease, box-shadow 0.22s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 18px rgba(15,23,42,0.14)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(15,23,42,0.08)';
+              }}
             >
-              <div className="flex items-center gap-4 px-5 py-4">
-                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 text-left">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
+              {/* Compact dual-panel ad: text card (left) + image card (right) */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  alignItems: "stretch",
+                  width: "100%",
+                  minHeight: "84px",
+                  gap: "10px",
+                  boxSizing: "border-box",
+                  position: "relative",
+                }}
+              >
+                <div
+                  style={{
+                    flex: "1 1 60%",
+                    minWidth: "220px",
+                    height: "84px",
+                    padding: "16px 18px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    gap: "2px",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                    background:
+                      "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 58%, #0284c7 100%)",
+                    borderRadius: "14px",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    boxShadow: "0 4px 14px rgba(30,58,138,0.24)",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignSelf: "flex-start",
+                      alignItems: "center",
+                      fontSize: "8px",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.16em",
+                      color: "rgba(186,230,253,0.9)",
+                      whiteSpace: "nowrap",
+                      lineHeight: 1,
+                    }}
+                  >
                     Sponsored
-                  </p>
-                  <p className="truncate text-base font-bold">
+                  </span>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "13.5px",
+                      fontWeight: 800,
+                      color: "#fff",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      lineHeight: 1.2,
+                    }}
+                  >
                     {String(activePublicAd.title || "Medical Vault Update")}
                   </p>
-                  <p className="truncate text-xs text-cyan-50/90">
-                    {String(activePublicAd.redirectUrl || "Tap to open")}
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color: "rgba(191,219,254,0.95)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {activePublicAdUrlText || "Link unavailable"}
+                  </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "10px",
+                      fontWeight: 500,
+                      color: "rgba(224,242,254,0.78)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {activePublicAdDescriptionText || "Tap to learn more"}
                   </p>
                 </div>
-                {publicAds.length > 1 && (
-                  <span className="ml-auto rounded-full bg-white/15 px-2 py-1 text-[10px] font-black tracking-wider">
-                    {publicAdIndex + 1}/{publicAds.length}
-                  </span>
-                )}
+
+                <div
+                  style={{
+                    flex: "1 1 34%",
+                    minWidth: "160px",
+                    height: "84px",
+                    position: "relative",
+                    lineHeight: 0,
+                    overflow: "hidden",
+                    borderRadius: "14px",
+                    background:
+                      "linear-gradient(135deg, rgba(30,41,59,0.55) 0%, rgba(15,23,42,0.65) 100%)",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    boxShadow: "0 4px 14px rgba(15,23,42,0.2)",
+                  }}
+                >
+                  {showActivePublicAdImage ? (
+                    <img
+                      src={activePublicAdImageUrl}
+                      alt={activePublicAd.title || "Ad"}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: "center",
+                        background: "rgba(255,255,255,0.12)",
+                      }}
+                      onError={() => setAdImageLoadFailed(true)}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "rgba(226,232,240,0.9)",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Image Unavailable
+                    </div>
+                  )}
+
+                  {publicAds.length > 1 && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: "8px",
+                        right: "8px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(10,18,42,0.85)",
+                        border: "1px solid rgba(255,255,255,0.28)",
+                        borderRadius: "999px",
+                        padding: "2px 7px",
+                        fontSize: "9px",
+                        fontWeight: 900,
+                        color: "#fff",
+                        lineHeight: 1,
+                        letterSpacing: "0.05em",
+                        whiteSpace: "nowrap",
+                        zIndex: 2,
+                      }}
+                    >
+                      {publicAdIndex + 1}/{publicAds.length}
+                    </span>
+                  )}
+                </div>
               </div>
             </button>
           )}
+
+
+
+
         </div>
       )}
 

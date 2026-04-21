@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Phone, MapPin, Shield, Edit, Save, X, Stethoscope, Loader, Activity, Award, CheckCircle, AlertTriangle, Trash2, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Shield, Edit, Save, X, Stethoscope, Loader, Activity, Award, CheckCircle, Trash2, AlertCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { DOCTOR_API_BASE, API_BASE } from '../constants/api';
+import { useDoctorToast } from '../context/DoctorToastContext';
 import Footer from './Footer';
 
 const Profile = () => {
+  const YEARS_STORAGE_KEY = 'yearsOfExperience';
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
@@ -31,21 +33,27 @@ const Profile = () => {
     yearsOfExperience: 0,
     totalSessions: 0
   });
+  const [yearsOfExperience, setYearsOfExperience] = useState(0);
   // Separate state for raw input values to allow typing commas freely
   const [certificationsInput, setCertificationsInput] = useState('');
   const [languagesInput, setLanguagesInput] = useState('');
   const [isVisible, setIsVisible] = useState(false);
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success', title: '' });
+  const { showDoctorToast } = useDoctorToast();
 
   // Custom toast helper
   const showToast = (message, type = 'success', title = '') => {
     const defaultTitles = {
       success: 'Update Success',
       error: 'System Alert',
-      warning: 'Attention Required'
+      warning: 'Attention Required',
+      info: 'Information',
     };
-    setToast({ show: true, message, type, title: title || defaultTitles[type] });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success', title: '' }), 2500);
+    showDoctorToast({
+      message,
+      type,
+      title: title || defaultTitles[type] || defaultTitles.info,
+      duration: 2500,
+    });
   };
 
   // Calculate completion percentage
@@ -74,9 +82,15 @@ const Profile = () => {
     return match ? Number(match[1]) : fallbackYears;
   };
 
+  const sanitizeYearsOfExperience = (value) => {
+    const parsedValue = Number(value);
+    if (!Number.isFinite(parsedValue)) return 0;
+    return Math.min(50, Math.max(0, Math.trunc(parsedValue)));
+  };
+
   const completionPercentage = calculateCompletion();
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
     // Validate required fields
@@ -88,68 +102,74 @@ const Profile = () => {
       showToast('Email address is required.', 'error');
       return;
     }
+    setIsSaving(true);
 
-    try {
-      setIsSaving(true);
-      const token = localStorage.getItem('token');
+    // Process certifications and languages from raw input strings
+    const certifications = certificationsInput.trim()
+      ? certificationsInput.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0)
+      : [];
+    const languages = languagesInput.trim()
+      ? languagesInput.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0)
+      : [];
+    const nextYearsOfExperience = sanitizeYearsOfExperience(yearsOfExperience);
 
-      // Process certifications and languages from raw input strings
-      const certifications = certificationsInput.trim()
-        ? certificationsInput.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0)
-        : [];
-      const languages = languagesInput.trim()
-        ? languagesInput.split(',').map(lang => lang.trim()).filter(lang => lang.length > 0)
-        : [];
+    localStorage.setItem(YEARS_STORAGE_KEY, String(nextYearsOfExperience));
+    setYearsOfExperience(nextYearsOfExperience);
+    setProfileData(prev => ({
+      ...prev,
+      name: prev.name.trim(),
+      email: prev.email.trim(),
+      certifications,
+      languages,
+      yearsOfExperience: nextYearsOfExperience,
+    }));
+    setDoctorData(prev => ({
+      ...(prev || {}),
+      name: profileData.name.trim(),
+      email: profileData.email.trim(),
+      mobile: profileData.phone,
+      specialty: profileData.specialty,
+      license: profileData.license,
+      experience: profileData.experience,
+      location: profileData.location,
+      education: profileData.education,
+      bio: profileData.bio,
+      certifications,
+      languages,
+      totalPatients: profileData.totalPatients,
+      yearsOfExperience: nextYearsOfExperience,
+      totalSessions: profileData.totalSessions,
+      avatar: profileData.avatar,
+    }));
+    updateUser({
+      ...user,
+      name: profileData.name.trim(),
+      email: profileData.email.trim(),
+      mobile: profileData.phone,
+      specialty: profileData.specialty,
+      license: profileData.license,
+      experience: profileData.experience,
+      location: profileData.location,
+      education: profileData.education,
+      bio: profileData.bio,
+      certifications,
+      languages,
+      yearsOfExperience: nextYearsOfExperience,
+      avatar: profileData.avatar,
+    });
+    setIsEditing(false);
+    setIsSaving(false);
+    showToast('Profile updated successfully!', 'success');
+    return;
 
-      const updatePayload = {
-        name: profileData.name.trim(),
-        email: profileData.email.trim(),
-        mobile: profileData.phone,
-        specialty: profileData.specialty,
-        license: profileData.license,
-        experience: profileData.experience,
-        location: profileData.location,
-        education: profileData.education,
-        bio: profileData.bio,
-        certifications,
-        languages,
-        totalPatients: profileData.totalPatients,
-        yearsOfExperience: profileData.yearsOfExperience,
-      };
-
-      // API call — triggered ONLY by clicking Save Changes button
-      const response = await fetch(`${DOCTOR_API_BASE}/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatePayload),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setDoctorData(data.doctor);
-        setProfileData(prev => ({ ...prev, certifications, languages }));
-        updateUser({ ...user, ...data.doctor });
-        setIsEditing(false);
-        showToast('Profile updated successfully!', 'success');
-      } else {
-        showToast(`Update failed: ${data.message || 'Please try again.'}`, 'error');
-      }
-    } catch (error) {
-      if (error.message.includes('Failed to fetch')) {
-        showToast('Server connection failed. Is the backend running?', 'error');
-      } else {
-        showToast(`Error: ${error.message}`, 'error');
-      }
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleCancel = () => {
     if (doctorData) {
+      const savedYears = localStorage.getItem(YEARS_STORAGE_KEY);
+      const nextYearsOfExperience = savedYears !== null
+        ? sanitizeYearsOfExperience(savedYears)
+        : getYearsFromExperience(doctorData.experience, doctorData.yearsOfExperience || 0);
       const certs = Array.isArray(doctorData.certifications)
         ? doctorData.certifications
         : (typeof doctorData.certifications === 'string' && doctorData.certifications.trim()
@@ -176,8 +196,9 @@ const Profile = () => {
         certifications: certs,
         languages: langs,
         totalPatients: doctorData.totalPatients || 0,
-        yearsOfExperience: getYearsFromExperience(doctorData.experience, doctorData.yearsOfExperience || 0),
+        yearsOfExperience: nextYearsOfExperience,
       }));
+      setYearsOfExperience(nextYearsOfExperience);
       setCertificationsInput(Array.isArray(certs) ? certs.join(', ') : '');
       setLanguagesInput(Array.isArray(langs) ? langs.join(', ') : '');
       setHasPhoto(!!doctorData.avatar);
@@ -311,10 +332,14 @@ const Profile = () => {
   const handleInputChange = (field, value) => {
     setProfileData(prev => {
       if (field === 'experience') {
+        const nextYearsOfExperience = sanitizeYearsOfExperience(
+          getYearsFromExperience(value, prev.yearsOfExperience)
+        );
+        setYearsOfExperience(nextYearsOfExperience);
         return {
           ...prev,
           experience: value,
-          yearsOfExperience: getYearsFromExperience(value, prev.yearsOfExperience),
+          yearsOfExperience: nextYearsOfExperience,
         };
       }
 
@@ -325,9 +350,29 @@ const Profile = () => {
     });
   };
 
+  const handleYearsOfExperienceChange = (value) => {
+    const nextYearsOfExperience = value === ''
+      ? 0
+      : sanitizeYearsOfExperience(value);
+    setYearsOfExperience(nextYearsOfExperience);
+    setProfileData(prev => ({
+      ...prev,
+      yearsOfExperience: nextYearsOfExperience,
+    }));
+  };
+
   // Fetch doctor profile data
   useEffect(() => {
     let isMounted = true;
+    const savedYears = localStorage.getItem(YEARS_STORAGE_KEY);
+    if (savedYears !== null) {
+      const normalizedYears = sanitizeYearsOfExperience(savedYears);
+      setYearsOfExperience(normalizedYears);
+      setProfileData(prev => ({
+        ...prev,
+        yearsOfExperience: normalizedYears,
+      }));
+    }
 
     const syncQuickPerformanceStats = async (token = null, fallbackYears = null) => {
       const authToken = token || localStorage.getItem('token');
@@ -374,14 +419,18 @@ const Profile = () => {
         }
 
         if (Object.keys(nextStats).length > 0) {
-          setProfileData(prev => ({
-            ...prev,
-            ...nextStats,
-            yearsOfExperience: getYearsFromExperience(
+          setProfileData(prev => {
+            const refreshedYears = getYearsFromExperience(
               prev.experience,
               nextStats.yearsOfExperience ?? prev.yearsOfExperience
-            ),
-          }));
+            );
+            setYearsOfExperience(sanitizeYearsOfExperience(refreshedYears));
+            return {
+              ...prev,
+              ...nextStats,
+              yearsOfExperience: refreshedYears,
+            };
+          });
         }
       } catch (statsError) {
         console.error('Failed to refresh quick performance stats:', statsError);
@@ -413,10 +462,14 @@ const Profile = () => {
           console.log('Doctor data received:', data.doctor);
           setDoctorData(data.doctor);
           const displayAvatar = data.doctor.avatarUrl || data.doctor.avatar || '';
-          const yearsOfExperience = getYearsFromExperience(
+          const yearsFromProfile = getYearsFromExperience(
             data.doctor.experience,
             data.doctor.yearsOfExperience || 0
           );
+          const yearsOfExperience = savedYears !== null
+            ? sanitizeYearsOfExperience(savedYears)
+            : sanitizeYearsOfExperience(yearsFromProfile);
+          setYearsOfExperience(yearsOfExperience);
           setProfileData(prev => ({
             ...prev,
             name: data.doctor.name || '',
@@ -660,7 +713,7 @@ const Profile = () => {
                     <div className="text-[9px] font-black text-gray-500 dark:text-gray-500 uppercase tracking-tighter">Patients</div>
                   </div>
                   <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:shadow-lg hover:bg-white dark:hover:bg-white/10 transition-all duration-300 cursor-default group">
-                    <div className="text-xl font-black text-gray-900 dark:text-white group-hover:scale-110 transition-transform">{profileData.yearsOfExperience}</div>
+                    <div className="text-xl font-black text-gray-900 dark:text-white group-hover:scale-110 transition-transform">{yearsOfExperience}</div>
                     <div className="text-[9px] font-black text-gray-500 dark:text-gray-500 uppercase tracking-tighter">Years</div>
                   </div>
                   <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:shadow-lg hover:bg-white dark:hover:bg-white/10 transition-all duration-300 cursor-default group">
@@ -834,6 +887,27 @@ const Profile = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-t border-gray-50 dark:border-white/5 pt-6">
+                    <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Years of Experience</label>
+                    <div className="md:col-span-2">
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={50}
+                          value={yearsOfExperience}
+                          onChange={(e) => handleYearsOfExperienceChange(e.target.value)}
+                          placeholder="Enter years (e.g., 5)"
+                          className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary dark:focus:border-primary transition-all text-sm font-medium text-gray-900 dark:text-white"
+                        />
+                      ) : (
+                        <div className="w-full px-4 py-2.5 bg-gray-50 dark:bg-white/5 border border-gray-100/50 dark:border-white/5 rounded-xl text-sm font-bold text-slate-700 dark:text-gray-200 shadow-sm">
+                          {yearsOfExperience} Years
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-t border-gray-50 dark:border-white/5 pt-6">
                     <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Education</label>
                     <div className="md:col-span-2">
                       {isEditing ? (
@@ -987,58 +1061,6 @@ const Profile = () => {
           </div>
         </div>
       </div>
-
-      {/* Minimal Top-Right Toast System (Portaled to Body) */}
-      {toast.show && createPortal(
-        <>
-          <style>
-            {`
-              @keyframes toast-progress {
-                from { width: 100%; }
-                to { width: 0%; }
-              }
-              .toast-progress-bar-minimal {
-                animation: toast-progress 2500ms linear forwards;
-              }
-            `}
-          </style>
-          <div className="fixed top-[12px] right-4 sm:right-[32px] z-[9999] animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className={`relative flex flex-col w-[calc(100vw-2rem)] max-w-[260px] bg-white/90 dark:bg-[#1a1a1a]/90 backdrop-blur-md rounded-xl shadow-lg border-l-[3px] overflow-hidden transition-all ${toast.type === 'error' ? 'border-rose-500' :
-              'border-primary'
-              }`}>
-              <div className="flex items-center px-3.5 py-2.5 space-x-3">
-                {/* Status Icon */}
-                <div className="shrink-0">
-                  {toast.type === 'success' && <CheckCircle className="h-3.5 w-3.5 text-primary dark:text-primary" />}
-                  {toast.type === 'error' && <X className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />}
-                  {toast.type === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-primary dark:text-primary" />}
-                </div>
-
-                {/* Message */}
-                <p className="flex-1 text-[12px] font-bold text-gray-800 dark:text-white leading-none truncate">
-                  {toast.message}
-                </p>
-
-                {/* Close */}
-                <button
-                  onClick={() => setToast({ ...toast, show: false })}
-                  className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-white transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-
-              {/* Thin Bottom Progress Line */}
-              <div className="h-[2px] w-full bg-black/5 dark:bg-white/5">
-                <div className={`h-full toast-progress-bar-minimal ${toast.type === 'error' ? 'bg-rose-500' :
-                  'bg-primary'
-                  }`} />
-              </div>
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
 
       {/* Delete Photo Confirmation Modal */}
       {showDeleteModal && createPortal(

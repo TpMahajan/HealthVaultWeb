@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { API_BASE, DOCTOR_API_BASE, googleWebAuth } from "../constants/api";
 import { getFCMToken, onMessageListener } from "../firebase";
 import { clearSecureAuthSession } from "../utils/secureAuthStorage";
+import { syncGuestCartAfterLogin } from "../utils/storeApi";
 import { setSelectedTimeZone } from "../utils/timezone";
 
 const AuthContext = createContext();
@@ -207,6 +208,9 @@ export const AuthProvider = ({ children }) => {
       setUser({ ...data.doctor, role: "doctor" });
       setSelectedTimeZone(data?.doctor?.preferences?.timezone);
 
+      // Merge any guest medical-store cart into authenticated cart.
+      await syncGuestCartAfterLogin();
+
       // Register FCM token after successful login
       await registerFCMToken(data.doctor.id);
 
@@ -231,15 +235,6 @@ export const AuthProvider = ({ children }) => {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Signup failed");
-
-      // Optional: auto-login after signup
-      if (data.token && data.doctor) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", "doctor");
-        localStorage.setItem("user", JSON.stringify(data.doctor));
-        setUser({ ...data.doctor, role: "doctor" });
-        setSelectedTimeZone(data?.doctor?.preferences?.timezone);
-      }
 
       return { success: true, data };
     } catch (err) {
@@ -288,6 +283,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("user", JSON.stringify(user));
     setUser(user);
     setSelectedTimeZone(user?.preferences?.timezone);
+    await syncGuestCartAfterLogin();
     return { success: true };
   };
 

@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/anchor-is-valid */
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Shield, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -15,8 +15,18 @@ const LoginPage = () => {
 
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const googleBtnRef = useRef(null);
   const gsiInitializedRef = useRef(false);
+
+  const resolvePostLoginPath = () => {
+    const params = new URLSearchParams(location.search || '');
+    const rawNext = String(params.get('next') || '').trim();
+    if (!rawNext.startsWith('/') || rawNext.startsWith('//')) {
+      return '/dashboard';
+    }
+    return rawNext;
+  };
 
   useEffect(() => {
     try {
@@ -43,7 +53,7 @@ const LoginPage = () => {
 
       if (result.success) {
         console.log("✅ LoginPage: Login successful, navigating to dashboard");
-        navigate('/dashboard');
+        navigate(resolvePostLoginPath());
       } else {
         console.log("❌ LoginPage: Login failed:", result.error);
         setError(result.error || 'Invalid email or password');
@@ -72,7 +82,7 @@ const LoginPage = () => {
           const idToken = response.credential;
           const result = await loginWithGoogle(idToken);
           if (result.success) {
-            navigate('/');
+            navigate(resolvePostLoginPath());
           } else {
             alert(result.error || 'Google sign-in failed');
           }
@@ -96,7 +106,7 @@ const LoginPage = () => {
     } catch (e) {
       console.warn('Google init failed', e);
     }
-  }, [loginWithGoogle, navigate]);
+  }, [location.search, loginWithGoogle, navigate]);
 
   return (
     // ✅ Force light mode — this wrapper prevents the global `dark` class on <html>

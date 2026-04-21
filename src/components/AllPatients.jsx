@@ -25,6 +25,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_BASE } from '../constants/api';
 import * as XLSX from 'xlsx';
+import { useDoctorToast } from '../context/DoctorToastContext';
 
 const createInitialPatientForm = () => ({
     name: '',
@@ -115,6 +116,7 @@ const getNextAppointmentDisplay = (patient) => {
 };
 
 const AllPatients = () => {
+    const { showDoctorToast } = useDoctorToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -145,7 +147,6 @@ const AllPatients = () => {
     const [isDeletingPatient, setIsDeletingPatient] = useState(false);
     const [deletePatientError, setDeletePatientError] = useState('');
     const [actionPatient, setActionPatient] = useState(null);
-    const [successMessage, setSuccessMessage] = useState('');
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [bulkFile, setBulkFile] = useState(null);
     const [isBulkUploading, setIsBulkUploading] = useState(false);
@@ -158,12 +159,6 @@ const AllPatients = () => {
     useEffect(() => {
         fetchPatients();
     }, []);
-
-    useEffect(() => {
-        if (!successMessage) return undefined;
-        const timeoutId = setTimeout(() => setSuccessMessage(''), 2500);
-        return () => clearTimeout(timeoutId);
-    }, [successMessage]);
 
     useEffect(() => {
         if (!isDrawerOpen) return undefined;
@@ -584,7 +579,10 @@ const AllPatients = () => {
             setIsAddModalOpen(false);
             setAddPatientForm(createInitialPatientForm());
             setAddPatientErrors({});
-            setSuccessMessage('Patient added successfully');
+            showDoctorToast({
+                type: 'success',
+                message: 'Patient added successfully',
+            });
 
             await fetchPatients();
         } catch (submitError) {
@@ -702,7 +700,10 @@ const AllPatients = () => {
             setEditPatientErrors({});
             setEditPatientApiError('');
             setActionPatient(null);
-            setSuccessMessage('Patient updated successfully');
+            showDoctorToast({
+                type: 'success',
+                message: 'Patient updated successfully',
+            });
 
             if (selectedPatient?.id === actionPatient.id) {
                 setSelectedPatient((prev) => prev ? {
@@ -769,7 +770,10 @@ const AllPatients = () => {
 
             setIsDeleteModalOpen(false);
             setDeletePatientError('');
-            setSuccessMessage('Patient deleted successfully');
+            showDoctorToast({
+                type: 'success',
+                message: 'Patient deleted successfully',
+            });
 
             if (selectedPatient?.id === actionPatient.id) {
                 setSelectedPatient(null);
@@ -884,11 +888,6 @@ const AllPatients = () => {
 
     return (
         <div className="w-full relative z-10 space-y-6 font-inter bg-transparent">
-            {successMessage && (
-                <div className="fixed top-4 right-4 z-[70] bg-white dark:bg-[#1A1A1A] border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-300 px-4 py-2 rounded-lg shadow-lg">
-                    <p className="text-sm font-semibold">{successMessage}</p>
-                </div>
-            )}
             {/* 1ï¸âƒ£ Filter Bar Header */}
             <div className="bg-white dark:bg-white/5 dark:backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl p-6 shadow-sm dark:shadow-lg">
                 <div className="flex flex-col gap-6">

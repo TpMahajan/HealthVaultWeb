@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 
 import { fetchStoreOrders } from "../utils/storeApi";
 
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+
 const OrdersPage = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -60,7 +68,7 @@ const OrdersPage = () => {
               fontWeight: 700,
             }}
           >
-            ← Back
+            {"<"} Back
           </button>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>My Orders</h1>
           <button
@@ -136,7 +144,7 @@ const OrdersPage = () => {
               const createdAt = order?.createdAt
                 ? new Date(order.createdAt).toLocaleString()
                 : "Unknown date";
-              const subtotal = Number(order?.totals?.subtotal || 0).toFixed(2);
+              const subtotal = Number(order?.totals?.subtotal || 0);
               const itemCount = Number(order?.totals?.itemCount || 0);
 
               return (
@@ -163,7 +171,7 @@ const OrdersPage = () => {
                         {createdAt}
                       </div>
                       <div style={{ marginTop: 6, color: "#334155", fontSize: 13 }}>
-                        {itemCount} item{itemCount === 1 ? "" : "s"} • INR {subtotal}
+                        {itemCount} item{itemCount === 1 ? "" : "s"} - {formatCurrency(subtotal)}
                       </div>
                     </div>
                     <span
