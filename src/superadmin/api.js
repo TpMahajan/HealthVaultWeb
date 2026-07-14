@@ -255,6 +255,21 @@ export const deleteProduct = (id) =>
 export const fetchUiConfig = () => request("/ui-config");
 export const updateUiConfig = (payload) =>
   request("/ui-config", { method: "PUT", body: payload });
+export const fetchAiSettings = () => request("/ai-settings");
+export const updateAiSettings = (payload) =>
+  request("/ai-settings", { method: "PUT", body: payload });
+export const fetchFamilyCareConfig = () => request("/family-care-config");
+export const updateFamilyCareConfig = (payload) =>
+  request("/family-care-config", { method: "PUT", body: payload });
+export const searchFamilyCareEntitlements = (search) =>
+  request(`/family-care-entitlements?search=${encodeURIComponent(search)}`);
+export const updateFamilyCareEntitlement = (userId, payload) =>
+  request(`/family-care-entitlements/${encodeURIComponent(userId)}`, {
+    method: "PUT",
+    body: payload,
+  });
+export const fetchAiUsageSummary = () => request("/ai-usage-summary");
+export const fetchAiUsageUsers = () => request("/ai-usage-users");
 export const fetchAlerts = (includeExpired = false, limit = 50) =>
   request(
     `/alerts?includeExpired=${encodeURIComponent(

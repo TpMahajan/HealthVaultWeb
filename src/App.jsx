@@ -46,6 +46,8 @@ import SuperAdminProductsPage from './superadmin/SuperAdminProductsPage';
 import SuperAdminUiConfigPage from './superadmin/SuperAdminUiConfigPage';
 import SuperAdminAlertsPage from './superadmin/SuperAdminAlertsPage';
 import SuperAdminNotificationsPage from './superadmin/SuperAdminNotificationsPage';
+import SuperAdminAiControlsPage from './superadmin/SuperAdminAiControlsPage';
+import SuperAdminFamilyCarePage from './superadmin/SuperAdminFamilyCarePage';
 
 const ProductPage = ProductPageModule.default || ProductPageModule.ProductPage;
 
@@ -274,6 +276,8 @@ const AppContent = () => {
           <Route path="ui-config" element={<SuperAdminUiConfigPage />} />
           <Route path="alerts" element={<SuperAdminAlertsPage />} />
           <Route path="notifications" element={<SuperAdminNotificationsPage />} />
+          <Route path="ai-controls" element={<SuperAdminAiControlsPage />} />
+          <Route path="family-care" element={<SuperAdminFamilyCarePage />} />
         </Route>
 
         {/* Protected Routes sharing the same Layout for state persistence */}

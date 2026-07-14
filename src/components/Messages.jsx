@@ -63,10 +63,10 @@ const resolvePatientProfileImage = (patient) => {
   if (/^(https?:)?\/\//i.test(rawProfileImage) || rawProfileImage.startsWith("data:")) {
     return rawProfileImage;
   }
-  if (rawProfileImage.startsWith("/uploads/")) return `http://localhost:5000${rawProfileImage}`;
-  if (rawProfileImage.startsWith("uploads/")) return `http://localhost:5000/${rawProfileImage}`;
-  if (rawProfileImage.startsWith("/")) return `http://localhost:5000${rawProfileImage}`;
-  return `http://localhost:5000/uploads/${rawProfileImage}`;
+  if (rawProfileImage.startsWith("/uploads/")) return `http://localhost:5001${rawProfileImage}`;
+  if (rawProfileImage.startsWith("uploads/")) return `http://localhost:5001/${rawProfileImage}`;
+  if (rawProfileImage.startsWith("/")) return `http://localhost:5001${rawProfileImage}`;
+  return `http://localhost:5001/uploads/${rawProfileImage}`;
 };
 
 const normalizePatientThreadEntry = (patient) => {

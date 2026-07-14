@@ -10,6 +10,8 @@ import {
   Palette,
   AlertTriangle,
   Bell,
+  Bot,
+  UsersRound,
   LogOut,
   HeartPulse,
 } from "lucide-react";
@@ -31,6 +33,8 @@ const menuItems = [
   { to: "/superadmin/ui-config", label: "UI Config", icon: Palette },
   { to: "/superadmin/alerts", label: "Alerts", icon: AlertTriangle },
   { to: "/superadmin/notifications", label: "Notifications", icon: Bell },
+  { to: "/superadmin/ai-controls", label: "AI Controls", icon: Bot },
+  { to: "/superadmin/family-care", label: "Family Care", icon: UsersRound },
 ];
 
 const linkClassName = ({ isActive }) =>

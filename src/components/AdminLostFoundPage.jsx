@@ -70,7 +70,8 @@ const EMPTY_SUMMARY = {
 const asText = (value) => {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value).trim();
   return "";
 };
 
@@ -100,7 +101,10 @@ const cleanDisplayValue = (value) => {
     return "";
   }
 
-  if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) {
+  if (
+    (text.startsWith("{") && text.endsWith("}")) ||
+    (text.startsWith("[") && text.endsWith("]"))
+  ) {
     return "";
   }
 
@@ -111,7 +115,10 @@ const normalizePhoneValue = (value) => {
   const text = cleanDisplayValue(value);
   if (!text) return "";
 
-  const cleaned = text.replace(/[^0-9+()\-\s]/g, "").replace(/\s+/g, " ").trim();
+  const cleaned = text
+    .replace(/[^0-9+()\-\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (cleaned.length >= 7) return cleaned;
   return "";
 };
@@ -137,7 +144,14 @@ const normalizeStatus = (value) => {
 
 const normalizeReportType = (value, hasLinkedProfile) => {
   const raw = asText(value).toLowerCase().replace(/\s+/g, "_");
-  if (["medicalvault_profile", "medical_vault_profile", "medicalvault", "profile"].includes(raw)) {
+  if (
+    [
+      "medicalvault_profile",
+      "medical_vault_profile",
+      "medicalvault",
+      "profile",
+    ].includes(raw)
+  ) {
     return "medicalvault_profile";
   }
   if (["family_friend", "family", "friend"].includes(raw)) {
@@ -147,7 +161,9 @@ const normalizeReportType = (value, hasLinkedProfile) => {
 };
 
 const reportTypeLabel = (value) =>
-  value === "medicalvault_profile" ? "MedicalVault Profile" : "Family or Friend";
+  value === "medicalvault_profile"
+    ? "MedicalVault Profile"
+    : "Family or Friend";
 
 const formatDateTime = (value) => {
   if (!value) return "Not provided";
@@ -181,7 +197,9 @@ const mapSummary = (raw) => ({
   openReports: Number(raw?.openReports ?? raw?.openLostCount ?? 0),
   foundResolvedReports: Number(raw?.foundResolvedReports ?? raw?.resolved ?? 0),
   notificationsSent: Number(raw?.notificationsSent ?? raw?.notifiedCount ?? 0),
-  suggestedMatches: Number(raw?.suggestedMatches ?? raw?.suggestedMatchesCount ?? 0),
+  suggestedMatches: Number(
+    raw?.suggestedMatches ?? raw?.suggestedMatchesCount ?? 0,
+  ),
 });
 
 const buildAddressText = (address) => {
@@ -189,7 +207,11 @@ const buildAddressText = (address) => {
     cleanDisplayValue(address.address),
     cleanDisplayValue(address.area),
     cleanDisplayValue(address.landmark),
-    [cleanDisplayValue(address.city), cleanDisplayValue(address.state), cleanDisplayValue(address.pincode)]
+    [
+      cleanDisplayValue(address.city),
+      cleanDisplayValue(address.state),
+      cleanDisplayValue(address.pincode),
+    ]
       .filter(Boolean)
       .join(", "),
   ].filter(Boolean);
@@ -198,18 +220,27 @@ const buildAddressText = (address) => {
 };
 
 const mapReport = (raw) => {
-  const reporterBlock = raw && typeof raw.reporter === "object" ? raw.reporter || {} : {};
+  const reporterBlock =
+    raw && typeof raw.reporter === "object" ? raw.reporter || {} : {};
   const reporterUser =
-    raw && typeof raw.reportedByUserId === "object" ? raw.reportedByUserId || {} : {};
-  const addressBlock = raw && typeof raw.address === "object" ? raw.address || {} : {};
-  const linkedProfile = raw && typeof raw.lostPersonUserId === "object" ? raw.lostPersonUserId || {} : {};
+    raw && typeof raw.reportedByUserId === "object"
+      ? raw.reportedByUserId || {}
+      : {};
+  const addressBlock =
+    raw && typeof raw.address === "object" ? raw.address || {} : {};
+  const linkedProfile =
+    raw && typeof raw.lostPersonUserId === "object"
+      ? raw.lostPersonUserId || {}
+      : {};
 
   const reportId = asText(raw?.reportId || raw?._id || raw?.id);
-  const hasLinkedProfile = Boolean(asText(linkedProfile?._id || linkedProfile?.id || linkedProfile?.name));
+  const hasLinkedProfile = Boolean(
+    asText(linkedProfile?._id || linkedProfile?.id || linkedProfile?.name),
+  );
 
   const reportType = normalizeReportType(
     raw?.normalizedReportType || raw?.reportForType || raw?.photoSource,
-    hasLinkedProfile
+    hasLinkedProfile,
   );
 
   const coordinates = Array.isArray(raw?.lastSeenLocation?.coordinates)
@@ -249,23 +280,40 @@ const mapReport = (raw) => {
     linkedProfileName: cleanDisplayValue(linkedProfile?.name),
     personName,
     approxAge: asNumberText(raw?.approxAge ?? linkedProfile?.age),
-    gender: cleanDisplayValue(raw?.gender || linkedProfile?.gender) || "Unknown",
+    gender:
+      cleanDisplayValue(raw?.gender || linkedProfile?.gender) || "Unknown",
     description: cleanDisplayValue(raw?.description),
     medicalNotes: cleanDisplayValue(raw?.medicalNotes),
     photoUrl: asPhotoUrl(raw?.photoUrl || linkedProfile?.profilePicture),
     reporter: {
-      name: cleanDisplayValue(reporterBlock?.name) || cleanDisplayValue(raw?.reporterName) || cleanDisplayValue(reporterUser?.name) || "Not provided",
-      phone: normalizePhoneValue(reporterBlock?.phone) || normalizePhoneValue(raw?.reporterPhone) || normalizePhoneValue(reporterUser?.mobile) || normalizePhoneValue(emergencyPhone),
-      alternateContact: normalizePhoneValue(reporterBlock?.alternateContact) || normalizePhoneValue(raw?.alternateContact) || normalizePhoneValue(emergencyPhone),
+      name:
+        cleanDisplayValue(reporterBlock?.name) ||
+        cleanDisplayValue(raw?.reporterName) ||
+        cleanDisplayValue(reporterUser?.name) ||
+        "Not provided",
+      phone:
+        normalizePhoneValue(reporterBlock?.phone) ||
+        normalizePhoneValue(raw?.reporterPhone) ||
+        normalizePhoneValue(reporterUser?.mobile) ||
+        normalizePhoneValue(emergencyPhone),
+      alternateContact:
+        normalizePhoneValue(reporterBlock?.alternateContact) ||
+        normalizePhoneValue(raw?.alternateContact) ||
+        normalizePhoneValue(emergencyPhone),
       relationshipToPerson:
-        cleanDisplayValue(reporterBlock?.relationshipToPerson) || cleanDisplayValue(raw?.relationshipToPerson),
+        cleanDisplayValue(reporterBlock?.relationshipToPerson) ||
+        cleanDisplayValue(raw?.relationshipToPerson),
       email:
         normalizeEmailValue(reporterBlock?.email) ||
         normalizeEmailValue(raw?.reporterEmail) ||
         normalizeEmailValue(reporterUser?.email),
     },
     address,
-    lastSeenLocation: cleanDisplayValue(addressBlock?.lastSeenLocationText) || cleanDisplayValue(raw?.lastSeenLocationText) || cleanDisplayValue(raw?.lastSeenLocation) || coordinateText,
+    lastSeenLocation:
+      cleanDisplayValue(addressBlock?.lastSeenLocationText) ||
+      cleanDisplayValue(raw?.lastSeenLocationText) ||
+      cleanDisplayValue(raw?.lastSeenLocation) ||
+      coordinateText,
     lastSeenTime: raw?.lastSeenTime || null,
     createdAt: raw?.createdAt || null,
     notificationStatus: {
@@ -277,7 +325,49 @@ const mapReport = (raw) => {
   };
 };
 
-const getStatusMeta = (status) => STATUS_META[normalizeStatus(status)] || STATUS_META.open;
+const mapFoundReport = (raw) => {
+  const coordinates = Array.isArray(raw?.currentLocation?.coordinates)
+    ? raw.currentLocation.coordinates
+    : [];
+  return {
+    id: asText(raw?._id || raw?.id),
+    photoUrl: asPhotoUrl(raw?.photoUrl),
+    approxAge: asNumberText(raw?.approxAge),
+    gender: cleanDisplayValue(raw?.gender) || "Unknown",
+    description: cleanDisplayValue(raw?.description),
+    condition: cleanDisplayValue(raw?.condition),
+    status: cleanDisplayValue(raw?.status) || "unmatched",
+    currentHospitalId: cleanDisplayValue(raw?.currentHospitalId),
+    foundTime: raw?.foundTime || null,
+    locationText:
+      coordinates.length === 2
+        ? `${Number(coordinates[1]).toFixed(5)}, ${Number(coordinates[0]).toFixed(5)}`
+        : "",
+  };
+};
+
+const mapMatch = (raw) => {
+  const lost =
+    raw && typeof raw.lostReportId === "object" ? raw.lostReportId || {} : {};
+  const found =
+    raw && typeof raw.foundReportId === "object" ? raw.foundReportId || {} : {};
+  return {
+    id: asText(raw?._id || raw?.id),
+    score: Number(raw?.score || 0),
+    status: cleanDisplayValue(raw?.status) || "suggested",
+    lostName: cleanDisplayValue(lost?.personName) || "Unnamed lost report",
+    lostPhotoUrl: asPhotoUrl(lost?.photoUrl),
+    foundPhotoUrl: asPhotoUrl(found?.photoUrl),
+    foundCondition: cleanDisplayValue(found?.condition),
+    foundFacility: cleanDisplayValue(found?.currentHospitalId),
+    foundTime: found?.foundTime || null,
+    lostReportId: asText(lost?._id || lost?.id || raw?.lostReportId),
+    foundReportId: asText(found?._id || found?.id || raw?.foundReportId),
+  };
+};
+
+const getStatusMeta = (status) =>
+  STATUS_META[normalizeStatus(status)] || STATUS_META.open;
 
 const adminHeaders = (token) => ({
   "Content-Type": "application/json",
@@ -319,7 +409,11 @@ const ReportPhoto = ({ report, large = false }) => {
     <div
       className={`${sizeClass} flex items-center justify-center border border-slate-200 bg-slate-100 text-slate-500`}
     >
-      {large ? <ImageOff size={20} /> : <span className="text-xs font-bold">N/A</span>}
+      {large ? (
+        <ImageOff size={20} />
+      ) : (
+        <span className="text-xs font-bold">N/A</span>
+      )}
     </div>
   );
 };
@@ -327,8 +421,12 @@ const ReportPhoto = ({ report, large = false }) => {
 const SummaryCard = ({ title, value, helper, icon: Icon, iconClass }) => (
   <div className="rounded-2xl border border-white/60 bg-white/75 p-4 shadow-[0_10px_26px_rgba(15,23,42,0.08)] backdrop-blur-md">
     <div className="flex items-center justify-between gap-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{title}</p>
-      <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${iconClass}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+        {title}
+      </p>
+      <span
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${iconClass}`}
+      >
         <Icon size={16} />
       </span>
     </div>
@@ -339,14 +437,18 @@ const SummaryCard = ({ title, value, helper, icon: Icon, iconClass }) => (
 
 const DetailSection = ({ title, children }) => (
   <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-3.5">
-    <h4 className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">{title}</h4>
+    <h4 className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
+      {title}
+    </h4>
     <div className="mt-2">{children}</div>
   </section>
 );
 
 const InfoRow = ({ label, value, fallback = "Not provided" }) => (
   <div className="min-w-0">
-    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+      {label}
+    </p>
     <p className="mt-1 break-words whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-slate-800 sm:text-sm">
       {valueWithFallback(value, fallback)}
     </p>
@@ -393,6 +495,8 @@ const LoadingRows = () => (
 export default function AdminLostFoundPage() {
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [reports, setReports] = useState([]);
+  const [foundReports, setFoundReports] = useState([]);
+  const [matches, setMatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -446,7 +550,9 @@ export default function AdminLostFoundPage() {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload?.success === false) {
-      throw new Error(asText(payload?.message) || `Request failed (${response.status})`);
+      throw new Error(
+        asText(payload?.message) || `Request failed (${response.status})`,
+      );
     }
 
     return payload;
@@ -479,16 +585,30 @@ export default function AdminLostFoundPage() {
       }
       setError("");
 
-      const summaryPromise = requestJson(`${API_BASE}/admin/lost-found/summary`);
-      const reportsPromise = requestJson(`${API_BASE}/admin/lost-found/reports?${reportQuery}`);
+      const summaryPromise = requestJson(
+        `${API_BASE}/admin/lost-found/summary`,
+      );
+      const reportsPromise = requestJson(
+        `${API_BASE}/admin/lost-found/reports?${reportQuery}`,
+      );
+      const foundReportsPromise = requestJson(
+        `${API_BASE}/admin/lost-found/found-reports?limit=20`,
+      );
+      const matchesPromise = requestJson(
+        `${API_BASE}/admin/lost-found/matches?status=suggested&limit=20`,
+      );
 
-      const [summaryResult, reportsResult] = await Promise.allSettled([
-        summaryPromise,
-        reportsPromise,
-      ]);
+      const [summaryResult, reportsResult, foundReportsResult, matchesResult] =
+        await Promise.allSettled([
+          summaryPromise,
+          reportsPromise,
+          foundReportsPromise,
+          matchesPromise,
+        ]);
 
       if (summaryResult.status === "fulfilled") {
-        const rawSummary = summaryResult.value?.summary || summaryResult.value?.data || {};
+        const rawSummary =
+          summaryResult.value?.summary || summaryResult.value?.data || {};
         setSummary(mapSummary(rawSummary));
       } else {
         setSummary(EMPTY_SUMMARY);
@@ -501,11 +621,43 @@ export default function AdminLostFoundPage() {
           reportsResult.value?.data ||
           [];
 
-        const mapped = Array.isArray(rawReports) ? rawReports.map(mapReport) : [];
+        const mapped = Array.isArray(rawReports)
+          ? rawReports.map(mapReport)
+          : [];
         setReports(mapped.filter((entry) => entry.id));
       } else {
         setReports([]);
-        setError(asText(reportsResult.reason?.message) || "Unable to load reports");
+        setError(
+          asText(reportsResult.reason?.message) || "Unable to load reports",
+        );
+      }
+
+      if (foundReportsResult.status === "fulfilled") {
+        const rawFoundReports =
+          foundReportsResult.value?.data?.reports ||
+          foundReportsResult.value?.reports ||
+          [];
+        setFoundReports(
+          Array.isArray(rawFoundReports)
+            ? rawFoundReports.map(mapFoundReport)
+            : [],
+        );
+      } else {
+        setFoundReports([]);
+      }
+
+      if (matchesResult.status === "fulfilled") {
+        const rawMatches =
+          matchesResult.value?.data?.matches ||
+          matchesResult.value?.matches ||
+          [];
+        setMatches(
+          Array.isArray(rawMatches)
+            ? rawMatches.map(mapMatch).filter((entry) => entry.id)
+            : [],
+        );
+      } else {
+        setMatches([]);
       }
 
       if (silent) {
@@ -514,7 +666,7 @@ export default function AdminLostFoundPage() {
         setIsLoading(false);
       }
     },
-    [reportQuery, requestJson]
+    [reportQuery, requestJson],
   );
 
   useEffect(() => {
@@ -523,7 +675,7 @@ export default function AdminLostFoundPage() {
 
   const selectedReport = useMemo(
     () => reports.find((report) => report.id === selectedReportId) || null,
-    [reports, selectedReportId]
+    [reports, selectedReportId],
   );
 
   useEffect(() => {
@@ -545,12 +697,15 @@ export default function AdminLostFoundPage() {
   }, [selectedReport]);
 
   useEffect(() => {
-    const isAnyModalOpen = Boolean(selectedReportId || foundDialogOpen || notifyDialogOpen);
+    const isAnyModalOpen = Boolean(
+      selectedReportId || foundDialogOpen || notifyDialogOpen,
+    );
     if (!isAnyModalOpen) return undefined;
 
     const prevOverflow = document.body.style.overflow;
     const prevPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const scrollbarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
 
     document.body.style.overflow = "hidden";
     if (scrollbarWidth > 0) {
@@ -571,10 +726,13 @@ export default function AdminLostFoundPage() {
       setBusyActionKey(key);
 
       try {
-        await requestJson(`${API_BASE}/admin/lost-found/reports/${encodeURIComponent(reportId)}/status`, {
-          method: "PATCH",
-          body: JSON.stringify({ status, ...payload }),
-        });
+        await requestJson(
+          `${API_BASE}/admin/lost-found/reports/${encodeURIComponent(reportId)}/status`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ status, ...payload }),
+          },
+        );
 
         await loadLostFoundData({ silent: true });
         setToast(successMessage || "Report updated");
@@ -584,7 +742,7 @@ export default function AdminLostFoundPage() {
         setBusyActionKey("");
       }
     },
-    [loadLostFoundData, requestJson]
+    [loadLostFoundData, requestJson],
   );
 
   const handleSaveInternalNotes = useCallback(async () => {
@@ -606,27 +764,37 @@ export default function AdminLostFoundPage() {
     setBusyActionKey(actionKey);
 
     try {
-      await requestJson(`${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: "found",
-          foundLocation: asText(foundLocationInput),
-          note: asText(foundNoteInput),
-        }),
-      });
+      await requestJson(
+        `${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: "found",
+            foundLocation: asText(foundLocationInput),
+            note: asText(foundNoteInput),
+          }),
+        },
+      );
 
       if (notifyAfterFound) {
-        await requestJson(`${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/notify`, {
-          method: "POST",
-          body: JSON.stringify({
-            foundLocation: asText(foundLocationInput),
-          }),
-        });
+        await requestJson(
+          `${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/notify`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              foundLocation: asText(foundLocationInput),
+            }),
+          },
+        );
       }
 
       await loadLostFoundData({ silent: true });
       setFoundDialogOpen(false);
-      setToast(notifyAfterFound ? "Marked as found and notification sent" : "Marked as found");
+      setToast(
+        notifyAfterFound
+          ? "Marked as found and notification sent"
+          : "Marked as found",
+      );
     } catch (err) {
       setToast(asText(err?.message) || "Unable to mark as found");
     } finally {
@@ -648,13 +816,16 @@ export default function AdminLostFoundPage() {
     setBusyActionKey(actionKey);
 
     try {
-      await requestJson(`${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/notify`, {
-        method: "POST",
-        body: JSON.stringify({
-          message: asText(notifyMessageInput),
-          foundLocation: asText(notifyLocationInput),
-        }),
-      });
+      await requestJson(
+        `${API_BASE}/admin/lost-found/reports/${encodeURIComponent(selectedReport.id)}/notify`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            message: asText(notifyMessageInput),
+            foundLocation: asText(notifyLocationInput),
+          }),
+        },
+      );
 
       await loadLostFoundData({ silent: true });
       setNotifyDialogOpen(false);
@@ -664,7 +835,39 @@ export default function AdminLostFoundPage() {
     } finally {
       setBusyActionKey("");
     }
-  }, [loadLostFoundData, notifyLocationInput, notifyMessageInput, requestJson, selectedReport]);
+  }, [
+    loadLostFoundData,
+    notifyLocationInput,
+    notifyMessageInput,
+    requestJson,
+    selectedReport,
+  ]);
+
+  const handleMatchAction = useCallback(
+    async (matchId, action) => {
+      const normalizedAction = action === "confirm" ? "confirm" : "reject";
+      const actionKey = `match:${matchId}:${normalizedAction}`;
+      setBusyActionKey(actionKey);
+
+      try {
+        await requestJson(
+          `${API_BASE}/admin/lost-found/matches/${encodeURIComponent(matchId)}/${normalizedAction}`,
+          {
+            method: "POST",
+          },
+        );
+        await loadLostFoundData({ silent: true });
+        setToast(
+          normalizedAction === "confirm" ? "Match confirmed" : "Match rejected",
+        );
+      } catch (err) {
+        setToast(asText(err?.message) || "Unable to update match");
+      } finally {
+        setBusyActionKey("");
+      }
+    },
+    [loadLostFoundData, requestJson],
+  );
 
   const hasActiveFilters =
     Boolean(searchInput.trim()) ||
@@ -701,8 +904,12 @@ export default function AdminLostFoundPage() {
         <header className="rounded-2xl border border-white/60 bg-white/75 p-5 shadow-[0_14px_32px_rgba(15,23,42,0.08)] backdrop-blur-md">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-black text-slate-900">Lost &amp; Found</h2>
-              <p className="mt-1 text-sm font-medium text-slate-600">SOS-linked missing person reports</p>
+              <h2 className="text-2xl font-black text-slate-900">
+                Lost &amp; Found
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-600">
+                SOS-linked missing person reports
+              </p>
               <p className="mt-1 text-xs text-slate-500">
                 Only patient submitted lost-person report data is shown here.
               </p>
@@ -770,7 +977,10 @@ export default function AdminLostFoundPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.95fr)_auto] md:items-center">
             <label className="relative block">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search
+                size={14}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="text"
                 value={searchInput}
@@ -823,7 +1033,9 @@ export default function AdminLostFoundPage() {
           </div>
 
           <div className="mt-2 flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-500">Showing {reports.length} reports</p>
+            <p className="text-xs text-slate-500">
+              Showing {reports.length} reports
+            </p>
           </div>
         </section>
 
@@ -833,8 +1045,12 @@ export default function AdminLostFoundPage() {
               <div className="flex items-start gap-2">
                 <AlertCircle size={16} className="mt-[2px]" />
                 <div>
-                  <p className="text-sm font-bold">Unable to load reports right now.</p>
-                  <p className="text-xs opacity-85">Please try again in a moment.</p>
+                  <p className="text-sm font-bold">
+                    Unable to load reports right now.
+                  </p>
+                  <p className="text-xs opacity-85">
+                    Please try again in a moment.
+                  </p>
                 </div>
               </div>
               <button
@@ -848,6 +1064,161 @@ export default function AdminLostFoundPage() {
             </div>
           </div>
         ) : null}
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <section className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.09)] backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
+                  Suggested Matches
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Review possible found-person links
+                </p>
+              </div>
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                {matches.length}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              {matches.length === 0 ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-500">
+                  No suggested matches are waiting for review.
+                </p>
+              ) : (
+                matches.map((match) => (
+                  <div
+                    key={match.id}
+                    className="rounded-xl border border-slate-200 bg-white p-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex -space-x-2">
+                        <ReportPhoto
+                          report={{
+                            photoUrl: match.lostPhotoUrl,
+                            personName: match.lostName,
+                          }}
+                        />
+                        <ReportPhoto
+                          report={{
+                            photoUrl: match.foundPhotoUrl,
+                            personName: "Found person",
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-900">
+                          {match.lostName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Score {Math.round(match.score)}%
+                          {match.foundFacility
+                            ? ` • ${match.foundFacility}`
+                            : ""}
+                        </p>
+                        {match.foundCondition ? (
+                          <p className="mt-1 text-xs text-slate-600">
+                            {match.foundCondition}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleMatchAction(match.id, "reject")}
+                        disabled={isBusy(`match:${match.id}:reject`)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-60"
+                      >
+                        {isBusy(`match:${match.id}:reject`) ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <X size={13} />
+                        )}
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMatchAction(match.id, "confirm")}
+                        disabled={isBusy(`match:${match.id}:confirm`)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                      >
+                        {isBusy(`match:${match.id}:confirm`) ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={13} />
+                        )}
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.09)] backdrop-blur-md">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-slate-700">
+                  Found Reports
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Recently submitted found-person reports
+                </p>
+              </div>
+              <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
+                {foundReports.length}
+              </span>
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              {foundReports.length === 0 ? (
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-500">
+                  No found-person reports are available yet.
+                </p>
+              ) : (
+                foundReports.slice(0, 6).map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3"
+                  >
+                    <ReportPhoto
+                      report={{
+                        photoUrl: report.photoUrl,
+                        personName: "Found person",
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-900">
+                        {report.approxAge
+                          ? `Approx age ${report.approxAge}`
+                          : "Age not provided"}{" "}
+                        • {report.gender}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatDateTime(report.foundTime)}
+                        {report.currentHospitalId
+                          ? ` • ${report.currentHospitalId}`
+                          : ""}
+                      </p>
+                      {report.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">
+                          {report.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">
+                      {report.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
 
         <section className="rounded-2xl border border-white/60 bg-white/80 shadow-[0_12px_30px_rgba(15,23,42,0.09)] backdrop-blur-md">
           <div className="overflow-x-auto">
@@ -871,27 +1242,47 @@ export default function AdminLostFoundPage() {
                 ) : reports.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center">
-                      <p className="text-lg font-bold text-slate-800">No reports found</p>
+                      <p className="text-lg font-bold text-slate-800">
+                        No reports found
+                      </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        Try adjusting your filters or refresh to fetch the latest reports.
+                        Try adjusting your filters or refresh to fetch the
+                        latest reports.
                       </p>
                     </td>
                   </tr>
                 ) : (
                   reports.map((report) => (
-                    <tr key={report.id} className="border-b border-slate-100 hover:bg-teal-50/35">
+                    <tr
+                      key={report.id}
+                      className="border-b border-slate-100 hover:bg-teal-50/35"
+                    >
                       <td className="px-4 py-3">
                         <ReportPhoto report={report} />
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900">{report.personName}</p>
-                        <p className="text-xs text-slate-500">Report ID: {valueWithFallback(report.reportId)}</p>
+                        <p className="font-semibold text-slate-900">
+                          {report.personName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Report ID: {valueWithFallback(report.reportId)}
+                        </p>
                       </td>
-                      <td className="px-4 py-3 text-slate-700">{valueWithFallback(report.approxAge, "-")}</td>
-                      <td className="px-4 py-3 text-slate-700">{valueWithFallback(report.gender, "-")}</td>
-                      <td className="px-4 py-3 text-slate-700">{valueWithFallback(report.reporter.name, "-")}</td>
-                      <td className="px-4 py-3 text-slate-700">{valueWithFallback(report.reporter.phone, "-")}</td>
-                      <td className="px-4 py-3 text-slate-700">{formatDateOnly(report.createdAt)}</td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {valueWithFallback(report.approxAge, "-")}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {valueWithFallback(report.gender, "-")}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {valueWithFallback(report.reporter.name, "-")}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {valueWithFallback(report.reporter.phone, "-")}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {formatDateOnly(report.createdAt)}
+                      </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={report.status} />
                       </td>
@@ -964,22 +1355,24 @@ export default function AdminLostFoundPage() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-3.5 sm:py-3">
               <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-2.5 shadow-sm">
-                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">Quick Actions</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
+                  Quick Actions
+                </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() =>
-                    updateReportStatus({
-                      reportId: selectedReport.id,
-                      status: "under_review",
-                      successMessage: "Report moved to under review",
-                    })
-                  }
-                  disabled={isBusy(`${selectedReport.id}:under_review`)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 text-[11px] font-bold text-sky-700 hover:bg-sky-100 disabled:opacity-60"
-                >
-                  {isBusy(`${selectedReport.id}:under_review`) ? (
-                    <Loader2 size={13} className="animate-spin" />
+                      updateReportStatus({
+                        reportId: selectedReport.id,
+                        status: "under_review",
+                        successMessage: "Report moved to under review",
+                      })
+                    }
+                    disabled={isBusy(`${selectedReport.id}:under_review`)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 text-[11px] font-bold text-sky-700 hover:bg-sky-100 disabled:opacity-60"
+                  >
+                    {isBusy(`${selectedReport.id}:under_review`) ? (
+                      <Loader2 size={13} className="animate-spin" />
                     ) : (
                       <ShieldAlert size={13} />
                     )}
@@ -998,17 +1391,17 @@ export default function AdminLostFoundPage() {
                   <button
                     type="button"
                     onClick={() =>
-                    updateReportStatus({
-                      reportId: selectedReport.id,
-                      status: "resolved",
-                      successMessage: "Report marked as resolved",
-                    })
-                  }
-                  disabled={isBusy(`${selectedReport.id}:resolved`)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 disabled:opacity-60"
-                >
-                  {isBusy(`${selectedReport.id}:resolved`) ? (
-                    <Loader2 size={13} className="animate-spin" />
+                      updateReportStatus({
+                        reportId: selectedReport.id,
+                        status: "resolved",
+                        successMessage: "Report marked as resolved",
+                      })
+                    }
+                    disabled={isBusy(`${selectedReport.id}:resolved`)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 disabled:opacity-60"
+                  >
+                    {isBusy(`${selectedReport.id}:resolved`) ? (
+                      <Loader2 size={13} className="animate-spin" />
                     ) : (
                       <ShieldCheck size={13} />
                     )}
@@ -1050,7 +1443,13 @@ export default function AdminLostFoundPage() {
                   {asText(selectedReport.photoUrl) ? (
                     <button
                       type="button"
-                      onClick={() => window.open(selectedReport.photoUrl, "_blank", "noopener,noreferrer")}
+                      onClick={() =>
+                        window.open(
+                          selectedReport.photoUrl,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
                     >
                       <Eye size={13} />
@@ -1067,32 +1466,68 @@ export default function AdminLostFoundPage() {
 
                     <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
                       <InfoRow label="Name" value={selectedReport.personName} />
-                      <InfoRow label="Approx Age" value={selectedReport.approxAge} />
+                      <InfoRow
+                        label="Approx Age"
+                        value={selectedReport.approxAge}
+                      />
                       <InfoRow label="Gender" value={selectedReport.gender} />
-                      <InfoRow label="Who Is Being Reported For" value={selectedReport.whoIsBeingReportedFor} />
-                      <InfoRow label="Report Type" value={selectedReport.reportTypeLabel} />
+                      <InfoRow
+                        label="Who Is Being Reported For"
+                        value={selectedReport.whoIsBeingReportedFor}
+                      />
+                      <InfoRow
+                        label="Report Type"
+                        value={selectedReport.reportTypeLabel}
+                      />
                       {asText(selectedReport.selectedProfileName) ? (
-                        <InfoRow label="Selected Profile" value={selectedReport.selectedProfileName} />
+                        <InfoRow
+                          label="Selected Profile"
+                          value={selectedReport.selectedProfileName}
+                        />
                       ) : null}
                       {asText(selectedReport.linkedProfileName) ? (
-                        <InfoRow label="Linked MedicalVault Profile" value={selectedReport.linkedProfileName} />
+                        <InfoRow
+                          label="Linked MedicalVault Profile"
+                          value={selectedReport.linkedProfileName}
+                        />
                       ) : null}
                     </div>
                   </div>
 
                   <div className="mt-2.5 grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
-                    <InfoRow label="Description" value={selectedReport.description} />
-                    <InfoRow label="Medical Notes" value={selectedReport.medicalNotes} />
+                    <InfoRow
+                      label="Description"
+                      value={selectedReport.description}
+                    />
+                    <InfoRow
+                      label="Medical Notes"
+                      value={selectedReport.medicalNotes}
+                    />
                   </div>
                 </DetailSection>
 
                 <DetailSection title="Reporter Details">
                   <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
-                    <InfoRow label="Reporter Name" value={selectedReport.reporter.name} />
-                    <InfoRow label="Phone" value={selectedReport.reporter.phone} />
-                    <InfoRow label="Alternate Contact" value={selectedReport.reporter.alternateContact} />
-                    <InfoRow label="Relationship" value={selectedReport.reporter.relationshipToPerson} />
-                    <InfoRow label="Email" value={selectedReport.reporter.email} />
+                    <InfoRow
+                      label="Reporter Name"
+                      value={selectedReport.reporter.name}
+                    />
+                    <InfoRow
+                      label="Phone"
+                      value={selectedReport.reporter.phone}
+                    />
+                    <InfoRow
+                      label="Alternate Contact"
+                      value={selectedReport.reporter.alternateContact}
+                    />
+                    <InfoRow
+                      label="Relationship"
+                      value={selectedReport.reporter.relationshipToPerson}
+                    />
+                    <InfoRow
+                      label="Email"
+                      value={selectedReport.reporter.email}
+                    />
                   </div>
                 </DetailSection>
 
@@ -1100,30 +1535,60 @@ export default function AdminLostFoundPage() {
                   <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
                     <InfoRow
                       label="Full Address"
-                      value={selectedReport.address.fullAddress || buildAddressText(selectedReport.address)}
+                      value={
+                        selectedReport.address.fullAddress ||
+                        buildAddressText(selectedReport.address)
+                      }
                     />
                     {asText(selectedReport.address.city) ? (
-                      <InfoRow label="City" value={selectedReport.address.city} />
+                      <InfoRow
+                        label="City"
+                        value={selectedReport.address.city}
+                      />
                     ) : null}
                     {asText(selectedReport.address.state) ? (
-                      <InfoRow label="State" value={selectedReport.address.state} />
+                      <InfoRow
+                        label="State"
+                        value={selectedReport.address.state}
+                      />
                     ) : null}
                     {asText(selectedReport.address.pincode) ? (
-                      <InfoRow label="Pincode" value={selectedReport.address.pincode} />
+                      <InfoRow
+                        label="Pincode"
+                        value={selectedReport.address.pincode}
+                      />
                     ) : null}
                     {asText(selectedReport.address.landmark) ? (
-                      <InfoRow label="Landmark" value={selectedReport.address.landmark} />
+                      <InfoRow
+                        label="Landmark"
+                        value={selectedReport.address.landmark}
+                      />
                     ) : null}
-                    <InfoRow label="Last Seen Location" value={selectedReport.lastSeenLocation} />
-                    <InfoRow label="Last Seen Date and Time" value={formatDateTime(selectedReport.lastSeenTime)} />
+                    <InfoRow
+                      label="Last Seen Location"
+                      value={selectedReport.lastSeenLocation}
+                    />
+                    <InfoRow
+                      label="Last Seen Date and Time"
+                      value={formatDateTime(selectedReport.lastSeenTime)}
+                    />
                   </div>
                 </DetailSection>
 
                 <DetailSection title="Report Info">
                   <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2">
-                    <InfoRow label="Report ID" value={selectedReport.reportId} />
-                    <InfoRow label="Submitted On" value={formatDateTime(selectedReport.createdAt)} />
-                    <InfoRow label="Current Status" value={getStatusMeta(selectedReport.status).label} />
+                    <InfoRow
+                      label="Report ID"
+                      value={selectedReport.reportId}
+                    />
+                    <InfoRow
+                      label="Submitted On"
+                      value={formatDateTime(selectedReport.createdAt)}
+                    />
+                    <InfoRow
+                      label="Current Status"
+                      value={getStatusMeta(selectedReport.status).label}
+                    />
                     <InfoRow
                       label="Notification Status"
                       value={
@@ -1139,7 +1604,9 @@ export default function AdminLostFoundPage() {
                 <DetailSection title="Internal Notes">
                   <textarea
                     value={internalNotesDraft}
-                    onChange={(event) => setInternalNotesDraft(event.target.value)}
+                    onChange={(event) =>
+                      setInternalNotesDraft(event.target.value)
+                    }
                     rows={3}
                     placeholder="Add internal follow-up notes"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
@@ -1172,7 +1639,9 @@ export default function AdminLostFoundPage() {
           <div className="w-full max-w-lg rounded-2xl border border-white/60 bg-white p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-lg font-black text-slate-900">Mark Person as Found</h4>
+                <h4 className="text-lg font-black text-slate-900">
+                  Mark Person as Found
+                </h4>
                 <p className="mt-1 text-sm text-slate-600">
                   Confirm found status and optionally add a short note.
                 </p>
@@ -1194,7 +1663,9 @@ export default function AdminLostFoundPage() {
                 <input
                   type="text"
                   value={foundLocationInput}
-                  onChange={(event) => setFoundLocationInput(event.target.value)}
+                  onChange={(event) =>
+                    setFoundLocationInput(event.target.value)
+                  }
                   className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                   placeholder="Hospital, area, police station"
                 />
@@ -1217,7 +1688,9 @@ export default function AdminLostFoundPage() {
                 <input
                   type="checkbox"
                   checked={notifyAfterFound}
-                  onChange={(event) => setNotifyAfterFound(event.target.checked)}
+                  onChange={(event) =>
+                    setNotifyAfterFound(event.target.checked)
+                  }
                   className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                 />
                 Send notification to reporter after marking found
@@ -1255,7 +1728,9 @@ export default function AdminLostFoundPage() {
           <div className="w-full max-w-lg rounded-2xl border border-white/60 bg-white p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h4 className="text-lg font-black text-slate-900">Send Notification</h4>
+                <h4 className="text-lg font-black text-slate-900">
+                  Send Notification
+                </h4>
                 <p className="mt-1 text-sm text-slate-600">
                   Send an update to the reporter linked to this report.
                 </p>
@@ -1276,7 +1751,9 @@ export default function AdminLostFoundPage() {
                 </label>
                 <textarea
                   value={notifyMessageInput}
-                  onChange={(event) => setNotifyMessageInput(event.target.value)}
+                  onChange={(event) =>
+                    setNotifyMessageInput(event.target.value)
+                  }
                   rows={4}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   placeholder="Leave blank to use default status message"
@@ -1290,7 +1767,9 @@ export default function AdminLostFoundPage() {
                 <input
                   type="text"
                   value={notifyLocationInput}
-                  onChange={(event) => setNotifyLocationInput(event.target.value)}
+                  onChange={(event) =>
+                    setNotifyLocationInput(event.target.value)
+                  }
                   className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   placeholder="Add location context if available"
                 />

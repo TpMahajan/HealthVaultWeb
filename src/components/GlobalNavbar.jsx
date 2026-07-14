@@ -48,10 +48,10 @@ const GlobalNavbar = ({ setSidebarOpen, desktopSidebarCollapsed, setDesktopSideb
     if (/^(https?:)?\/\//i.test(rawAvatar) || rawAvatar.startsWith("data:")) {
       return rawAvatar;
     }
-    if (rawAvatar.startsWith("/uploads/")) return `http://localhost:5000${rawAvatar}`;
-    if (rawAvatar.startsWith("uploads/")) return `http://localhost:5000/${rawAvatar}`;
-    if (rawAvatar.startsWith("/")) return `http://localhost:5000${rawAvatar}`;
-    return `http://localhost:5000/uploads/${rawAvatar}`;
+    if (rawAvatar.startsWith("/uploads/")) return `http://localhost:5001${rawAvatar}`;
+    if (rawAvatar.startsWith("uploads/")) return `http://localhost:5001/${rawAvatar}`;
+    if (rawAvatar.startsWith("/")) return `http://localhost:5001${rawAvatar}`;
+    return `http://localhost:5001/uploads/${rawAvatar}`;
   };
 
   const navbarAvatarSrc = resolveUserAvatar(user);

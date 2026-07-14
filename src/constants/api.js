@@ -42,7 +42,7 @@ const isPlaceholderGoogleClientId =
 export const API_BASE =
   configuredApiBase ||
   (isDevEnvironment || isLocalhost
-    ? "http://localhost:5000/api"
+    ? "http://localhost:5001/api"
     : "https://backend-medicalvault.onrender.com/api");
 
 export const GOOGLE_CLIENT_ID =

@@ -24,7 +24,8 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { API_BASE } from '../constants/api';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file';
+import writeXlsxFile from 'write-excel-file/browser';
 import { useDoctorToast } from '../context/DoctorToastContext';
 
 const createInitialPatientForm = () => ({
@@ -47,6 +48,77 @@ const ADD_PATIENT_MAX_RETRIES = 2;
 const ADD_PATIENT_RETRY_DELAY_MS = 400;
 const PATIENTS_PER_PAGE = 10;
 const EMPTY_NEXT_APPOINTMENT = 'Not Scheduled';
+const PATIENT_EXPORT_COLUMNS = ['Name', 'Age', 'Gender', 'Phone', 'Email', 'Last Visit', 'Next Appointment', 'Status', 'Blood Type'];
+const cellToText = (value) => value == null ? '' : String(value).trim();
+
+const downloadBlob = (blob, fileName) => {
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+const parseCsvText = (text) => {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let insideQuotes = false;
+
+    for (let index = 0; index < text.length; index += 1) {
+        const char = text[index];
+        const nextChar = text[index + 1];
+
+        if (char === '"' && insideQuotes && nextChar === '"') {
+            cell += '"';
+            index += 1;
+        } else if (char === '"') {
+            insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+            row.push(cell);
+            cell = '';
+        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+            if (char === '\r' && nextChar === '\n') index += 1;
+            row.push(cell);
+            if (row.some((value) => value.trim() !== '')) rows.push(row);
+            row = [];
+            cell = '';
+        } else {
+            cell += char;
+        }
+    }
+
+    row.push(cell);
+    if (row.some((value) => value.trim() !== '')) rows.push(row);
+
+    if (rows.length === 0) return [];
+    const headers = rows[0].map((header) => header.trim());
+    return rows.slice(1).map((values) => Object.fromEntries(
+        headers.map((header, index) => [header, values[index]?.trim() || ''])
+    ));
+};
+
+const parsePatientWorkbook = async (file) => {
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith('.csv')) {
+        return parseCsvText(await file.text());
+    }
+
+    const rows = await readXlsxFile(file);
+    if (rows.length === 0) return [];
+
+    const headers = rows[0].map(cellToText);
+    return rows.slice(1)
+        .map((values) => Object.fromEntries(
+            headers.map((header, index) => [header, cellToText(values[index])]).filter(([header]) => header)
+        ))
+        .filter((row) => Object.values(row).some((value) => value !== ''));
+};
 
 const formatAppointmentDateTime = (dateValue, timeValue = '') => {
     if (!dateValue) return null;
@@ -368,7 +440,7 @@ const AllPatients = () => {
         setIsDrawerOpen(true);
     };
 
-    const handleExport = (format) => {
+    const handleExport = async (format) => {
         setIsExportDropdownOpen(false);
         const patientsToExport = selectedPatients.length > 0
             ? patients.filter(p => selectedPatients.includes(p.id))
@@ -380,7 +452,6 @@ const AllPatients = () => {
         const fileName = `patients_export_${dateStr}`;
 
         if (format === 'csv') {
-            const headers = ['Name', 'Age', 'Gender', 'Phone', 'Email', 'Last Visit', 'Next Appointment', 'Status', 'Blood Type'];
             const rows = patientsToExport.map(p => [
                 p.name,
                 p.age,
@@ -394,34 +465,30 @@ const AllPatients = () => {
             ]);
 
             const csvContent = [
-                headers.join(','),
-                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+                PATIENT_EXPORT_COLUMNS.join(','),
+                ...rows.map(row => row.map(cell => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(','))
             ].join('\n');
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${fileName}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            downloadBlob(blob, `${fileName}.csv`);
         } else if (format === 'excel') {
-            const worksheet = XLSX.utils.json_to_sheet(patientsToExport.map(p => ({
-                Name: p.name,
-                Age: p.age,
-                Gender: p.gender,
-                Phone: p.phone,
-                Email: p.email,
-                'Last Visit': p.lastVisit,
-                'Next Appointment': p.nextAppointment,
-                Status: p.status,
-                'Blood Type': p.bloodType
-            })));
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Patients");
-            XLSX.writeFile(workbook, `${fileName}.xlsx`);
+            await writeXlsxFile([
+                PATIENT_EXPORT_COLUMNS.map((value) => ({ value, fontWeight: 'bold' })),
+                ...patientsToExport.map((p) => ([
+                    { value: p.name || '' },
+                    { value: p.age || '' },
+                    { value: p.gender || '' },
+                    { value: p.phone || '' },
+                    { value: p.email || '' },
+                    { value: p.lastVisit || '' },
+                    { value: p.nextAppointment || '' },
+                    { value: p.status || '' },
+                    { value: p.bloodType || '' },
+                ])),
+            ], {
+                columns: PATIENT_EXPORT_COLUMNS.map(() => ({ width: 18 })),
+                fileName: `${fileName}.xlsx`,
+            });
         } else if (format === 'pdf') {
             const doc = new jsPDF();
             doc.text("Patient Records Export", 14, 15);
@@ -813,11 +880,7 @@ const AllPatients = () => {
         setBulkUploadResult('');
 
         try {
-            const data = await bulkFile.arrayBuffer();
-            const workbook = XLSX.read(data);
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-            const parsedData = XLSX.utils.sheet_to_json(sheet);
+            const parsedData = await parsePatientWorkbook(bulkFile);
 
             if (parsedData.length === 0) {
                 throw new Error('The uploaded file is empty.');

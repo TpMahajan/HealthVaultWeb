@@ -124,7 +124,7 @@ const SessionHistory = () => {
             if (isNetworkError) {
                 setError(
                     `Unable to connect to backend at ${API_BASE}. ` +
-                    `Ensure backend is running on http://localhost:5000 and CORS allows ${window.location.origin}.`
+                    `Ensure backend is running on http://localhost:5001 and CORS allows ${window.location.origin}.`
                 );
             } else {
                 setError(rawMessage || 'Failed to load sessions');
