@@ -15,6 +15,15 @@ import { API_BASE } from "../constants/api";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import { getSecureItem } from "../utils/secureAuthStorage";
+import { mergeChatMessages } from "../utils/chatMessageMerge";
+import { ChatSocketClient } from "../utils/chatSocketClient";
+
+const generateClientMessageId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `client_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
    Helpers  (zero logic changes)
@@ -190,8 +199,12 @@ const Messages = () => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [counterpartTyping, setCounterpartTyping] = useState(false);
   const listEndRef = useRef(null);
   const notificationCountRef = useRef(notifications.length);
+  const chatSocketRef = useRef(null);
+  const typingStopTimerRef = useRef(null);
+  const selectedCounterpartIdRef = useRef(selectedCounterpartId);
   const mergedThreads = useMemo(() => {
     if (!isDoctor) return threads;
 
@@ -308,7 +321,15 @@ const Messages = () => {
       const data = await fetchJson(
         `${API_BASE}/sessions/chat/messages/${encodeURIComponent(counterpartId)}?limit=300`
       );
-      setMessages(Array.isArray(data?.messages) ? data.messages : []);
+      const serverMessages = Array.isArray(data?.messages) ? data.messages : [];
+      // Merge instead of replace: a poll/notification-triggered reload that
+      // lands mid-send must never wipe an optimistic (pending) or failed
+      // bubble the server doesn't know about yet — that unconditional
+      // replace was the root cause of the doctor's sent message visibly
+      // disappearing then reappearing.
+      setMessages((prevMessages) =>
+        mergeChatMessages({ serverMessages, localMessages: prevMessages })
+      );
     } catch (err) {
       if (!silent) setError(err.message || "Failed to load messages");
     } finally {
@@ -345,10 +366,59 @@ const Messages = () => {
   }, [counterpartFromQuery, mergedThreads, selectedCounterpartId]);
 
   useEffect(() => {
+    // Navigating away from a conversation while mid-type must stop the
+    // typing signal the previous counterpart is seeing.
+    const previousCounterpartId = selectedCounterpartIdRef.current;
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (previousCounterpartId && previousCounterpartId !== selectedCounterpartId) {
+      chatSocketRef.current?.sendTypingStop(previousCounterpartId);
+    }
+
     if (!selectedCounterpartId) { setMessages([]); return; }
     setMessages([]);
+    setCounterpartTyping(false);
     loadMessages(selectedCounterpartId);
   }, [loadMessages, selectedCounterpartId]);
+
+  useEffect(() => {
+    selectedCounterpartIdRef.current = selectedCounterpartId;
+  }, [selectedCounterpartId]);
+
+  // Realtime typing channel — connects once per authenticated session and
+  // reconnects automatically on drop (see ChatSocketClient). Delivers
+  // typing/typing_stop from whichever counterpart is currently selected;
+  // events from any other counterpart are ignored, matching the Flutter
+  // client's per-screen scoping.
+  useEffect(() => {
+    const client = new ChatSocketClient({
+      onEvent: (event) => {
+        const type = event?.type;
+        if (type === "typing" || type === "typing_stop") {
+          const from = String(event?.from || "");
+          if (from !== selectedCounterpartIdRef.current) return;
+          setCounterpartTyping(type === "typing");
+        } else if (type === "new_message") {
+          if (selectedCounterpartIdRef.current) {
+            loadMessages(selectedCounterpartIdRef.current, { silent: true });
+          }
+          loadThreads();
+        }
+      },
+    });
+    client.connect();
+    chatSocketRef.current = client;
+    return () => {
+      client.dispose();
+      chatSocketRef.current = null;
+    };
+    // Intentionally connect once for the component's lifetime — reconnects
+    // are handled internally by ChatSocketClient, not by re-running this
+    // effect on every selectedCounterpartId change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!selectedCounterpartId) return undefined;
@@ -373,44 +443,127 @@ const Messages = () => {
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length]);
+  }, [messages.length, counterpartTyping]);
 
-  /* ── send UNCHANGED ── */
+  // Dispatches (or re-dispatches, on retry) a single optimistic message.
+  // Always reuses the same clientMessageId on retry — the backend's unique
+  // index on doctorId+patientId+senderId+clientMessageId means a retry can
+  // never create a duplicate message server-side.
+  const dispatchOptimisticMessage = useCallback(
+    async ({ temporaryId, clientMessageId, text, counterpartId }) => {
+      setSending(true);
+      setError("");
+      try {
+        const data = await fetchJson(`${API_BASE}/sessions/chat/send`, {
+          method: "POST",
+          body: JSON.stringify({ counterpartId, message: text, clientMessageId }),
+        });
+        const chatMessage = data?.chatMessage || null;
+        setMessages((prev) =>
+          prev.map((e) =>
+            e.id === temporaryId
+              ? chatMessage
+                ? { ...e, ...chatMessage, pending: false, failed: false }
+                : { ...e, pending: false, failed: false }
+              : e
+          )
+        );
+        if (!chatMessage) {
+          await loadMessages(counterpartId, { silent: true });
+        }
+        await loadThreads();
+      } catch (err) {
+        // Keep the bubble visible — mark it failed rather than removing it,
+        // so the user can retry without retyping the message.
+        setMessages((prev) =>
+          prev.map((e) =>
+            e.id === temporaryId ? { ...e, pending: false, failed: true } : e
+          )
+        );
+        setError(err.message || "Failed to send message");
+      } finally {
+        setSending(false);
+      }
+    },
+    [loadMessages, loadThreads]
+  );
+
   const handleSend = async () => {
     if (!selectedThread || !draft.trim() || sending) return;
     const text = draft.trim();
     const temporaryId = `tmp_${Date.now()}`;
+    const clientMessageId = generateClientMessageId();
     const optimistic = {
       id: temporaryId,
+      clientMessageId,
       senderRole: currentRole,
       message: text,
       createdAt: new Date().toISOString(),
       pending: true,
+      failed: false,
     };
+
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    chatSocketRef.current?.sendTypingStop(selectedThread.counterpartId);
+
     setDraft("");
     setMessages((prev) => [...prev, optimistic]);
-    setSending(true);
-    setError("");
-    try {
-      const data = await fetchJson(`${API_BASE}/sessions/chat/send`, {
-        method: "POST",
-        body: JSON.stringify({ counterpartId: selectedThread.counterpartId, message: text }),
-      });
-      const chatMessage = data?.chatMessage || null;
-      if (chatMessage) {
-        setMessages((prev) =>
-          prev.map((e) => e.id === temporaryId ? { ...e, ...chatMessage, pending: false } : e)
-        );
-      } else {
-        await loadMessages(selectedThread.counterpartId, { silent: true });
-      }
-      await loadThreads();
-    } catch (err) {
-      setMessages((prev) => prev.filter((e) => e.id !== temporaryId));
-      setError(err.message || "Failed to send message");
-    } finally {
-      setSending(false);
+
+    await dispatchOptimisticMessage({
+      temporaryId,
+      clientMessageId,
+      text,
+      counterpartId: selectedThread.counterpartId,
+    });
+  };
+
+  // Emits typing on real input, debounced (repeated keystrokes don't
+  // re-emit "start" every time) and auto-stops after 1.5s of inactivity —
+  // matching the Flutter client's behavior against the same backend TTL.
+  const handleComposerChange = (value) => {
+    setDraft(value);
+    if (!selectedThread) return;
+
+    if (!typingStopTimerRef.current) {
+      chatSocketRef.current?.sendTyping(selectedThread.counterpartId);
+    } else {
+      clearTimeout(typingStopTimerRef.current);
     }
+
+    if (value.trim().length === 0) {
+      typingStopTimerRef.current = null;
+      chatSocketRef.current?.sendTypingStop(selectedThread.counterpartId);
+      return;
+    }
+
+    typingStopTimerRef.current = setTimeout(() => {
+      typingStopTimerRef.current = null;
+      chatSocketRef.current?.sendTypingStop(selectedThread.counterpartId);
+    }, 1500);
+  };
+
+  const retryMessage = async (failedMessage) => {
+    if (!selectedThread) return;
+    const temporaryId = failedMessage?.id;
+    const clientMessageId = failedMessage?.clientMessageId;
+    const text = failedMessage?.message;
+    if (!temporaryId || !clientMessageId || !text) return;
+
+    setMessages((prev) =>
+      prev.map((e) =>
+        e.id === temporaryId ? { ...e, pending: true, failed: false } : e
+      )
+    );
+
+    await dispatchOptimisticMessage({
+      temporaryId,
+      clientMessageId,
+      text,
+      counterpartId: selectedThread.counterpartId,
+    });
   };
 
   const onComposerKeyDown = (e) => {
@@ -669,8 +822,13 @@ const Messages = () => {
                         <div className={`flex flex-col gap-1 max-w-[58%] ${mine ? "items-end" : "items-start"}`}>
                           {/* Bubble */}
                           <div
+                            role={msg.failed ? "button" : undefined}
+                            tabIndex={msg.failed ? 0 : undefined}
+                            onClick={msg.failed ? () => retryMessage(msg) : undefined}
                             className={`rounded-2xl px-4 py-2.5 text-[13.5px] leading-relaxed break-words whitespace-pre-wrap ${
-                              mine
+                              msg.failed
+                                ? "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 cursor-pointer"
+                                : mine
                                 ? (isDoctor
                                   ? "bg-primary dark:bg-primary text-white rounded-br-sm shadow-sm shadow-primary/20"
                                   : "bg-sky-500 dark:bg-sky-600 text-white rounded-br-sm shadow-sm shadow-sky-500/20")
@@ -682,18 +840,44 @@ const Messages = () => {
 
                           {/* Timestamp */}
                           <div className={`flex items-center gap-1.5 px-1 ${mine ? "flex-row-reverse" : ""}`}>
-                            <Clock className="h-2.5 w-2.5 text-slate-300 dark:text-slate-600" />
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
-                              {msg.pending ? "sending…" : formatMessageTime(msg.createdAt)}
-                            </span>
-                            {mine && !msg.pending && (
-                              <CheckCheck className={`h-3 w-3 ${isDoctor ? "text-primary" : "text-sky-400"}`} />
+                            {msg.failed ? (
+                              <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                                Failed – Tap to retry
+                              </span>
+                            ) : (
+                              <>
+                                <Clock className="h-2.5 w-2.5 text-slate-300 dark:text-slate-600" />
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">
+                                  {msg.pending ? "sending…" : formatMessageTime(msg.createdAt)}
+                                </span>
+                                {mine && !msg.pending && (
+                                  <CheckCheck className={`h-3 w-3 ${isDoctor ? "text-primary" : "text-sky-400"}`} />
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
                       </div>
                     );
                   })}
+                  {counterpartTyping && (
+                    <div className="flex items-end gap-2.5 justify-start">
+                      <div className="shrink-0 w-7">
+                        <Avatar
+                          src={selectedPatientProfileImage}
+                          name={selectedThread.counterpartName}
+                          size="sm"
+                          accentStyle={doctorAvatarStyle}
+                          fallbackStyle={!selectedPatientProfileImage ? selectedPatientFallbackStyle : undefined}
+                        />
+                      </div>
+                      <div className="rounded-2xl px-4 py-2.5 bg-white dark:bg-white/[0.06] border border-slate-100 dark:border-white/[0.08] rounded-bl-sm shadow-sm">
+                        <span className="text-[12px] text-slate-400 dark:text-slate-500 italic">
+                          {selectedThread.counterpartRole === "doctor" ? "Doctor is typing…" : "Patient is typing…"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div ref={listEndRef} />
                 </div>
               )}
@@ -718,7 +902,7 @@ const Messages = () => {
                 {/* Textarea */}
                 <textarea
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => handleComposerChange(e.target.value)}
                   onKeyDown={onComposerKeyDown}
                   placeholder="Write a message…"
                   rows={1}
